@@ -1,24 +1,67 @@
 # ts-match
 
-TypeScript-first pattern matching for values, objects, tuples, arrays, records, and discriminated unions. It provides `match`, `matchBy`, exhaustive checking, strong handler inference, explicit async matching, zero runtime dependencies, ESM-only packaging, and Node 20+ support.
+Pattern matching for TypeScript. Use `match` for structural patterns, `matchBy` for discriminated unions, and `P` for reusable runtime patterns.
 
-The library is branded as **ts-match**. It is published on npm as `@diegogbrisa/ts-match` because the unscoped `ts-match` package name is unavailable.
+```ts
+import { matchBy } from '@diegogbrisa/ts-match'
+
+type Event =
+  | { type: 'created'; id: string }
+  | { type: 'renamed'; id: string; name: string }
+  | { type: 'deleted'; id: string }
+
+function labelFor(event: Event): string {
+  return matchBy(event, 'type')
+    .with('created', (event) => `created:${event.id}`)
+    .with('renamed', (event) => `renamed:${event.id}:${event.name}`)
+    .with('deleted', (event) => `deleted:${event.id}`)
+    .exhaustive()
+}
+```
+
+## Features
+
+- Exhaustive handling for closed unions.
+- Narrowed handler parameters without casts.
+- Structural patterns for objects, tuples, arrays, and records.
+- `matchBy` for ergonomic discriminant dispatch.
+- `match.async` and `matchBy.async` for promise-returning branches.
+- `isMatching` and `assertMatching` for runtime validation.
+- ESM-only package for Node 20+ with no runtime dependencies.
 
 ## Installation
 
 ```bash
-pnpm add @diegogbrisa/ts-match
 npm install @diegogbrisa/ts-match
+pnpm add @diegogbrisa/ts-match
 yarn add @diegogbrisa/ts-match
+bun add @diegogbrisa/ts-match
 ```
 
-Requirements and package shape:
+## Documentation
 
-- ESM only (`"type": "module"` package).
-- Node 20+.
-- TypeScript 5.4+ recommended.
-- Zero runtime dependencies.
-- `sideEffects: false` for bundlers that use package metadata.
+- [Quick start](#quick-start)
+- [Why pattern matching?](#why-use-pattern-matching-instead-of-manual-branching)
+- [Core concepts](#core-concepts)
+- [Imports and entrypoints](#imports-and-package-entrypoints)
+- API
+  - [`match`](#match)
+  - [`match.async`](#matchasync)
+  - [`matchBy`](#matchby)
+  - [`matchBy.async`](#matchbyasync)
+  - [`group`](#group)
+  - [`P` patterns](#pattern-guide-p-namespace)
+  - [Named `p*` helpers](#named-p-helper-exports)
+  - [`isMatching`](#ismatching)
+  - [`assertMatching`](#assertmatching)
+  - [Errors](#error-classes)
+- TypeScript
+  - [Inference guide](#typescript-inference-guide)
+  - [Diagnostics and troubleshooting](#typescript-diagnostics-and-troubleshooting)
+- [Performance guide](#performance-guide)
+- [Limitations and tradeoffs](#limitations-and-tradeoffs)
+- [Examples index](#full-examples-index)
+- [API summary](#api-reference-summary)
 
 ## Quick start
 
@@ -765,6 +808,15 @@ These are mainly for library authors and advanced integrations:
 | `@diegogbrisa/ts-match/errors`     | `NonExhaustiveMatchError`, `PatternMismatchError`, `preview`, `MatchErrorMetadata`          |
 | `@diegogbrisa/ts-match/group`      | `group`                                                                                     |
 
+## Package notes
+
+- Package name: `@diegogbrisa/ts-match`.
+- ESM only (`"type": "module"`).
+- Node 20+.
+- TypeScript 5.4+ recommended.
+- Zero runtime dependencies.
+- `sideEffects: false` for bundlers that read package metadata.
+
 ## Development checks
 
 ```bash
@@ -783,5 +835,7 @@ Example validation checks that examples compile, run, avoid internal `src`/`dist
 
 ## Additional documentation
 
+- Release notes: [`CHANGELOG.md`](CHANGELOG.md)
+- Release process: [`docs/release.md`](docs/release.md)
 - Design notes: [`docs/design.md`](docs/design.md)
 - Agent usage skill: [`docs/agent-skill/SKILL.md`](docs/agent-skill/SKILL.md)
