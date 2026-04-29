@@ -1,0 +1,99 @@
+{
+  "name": "@diegogbrisa/ts-match",
+  "version": "0.0.0",
+  "description": "TypeScript-first pattern matching with matchBy ergonomics, exhaustive checks, and zero runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "typescript",
+    "pattern-matching",
+    "exhaustive",
+    "match",
+    "discriminated-unions"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "docs",
+    "diagnostics",
+    "examples",
+    "benchmarks/native.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./assertions": {
+      "types": "./dist/assertions.d.ts",
+      "import": "./dist/assertions.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js"
+    },
+    "./group": {
+      "types": "./dist/group.d.ts",
+      "import": "./dist/group.js"
+    },
+    "./match": {
+      "types": "./dist/match.d.ts",
+      "import": "./dist/match.js"
+    },
+    "./match-by": {
+      "types": "./dist/match-by.d.ts",
+      "import": "./dist/match-by.js"
+    },
+    "./patterns": {
+      "types": "./dist/patterns.d.ts",
+      "import": "./dist/patterns.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:type": "tsc -p tsconfig.type-tests.json --noEmit",
+    "test:diagnostics": "tsx scripts/check-diagnostics.ts",
+    "typecheck": "pnpm build && tsc -p tsconfig.json --noEmit",
+    "typecheck:types": "pnpm test:type",
+    "lint": "eslint \"**/*.ts\"",
+    "lint:fix": "eslint \"**/*.ts\" --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "smoke:exports": "tsx scripts/smoke-exports.ts",
+    "test:docs": "tsx scripts/validate-docs.ts",
+    "test:examples": "pnpm build && pnpm test:examples:validate && pnpm test:examples:run",
+    "test:examples:validate": "tsx scripts/validate-examples.ts",
+    "test:examples:run": "tsc -p tsconfig.examples.json --noEmit && tsx scripts/run-examples.ts",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:type && pnpm test:diagnostics && pnpm test:coverage && pnpm build && pnpm smoke:exports && pnpm test:docs && pnpm test:examples:validate && pnpm test:examples:run",
+    "bench:native": "pnpm build && tsx benchmarks/native.ts",
+    "bench:dispatch": "tsx benchmarks/dispatch.ts",
+    "bench:compare": "pnpm build && tsx benchmarks/compare-ts-pattern.ts",
+    "bench:types": "tsc -p tsconfig.type-bench.json --noEmit --extendedDiagnostics",
+    "pack:check": "rm -rf .pack && mkdir -p .pack && pnpm build && pnpm pack --pack-destination .pack --json && tsx scripts/smoke-tarball.ts",
+    "prepublishOnly": "pnpm check && pnpm pack:check"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@vitest/coverage-v8": "^4.1.5",
+    "eslint": "^10.2.1",
+    "prettier": "^3.8.3",
+    "ts-pattern": "^5.9.0",
+    "tsx": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "^8.59.1",
+    "vitest": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.0.0"
+}
