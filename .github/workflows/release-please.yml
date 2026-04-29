@@ -27,7 +27,6 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_dispatch' || inputs.publish_tag == ''
     permissions:
       contents: write
       pull-requests: write
@@ -38,10 +37,15 @@ jobs:
     steps:
       - name: Create or update release PR
         id: release
+        if: github.event_name != 'workflow_dispatch' || inputs.publish_tag == ''
         uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Skip release-please for manual publish recovery
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_tag != ''
+        run: echo "Manual publish recovery requested for ${{ inputs.publish_tag }}."
 
   resolve-release:
     name: Resolve release to publish
