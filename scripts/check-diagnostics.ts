@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
+/** Expected TypeScript diagnostic fragment that must appear in fixture output. */
 interface ExpectedFragment {
   readonly description: string
   readonly text: string

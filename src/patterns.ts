@@ -31,10 +31,27 @@ import type {
   ExcludePatternArgument,
 } from './types.js'
 
+/**
+ * Freezes a pattern helper object before exposing it through the public API.
+ *
+ * Pattern helpers are immutable value objects. Freezing them prevents accidental
+ * mutation after construction and keeps reused helpers safe across match calls.
+ *
+ * @param pattern - Newly constructed pattern helper object.
+ * @returns The same pattern object, frozen.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#pattern-helpers
+ */
 function freezePattern<TPattern extends object>(pattern: TPattern): TPattern {
   return Object.freeze(pattern)
 }
 
+/**
+ * Creates a primitive helper object for one JavaScript primitive category.
+ *
+ * @param name - Runtime primitive category stored on the helper.
+ * @returns Frozen primitive pattern helper.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 function primitive<TPrimitive extends Primitive>(name: PrimitiveName<TPrimitive>): PrimitivePattern<TPrimitive> {
   return freezePattern({
     [PATTERN_TOKEN]: 'primitive',
@@ -42,89 +59,459 @@ function primitive<TPrimitive extends Primitive>(name: PrimitiveName<TPrimitive>
   })
 }
 
+/**
+ * Matches any value without narrowing it.
+ *
+ * Use this as a wildcard branch when a value should be accepted regardless of
+ * runtime shape. Prefer more specific patterns for exhaustiveness when possible;
+ * a wildcard branch intentionally covers all remaining cases.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P._, () => 'fallback').exhaustive()
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pWildcard: WildcardPattern = freezePattern({ [PATTERN_TOKEN]: 'wildcard' })
+
+/**
+ * Alias for {@link pWildcard}.
+ *
+ * Use `P.any` when that reads better than `P._` in user-facing code. It has the
+ * same runtime behavior and type behavior as the wildcard helper.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.any, () => 'accepted').exhaustive()
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pAny: WildcardPattern = pWildcard
 
+/**
+ * Matches values whose JavaScript type is `string`.
+ *
+ * Use this for structural patterns, selected payloads, assertions, and direct
+ * `match` branches where any string should match.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.string, (text) => text.toUpperCase()).otherwise(() => '')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pString: PrimitivePattern<string> = primitive('string')
+
+/**
+ * Matches values whose JavaScript type is `number`.
+ *
+ * This accepts all numbers, including `NaN`, `Infinity`, and `-Infinity`. Use
+ * `P.finite`, `P.integer`, or `P.nan` when those distinctions matter.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.number, (amount) => amount.toString()).otherwise(() => 'n/a')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pNumber: PrimitivePattern<number> = primitive('number')
+
+/**
+ * Matches values whose JavaScript type is `boolean`.
+ *
+ * Use this when either `true` or `false` is acceptable. Use literal `true` or
+ * `false` patterns for branch-specific boolean handling.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.boolean, (flag) => String(flag)).otherwise(() => 'unknown')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pBoolean: PrimitivePattern<boolean> = primitive('boolean')
+
+/**
+ * Matches values whose JavaScript type is `bigint`.
+ *
+ * Use this for bigint payloads and runtime-boundary assertions that should
+ * accept any bigint value.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.bigint, (id) => id.toString()).otherwise(() => '')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pBigint: PrimitivePattern<bigint> = primitive('bigint')
+
+/**
+ * Matches values whose JavaScript type is `symbol`.
+ *
+ * Use this for symbol payloads or record-key checks where any symbol is valid.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.symbol, (key) => key.description).otherwise(() => undefined)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pSymbol: PrimitivePattern<symbol> = primitive('symbol')
+
+/**
+ * Matches exactly `null`.
+ *
+ * Use this in unions such as `P.union(P.null, P.string)` when null is a valid
+ * case that should be handled explicitly.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.null, () => 'empty').otherwise(() => 'present')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pNull: PrimitivePattern<null> = primitive('null')
+
+/**
+ * Matches exactly `undefined`.
+ *
+ * Use this for direct values that may be undefined. For optional object
+ * properties, prefer `P.optional(pattern)` so missing keys also match.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.undefined, () => 'missing').otherwise(() => 'present')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pUndefined: PrimitivePattern<undefined> = primitive('undefined')
 
+/**
+ * Matches `NaN` using `Number.isNaN`.
+ *
+ * `NaN` cannot be matched with ordinary literal equality. Use this helper when
+ * a branch should specifically handle invalid numeric computations.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.nan, () => 'not a number').otherwise(() => 'number-like')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pNan: NanPattern = freezePattern({ [PATTERN_TOKEN]: 'nan' })
+
+/**
+ * Matches finite numbers using `Number.isFinite`.
+ *
+ * Use this when `Infinity`, `-Infinity`, and `NaN` should be rejected while
+ * ordinary finite numbers should match.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.finite, (amount) => amount.toFixed(2)).otherwise(() => 'n/a')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pFinite: FinitePattern = freezePattern({ [PATTERN_TOKEN]: 'finite' })
+
+/**
+ * Matches integer numbers using `Number.isInteger`.
+ *
+ * Use this for numeric identifiers, counts, and array-like indexes that must be
+ * whole numbers at runtime.
+ *
+ * @example
+ * ```ts
+ * match(value).with(P.integer, (index) => index + 1).otherwise(() => 0)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export const pInteger: IntegerPattern = freezePattern({ [PATTERN_TOKEN]: 'integer' })
 
 type PatternListArgument<TPatterns extends readonly unknown[]> = {
   readonly [K in keyof TPatterns]: TPatterns[K] & PatternStructureArgument<TPatterns[K]>
 }
 
+/**
+ * Matches when any supplied pattern matches.
+ *
+ * Use `P.union(...)` to express alternatives inside a single structural pattern
+ * rather than adding separate branches. Each argument must be a valid public
+ * pattern, literal pattern, object pattern, array pattern, or tuple pattern.
+ *
+ * @param patterns - Alternative patterns tested from left to right.
+ * @returns A frozen union pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.union('draft', 'queued'), () => 'pending').otherwise(() => 'done')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#pattern-helpers
+ */
 export function pUnion<const TPatterns extends readonly unknown[]>(
   ...patterns: PatternListArgument<TPatterns>
 ): UnionPattern<TPatterns> {
   return freezePattern({ [PATTERN_TOKEN]: 'union', patterns })
 }
 
+/**
+ * Matches values that do not match the supplied pattern.
+ *
+ * Use this for exclusion branches such as "anything except archived". Selection
+ * helpers are not allowed inside exclusions because no positive match payload is
+ * available to capture.
+ *
+ * @param pattern - Pattern to reject.
+ * @returns A frozen exclusion pattern helper.
+ * @example
+ * ```ts
+ * match(status).with(P.exclude('archived'), () => 'active').otherwise(() => 'archived')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#pattern-helpers
+ */
 export function pExclude<const TPattern>(
   pattern: TPattern & ExcludePatternArgument<TPattern>,
 ): ExcludePattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'exclude', pattern })
 }
 
+/**
+ * Accepts `undefined` values and missing object properties for a nested pattern.
+ *
+ * Use this inside object patterns when a property is optional, or as a direct
+ * value pattern when `undefined` should be accepted in addition to the nested
+ * pattern. When the property is absent, nested selections capture `undefined`.
+ *
+ * @param pattern - Pattern to apply when the value or property is present.
+ * @returns A frozen optional pattern helper.
+ * @example
+ * ```ts
+ * match(value).with({ name: P.optional(P.string) }, (user) => user.name).otherwise(() => undefined)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#object-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
+ */
 export function pOptional<const TPattern>(
   pattern: TPattern & PatternStructureArgument<TPattern>,
 ): OptionalPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'optional', pattern })
 }
 
+/**
+ * Matches arrays whose every item matches the supplied pattern.
+ *
+ * The value must be an array. Empty arrays match because every item satisfies the
+ * item pattern vacuously. `P.select(...)` is intentionally not supported inside
+ * repeated array item patterns because multiple captures would be ambiguous.
+ *
+ * @param item - Pattern required for every array item.
+ * @returns A frozen repeated-array pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.array(P.string), (items) => items.join(',')).otherwise(() => '')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
+ */
 export function pArray<const TPattern>(
   item: TPattern & RepeatedPatternArgument<TPattern, 'P.array'>,
 ): ArrayPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'array', item })
 }
 
+/**
+ * Matches non-empty arrays whose every item matches the supplied pattern.
+ *
+ * Use this when at least one item is required. Like `P.array`, selections inside
+ * the repeated item pattern are rejected to avoid ambiguous multi-item captures.
+ *
+ * @param item - Pattern required for every array item.
+ * @returns A frozen non-empty-array pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.nonEmptyArray(P.number), ([first]) => first).otherwise(() => 0)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
+ */
 export function pNonEmptyArray<const TPattern>(
   item: TPattern & RepeatedPatternArgument<TPattern, 'P.nonEmptyArray'>,
 ): NonEmptyArrayPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'non-empty-array', item })
 }
 
+/**
+ * Matches arrays against positional tuple item patterns.
+ *
+ * Pass a readonly tuple of item patterns. Use `P.rest(pattern)` only as the final
+ * tuple item to match a variable-length suffix. The runtime value must satisfy
+ * every positional pattern and the tuple length rules.
+ *
+ * @param items - Ordered tuple item patterns.
+ * @returns A frozen tuple pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.tuple([P.string, P.number] as const), ([name, count]) => count)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
+ */
 export function pTuple<const TPatterns extends readonly unknown[]>(
   items: TPatterns & TuplePatternArgument<TPatterns>,
 ): TuplePattern<TPatterns> {
   return freezePattern({ [PATTERN_TOKEN]: 'tuple', items })
 }
 
+/**
+ * Matches the remaining items in a tuple pattern.
+ *
+ * `P.rest(pattern)` is valid only as the final item inside `P.tuple([...])`. It
+ * requires every remaining runtime array item to match the supplied pattern.
+ *
+ * @param item - Pattern required for each remaining tuple item.
+ * @returns A frozen tuple-rest pattern helper.
+ * @throws {TypeError} When used outside a tuple or before the final tuple item.
+ * @example
+ * ```ts
+ * match(value).with(P.tuple([P.string, P.rest(P.number)] as const), ([head]) => head)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
+ */
 export function pRest<const TPattern>(item: TPattern & PatternStructureArgument<TPattern>): RestPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'rest', item })
 }
 
+/**
+ * Matches an object pattern while rejecting additional enumerable keys.
+ *
+ * Use `P.exact(...)` when a branch should accept only the keys listed in the
+ * nested object pattern. Non-object nested patterns are accepted by the type
+ * system only when they are valid pattern structures, but exact matching is most
+ * useful for object shapes.
+ *
+ * @param pattern - Object or pattern structure to match exactly.
+ * @returns A frozen exact pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.exact({ type: 'ready' }), () => 'ready').otherwise(() => 'other')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#object-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
+ */
 export function pExact<const TPattern>(pattern: TPattern & PatternStructureArgument<TPattern>): ExactPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'exact', pattern })
 }
 
+/**
+ * Matches values accepted by a predicate or type guard.
+ *
+ * Use a type guard when you want handler parameters to narrow to a custom type,
+ * or a boolean predicate when runtime filtering is enough. The predicate receives
+ * the candidate value and must return `true` for a match.
+ *
+ * @param predicate - Boolean predicate or TypeScript type guard.
+ * @returns A frozen predicate pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.when((n: number): n is 1 => n === 1), () => 'one').otherwise(() => 'other')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ * @see https://github.com/DiegoGBrisa/ts-match#boundary-assertions
+ */
 export function pWhen<TInput, TGuarded extends TInput>(
   predicate: (value: TInput) => value is TGuarded,
 ): GuardPattern<TGuarded, true>
+
+/**
+ * Matches values accepted by a boolean predicate without claiming exhaustiveness coverage.
+ *
+ * @param predicate - Function that returns `true` when the candidate should match.
+ * @returns A frozen predicate pattern helper.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export function pWhen<TInput>(predicate: (value: TInput) => boolean): GuardPattern<TInput, false>
+
+/**
+ * Creates the runtime predicate pattern used by the public `P.when(...)` overloads.
+ *
+ * @param predicate - Runtime predicate supplied by the caller.
+ * @returns A frozen predicate pattern helper.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export function pWhen(predicate: (value: unknown) => boolean): GuardPattern<unknown, boolean> {
   return freezePattern({ [PATTERN_TOKEN]: 'when', predicate, narrows: false })
 }
 
+/**
+ * Matches values that are instances of a constructor.
+ *
+ * Use this for class instances and built-in constructors that should be checked
+ * with JavaScript's `instanceof` operator.
+ *
+ * @param constructor - Constructor function used on the right-hand side of `instanceof`.
+ * @returns A frozen instance-of pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.instanceOf(Error), (error) => error.message).otherwise(() => '')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export function pInstanceOf<TConstructor extends AbstractConstructor>(
   constructor: TConstructor,
 ): InstanceOfPattern<TConstructor> {
   return freezePattern({ [PATTERN_TOKEN]: 'instance-of', constructor })
 }
 
+/**
+ * Captures a matched value and passes that capture to the handler.
+ *
+ * Use anonymous `P.select()` when the handler should receive one captured value.
+ * Use named `P.select(name, pattern?)` when the handler should receive an object
+ * of captures. Anonymous and named selections cannot be mixed in one successful
+ * pattern, and repeated containers such as `P.array(...)` reject selections.
+ *
+ * @returns A frozen anonymous selection pattern over the wildcard pattern.
+ * @example
+ * ```ts
+ * match(value).with({ payload: P.select() }, (payload) => payload).otherwise(() => undefined)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#handler-parameters-are-narrowed
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#selection-semantics
+ */
 export function pSelect(): AnonymousSelectPattern<WildcardPattern>
+
+/**
+ * Captures a matched value under a property key and passes all named captures to the handler.
+ *
+ * @param name - Capture key that will appear on the handler payload object.
+ * @returns A frozen named selection pattern over the wildcard pattern.
+ * @see https://github.com/DiegoGBrisa/ts-match#selections-change-the-handler-payload
+ */
 export function pSelect<const TName extends PropertyKey>(name: TName): NamedSelectPattern<TName, WildcardPattern>
+
+/**
+ * Captures a nested pattern match under a property key.
+ *
+ * @param name - Capture key that will appear on the handler payload object.
+ * @param pattern - Pattern that must match before the value is captured.
+ * @returns A frozen named selection pattern over `pattern`.
+ * @see https://github.com/DiegoGBrisa/ts-match#selections-change-the-handler-payload
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#selection-semantics
+ */
 export function pSelect<const TName extends PropertyKey, const TPattern>(
   name: TName,
   pattern: TPattern & PatternStructureArgument<TPattern>,
 ): NamedSelectPattern<TName, TPattern>
+
+/**
+ * Creates the runtime selection pattern used by the public `P.select(...)` overloads.
+ *
+ * @param name - Optional named capture key. Omit it for an anonymous capture.
+ * @param pattern - Pattern that must match before the value is captured.
+ * @returns A frozen selection pattern helper.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#selection-semantics
+ */
 export function pSelect(
   name?: PropertyKey,
   pattern: unknown = pWildcard,
@@ -132,6 +519,23 @@ export function pSelect(
   return freezePattern({ [PATTERN_TOKEN]: 'select', name, pattern })
 }
 
+/**
+ * Matches plain records whose enumerable keys and values match supplied patterns.
+ *
+ * The runtime value must be a plain object, not an array, class instance, map,
+ * set, or function. String keys that represent canonical numbers can also match
+ * number key patterns, mirroring JavaScript object-key coercion.
+ *
+ * @param key - Pattern required for every enumerable key.
+ * @param value - Pattern required for every enumerable value.
+ * @returns A frozen record pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.record(P.string, P.number), (scores) => scores).otherwise(() => ({}))
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
+ */
 export function pRecord<const TKeyPattern, const TValuePattern>(
   key: TKeyPattern & RecordKeyPatternArgument<TKeyPattern, 'P.record'>,
   value: TValuePattern & RecordValuePatternArgument<TValuePattern, 'P.record'>,
@@ -139,6 +543,22 @@ export function pRecord<const TKeyPattern, const TValuePattern>(
   return freezePattern({ [PATTERN_TOKEN]: 'record', key, value })
 }
 
+/**
+ * Matches non-empty plain records whose keys and values match supplied patterns.
+ *
+ * Use this when an empty object should be rejected. The same plain-record and
+ * selection restrictions as `P.record(...)` apply.
+ *
+ * @param key - Pattern required for every enumerable key.
+ * @param value - Pattern required for every enumerable value.
+ * @returns A frozen non-empty record pattern helper.
+ * @example
+ * ```ts
+ * match(value).with(P.nonEmptyRecord(P.string, P.number), (scores) => scores).otherwise(() => ({}))
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
+ */
 export function pNonEmptyRecord<const TKeyPattern, const TValuePattern>(
   key: TKeyPattern & RecordKeyPatternArgument<TKeyPattern, 'P.nonEmptyRecord'>,
   value: TValuePattern & RecordValuePatternArgument<TValuePattern, 'P.nonEmptyRecord'>,
@@ -146,6 +566,22 @@ export function pNonEmptyRecord<const TKeyPattern, const TValuePattern>(
   return freezePattern({ [PATTERN_TOKEN]: 'non-empty-record', key, value })
 }
 
+/**
+ * Namespace-style collection of every public pattern helper.
+ *
+ * Import `P` for the default documented API shape, then use helpers inside
+ * `match`, `matchBy`, `isMatching`, and `assertMatching` patterns. The named
+ * `p*` exports are equivalent tree-shakable aliases for consumers that prefer
+ * direct imports.
+ *
+ * @example
+ * ```ts
+ * import { match, P } from '@diegogbrisa/ts-match'
+ * match(value).with({ type: 'ready', payload: P.string }, ({ payload }) => payload).exhaustive()
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ * @see https://github.com/DiegoGBrisa/ts-match#named-p-helper-exports
+ */
 export const P = Object.freeze({
   _: pWildcard,
   any: pAny,

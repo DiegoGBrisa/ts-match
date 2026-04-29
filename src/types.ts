@@ -1,9 +1,35 @@
 import type { GROUP_TOKEN, PATTERN_TOKEN } from './tokens.js'
 
+/**
+ * Primitive literal values that can be matched directly or through primitive helpers.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#literal-patterns
+ */
 export type Primitive = string | number | boolean | bigint | symbol | null | undefined
+/**
+ * Values supported as `matchBy` discriminant tags.
+ *
+ * Tags can be object keys, booleans, `null`, or `undefined`; object case maps are
+ * limited to property-key-compatible representations while grouped entries can
+ * represent every discriminant value.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#matchby
+ */
 export type Discriminant = PropertyKey | boolean | null | undefined
+/**
+ * Path accepted by `matchBy` for reading a discriminant tag.
+ *
+ * Use a direct key, dot-separated string path, or readonly tuple path.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#nested-dot-path-and-tuple-path
+ */
 export type PropertyPath = string | readonly PropertyKey[]
 
+/**
+ * Internal kind names for built-in `P.*` pattern helper objects.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export type PatternKind =
   | 'wildcard'
   | 'primitive'
@@ -24,86 +50,206 @@ export type PatternKind =
   | 'record'
   | 'non-empty-record'
 
+/**
+ * Shared internal token field carried by every built-in pattern helper object.
+ *
+ * @typeParam TKind - Concrete pattern-helper kind.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#pattern-helpers
+ */
 interface PatternBase<TKind extends PatternKind> {
   readonly [PATTERN_TOKEN]: TKind
 }
 
+/**
+ * Type of `P._` and `P.any`, which match every value.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export type WildcardPattern = PatternBase<'wildcard'>
 
+/**
+ * Type of primitive helpers such as `P.string`, `P.number`, and `P.undefined`.
+ *
+ * @typeParam TPrimitive - Primitive value type matched by the helper.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface PrimitivePattern<TPrimitive extends Primitive> extends PatternBase<'primitive'> {
   readonly primitive: PrimitiveName<TPrimitive>
 }
 
+/** Type of `P.nan`, which matches `NaN`. */
 export type NanPattern = PatternBase<'nan'>
+/** Type of `P.finite`, which matches finite numbers. */
 export type FinitePattern = PatternBase<'finite'>
+/** Type of `P.integer`, which matches integer numbers. */
 export type IntegerPattern = PatternBase<'integer'>
 
+/**
+ * Type of `P.union(...)`, which matches any one of several patterns.
+ *
+ * @typeParam TPatterns - Ordered alternative patterns.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface UnionPattern<TPatterns extends readonly unknown[]> extends PatternBase<'union'> {
   readonly patterns: TPatterns
 }
 
+/**
+ * Type of `P.exclude(...)`, which matches values rejected by the nested pattern.
+ *
+ * @typeParam TPattern - Pattern to reject.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface ExcludePattern<TPattern> extends PatternBase<'exclude'> {
   readonly pattern: TPattern
 }
 
+/**
+ * Type of `P.optional(...)`, which accepts undefined or absent object properties.
+ *
+ * @typeParam TPattern - Pattern required when the value is present.
+ * @see https://github.com/DiegoGBrisa/ts-match#object-patterns
+ */
 export interface OptionalPattern<TPattern> extends PatternBase<'optional'> {
   readonly pattern: TPattern
 }
 
+/**
+ * Type of `P.array(...)`, which matches arrays where every item matches.
+ *
+ * @typeParam TPattern - Item pattern.
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ */
 export interface ArrayPattern<TPattern> extends PatternBase<'array'> {
   readonly item: TPattern
 }
 
+/**
+ * Type of `P.nonEmptyArray(...)`, which matches arrays with at least one item.
+ *
+ * @typeParam TPattern - Item pattern.
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ */
 export interface NonEmptyArrayPattern<TPattern> extends PatternBase<'non-empty-array'> {
   readonly item: TPattern
 }
 
+/**
+ * Type of `P.tuple(...)`, which matches positional array patterns.
+ *
+ * @typeParam TPatterns - Ordered tuple item patterns.
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ */
 export interface TuplePattern<TPatterns extends readonly unknown[]> extends PatternBase<'tuple'> {
   readonly items: TPatterns
 }
 
+/**
+ * Type of `P.rest(...)`, valid as the final item of a tuple pattern.
+ *
+ * @typeParam TPattern - Pattern required for each remaining tuple item.
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ */
 export interface RestPattern<TPattern> extends PatternBase<'rest'> {
   readonly item: TPattern
 }
 
+/**
+ * Type of `P.exact(...)`, which rejects additional enumerable object keys.
+ *
+ * @typeParam TPattern - Nested pattern to match exactly.
+ * @see https://github.com/DiegoGBrisa/ts-match#object-patterns
+ */
 export interface ExactPattern<TPattern> extends PatternBase<'exact'> {
   readonly pattern: TPattern
 }
 
+/**
+ * Type of `P.when(...)`, which delegates matching to a predicate or type guard.
+ *
+ * @typeParam TGuarded - Type produced by a type guard or accepted by a predicate.
+ * @typeParam TNarrows - Whether the predicate is a TypeScript type guard.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface GuardPattern<TGuarded, TNarrows extends boolean> extends PatternBase<'when'> {
   readonly predicate: (value: unknown) => boolean
   readonly narrows: TNarrows
   readonly guarded?: TGuarded
 }
 
+/**
+ * Type of `P.instanceOf(...)`, which matches values with `instanceof`.
+ *
+ * @typeParam TConstructor - Constructor used for the runtime check.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface InstanceOfPattern<TConstructor extends AbstractConstructor> extends PatternBase<'instance-of'> {
   readonly constructor: TConstructor
 }
 
+/**
+ * Type of anonymous `P.select()`, which passes one capture directly to the handler.
+ *
+ * @typeParam TPattern - Nested pattern that must match before capture.
+ * @see https://github.com/DiegoGBrisa/ts-match#selections-change-the-handler-payload
+ */
 export interface AnonymousSelectPattern<TPattern> extends PatternBase<'select'> {
   readonly name: undefined
   readonly pattern: TPattern
 }
 
+/**
+ * Type of named `P.select(name, pattern?)`, which adds a property to the handler payload.
+ *
+ * @typeParam TName - Capture key.
+ * @typeParam TPattern - Nested pattern that must match before capture.
+ * @see https://github.com/DiegoGBrisa/ts-match#selections-change-the-handler-payload
+ */
 export interface NamedSelectPattern<TName extends PropertyKey, TPattern> extends PatternBase<'select'> {
   readonly name: TName
   readonly pattern: TPattern
 }
 
+/**
+ * Conditional selection pattern type for named and anonymous captures.
+ *
+ * @typeParam TName - Capture key, or `undefined` for an anonymous capture.
+ * @typeParam TPattern - Nested pattern that must match before capture.
+ * @see https://github.com/DiegoGBrisa/ts-match#selections-change-the-handler-payload
+ */
 export type SelectPattern<TName extends PropertyKey | undefined, TPattern> = TName extends PropertyKey
   ? NamedSelectPattern<TName, TPattern>
   : AnonymousSelectPattern<TPattern>
 
+/**
+ * Type of `P.record(...)`, which matches plain records by key and value patterns.
+ *
+ * @typeParam TKeyPattern - Pattern required for every enumerable key.
+ * @typeParam TValuePattern - Pattern required for every enumerable value.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface RecordPattern<TKeyPattern, TValuePattern> extends PatternBase<'record'> {
   readonly key: TKeyPattern
   readonly value: TValuePattern
 }
 
+/**
+ * Type of `P.nonEmptyRecord(...)`, which rejects empty records.
+ *
+ * @typeParam TKeyPattern - Pattern required for every enumerable key.
+ * @typeParam TValuePattern - Pattern required for every enumerable value.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export interface NonEmptyRecordPattern<TKeyPattern, TValuePattern> extends PatternBase<'non-empty-record'> {
   readonly key: TKeyPattern
   readonly value: TValuePattern
 }
 
+/**
+ * Union of every built-in `P.*` helper object type.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export type BuiltInPattern =
   | WildcardPattern
   | PrimitivePattern<Primitive>
@@ -124,8 +270,20 @@ export type BuiltInPattern =
   | RecordPattern<unknown, unknown>
   | NonEmptyRecordPattern<unknown, unknown>
 
+/**
+ * Constructor shape accepted by `P.instanceOf(...)`.
+ *
+ * @typeParam T - Instance type produced by the constructor.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export type AbstractConstructor<T = object> = abstract new (...args: never[]) => T
 
+/**
+ * Runtime primitive helper name associated with a primitive TypeScript type.
+ *
+ * @typeParam TPrimitive - Primitive type to name.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
 export type PrimitiveName<TPrimitive extends Primitive> = TPrimitive extends string
   ? 'string'
   : TPrimitive extends number
@@ -140,14 +298,24 @@ export type PrimitiveName<TPrimitive extends Primitive> = TPrimitive extends str
             ? 'null'
             : 'undefined'
 
+/**
+ * Object entry created by `group(...)` for grouped `matchBy(...).cases(...)` handling.
+ *
+ * @typeParam TTags - Tags covered by the grouped handler.
+ * @typeParam THandler - Handler invoked when one of the grouped tags matches.
+ * @see https://github.com/DiegoGBrisa/ts-match#group
+ */
 export interface GroupEntry<TTags extends readonly Discriminant[], THandler> {
   readonly [GROUP_TOKEN]: true
   readonly tags: TTags
   readonly handler: THandler
 }
 
+/** Tuple entry form `[tag, handler]` accepted by `matchBy(...).cases(...)`. */
 export type CaseEntry<TTag extends Discriminant, THandler> = readonly [TTag, THandler]
+/** Tuple entry form `[[tags], handler]` accepted by `matchBy(...).cases(...)`. */
 export type GroupedCaseEntry<TTags extends readonly Discriminant[], THandler> = readonly [TTags, THandler]
+/** Any grouped-case entry shape accepted by `matchBy(...).cases(...)`. */
 export type CasesEntry<THandler> =
   | CaseEntry<Discriminant, THandler>
   | GroupedCaseEntry<readonly Discriminant[], THandler>
@@ -225,6 +393,15 @@ type OptionalPatternKeys<TPattern extends object> = {
   [K in keyof TPattern]-?: TPattern[K] extends OptionalPattern<unknown> ? K : never
 }[keyof TPattern]
 
+/**
+ * Infers the runtime value type described by a pattern structure.
+ *
+ * This is useful for helper APIs that accept reusable patterns and need to expose
+ * the value type those patterns validate.
+ *
+ * @typeParam TPattern - Pattern structure to infer from.
+ * @see https://github.com/DiegoGBrisa/ts-match#root-type-only-exports
+ */
 export type InferPattern<TPattern> = TPattern extends WildcardPattern
   ? unknown
   : TPattern extends PrimitivePattern<infer TPrimitive>
@@ -294,6 +471,16 @@ type InferRecordPattern<TKeyPattern, TValuePattern> =
       : Record<Extract<TKey, PropertyKey>, InferPattern<TValuePattern>>
     : never
 
+/**
+ * Narrows an input value type by a specific pattern.
+ *
+ * `match` uses this to type handler parameters. Selection patterns can still
+ * transform the handler payload through `HandlerInput`.
+ *
+ * @typeParam TValue - Original candidate value type.
+ * @typeParam TPattern - Pattern used for narrowing.
+ * @see https://github.com/DiegoGBrisa/ts-match#handler-parameters-are-narrowed
+ */
 export type MatchedValue<TValue, TPattern> =
   TPattern extends RestPattern<unknown>
     ? never
@@ -355,12 +542,26 @@ type CoveredVariant<TValue, TPattern> = TPattern extends unknown
     : CoveredValue<TValue, TPattern>
   : never
 
+/**
+ * Removes cases covered by one pattern from an input union for exhaustiveness checks.
+ *
+ * @typeParam TValue - Union before the branch.
+ * @typeParam TPattern - Pattern handled by the branch.
+ * @see https://github.com/DiegoGBrisa/ts-match#exhaustiveness-catches-missing-cases
+ */
 export type RemainingAfterPattern<TValue, TPattern> = TValue extends unknown
   ? [TValue] extends [CoveredVariant<TValue, TPattern>]
     ? never
     : TValue
   : never
 
+/**
+ * Removes cases covered by multiple alternative patterns from an input union.
+ *
+ * @typeParam TValue - Union before the branch.
+ * @typeParam TPatterns - Pattern union handled by the branch.
+ * @see https://github.com/DiegoGBrisa/ts-match#exhaustiveness-catches-missing-cases
+ */
 export type RemainingAfterPatterns<TValue, TPatterns> = RemainingAfterPattern<TValue, TPatterns>
 
 type CoveredValue<TValue, TPattern> =
@@ -901,6 +1102,16 @@ type InvalidSelectionUsageError<TPattern> = TsMatchTypeError<
   { readonly pattern: TPattern }
 >
 
+/**
+ * Compile-time diagnostic gate for pattern helper placement.
+ *
+ * Public pattern-building APIs intersect their pattern argument with this type so
+ * invalid `P.rest(...)` or `P.select(...)` placement produces readable TypeScript
+ * diagnostics before runtime.
+ *
+ * @typeParam TPattern - Pattern structure being validated.
+ * @see https://github.com/DiegoGBrisa/ts-match#invalid-pattern-helper-placement
+ */
 export type PatternStructureArgument<TPattern> =
   RestUsageValid<TPattern> extends false
     ? InvalidRestUsageError<TPattern>
@@ -908,6 +1119,16 @@ export type PatternStructureArgument<TPattern> =
       ? InvalidSelectionUsageError<TPattern>
       : unknown
 
+/**
+ * Compile-time diagnostic gate for a `match(...).with(...)` pattern.
+ *
+ * This validates helper placement and reports impossible patterns that cannot
+ * match the current input type.
+ *
+ * @typeParam TValue - Current remaining input type.
+ * @typeParam TPattern - Pattern supplied to `.with(...)`.
+ * @see https://github.com/DiegoGBrisa/ts-match#impossible-cases
+ */
 export type MatchPatternArgument<TValue, TPattern> =
   PatternStructureArgument<TPattern> extends infer TDiagnostic
     ? TDiagnostic extends TsMatchTypeError<string, unknown>
@@ -920,6 +1141,16 @@ export type MatchPatternArgument<TValue, TPattern> =
         : unknown
     : unknown
 
+/**
+ * Compile-time diagnostic gate for repeated container item patterns.
+ *
+ * Repeated arrays and records reject selections because multiple runtime items
+ * would make one handler payload ambiguous.
+ *
+ * @typeParam TPattern - Repeated item or entry pattern.
+ * @typeParam TApi - Public helper name used in diagnostics.
+ * @see https://github.com/DiegoGBrisa/ts-match#invalid-pattern-helper-placement
+ */
 export type RepeatedPatternArgument<TPattern, TApi extends string> = PatternStructureArgument<TPattern> &
   (ContainsSelection<TPattern> extends true
     ? TsMatchTypeError<
@@ -928,6 +1159,15 @@ export type RepeatedPatternArgument<TPattern, TApi extends string> = PatternStru
       >
     : unknown)
 
+/**
+ * Compile-time diagnostic gate for `P.exclude(...)` patterns.
+ *
+ * Negative patterns reject selections because there is no positive matched value
+ * to capture when the exclusion succeeds.
+ *
+ * @typeParam TPattern - Excluded pattern.
+ * @see https://github.com/DiegoGBrisa/ts-match#invalid-pattern-helper-placement
+ */
 export type ExcludePatternArgument<TPattern> = PatternStructureArgument<TPattern> &
   (ContainsSelection<TPattern> extends true
     ? TsMatchTypeError<
@@ -936,8 +1176,24 @@ export type ExcludePatternArgument<TPattern> = PatternStructureArgument<TPattern
       >
     : unknown)
 
+/**
+ * Compile-time diagnostic gate for `P.tuple(...)` item arrays.
+ *
+ * @typeParam TPatterns - Tuple item pattern list.
+ * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
+ */
 export type TuplePatternArgument<TPatterns extends readonly unknown[]> = PatternStructureArgument<TPatterns>
 
+/**
+ * Compile-time diagnostic gate for record key patterns.
+ *
+ * Key patterns must be able to match JavaScript property keys and cannot contain
+ * selections because record matching repeats over every key.
+ *
+ * @typeParam TKeyPattern - Pattern supplied for record keys.
+ * @typeParam TApi - Public helper name used in diagnostics.
+ * @see https://github.com/DiegoGBrisa/ts-match#invalid-pattern-helper-placement
+ */
 export type RecordKeyPatternArgument<TKeyPattern, TApi extends string> = PatternStructureArgument<TKeyPattern> &
   (ContainsSelection<TKeyPattern> extends true
     ? TsMatchTypeError<
@@ -952,6 +1208,16 @@ export type RecordKeyPatternArgument<TKeyPattern, TApi extends string> = Pattern
       >
     : unknown)
 
+/**
+ * Compile-time diagnostic gate for record value patterns.
+ *
+ * Value patterns cannot contain selections because record matching repeats over
+ * every enumerable value.
+ *
+ * @typeParam TValuePattern - Pattern supplied for record values.
+ * @typeParam TApi - Public helper name used in diagnostics.
+ * @see https://github.com/DiegoGBrisa/ts-match#invalid-pattern-helper-placement
+ */
 export type RecordValuePatternArgument<TValuePattern, TApi extends string> = PatternStructureArgument<TValuePattern> &
   (ContainsSelection<TValuePattern> extends true
     ? TsMatchTypeError<
@@ -960,6 +1226,16 @@ export type RecordValuePatternArgument<TValuePattern, TApi extends string> = Pat
       >
     : unknown)
 
+/**
+ * Compile-time diagnostic gate for `match(...).exhaustive()`.
+ *
+ * When remaining cases are not `never`, this type produces the readable
+ * non-exhaustive diagnostic shown in editor and CI output.
+ *
+ * @typeParam TRemaining - Cases not yet covered by the match chain.
+ * @typeParam TApi - Public API name used in diagnostics.
+ * @see https://github.com/DiegoGBrisa/ts-match#missing-exhaustive-cases
+ */
 export type NonExhaustiveMatchArgument<TRemaining, TApi extends string> = [TRemaining] extends [never]
   ? unknown
   : TsMatchTypeError<
@@ -1014,6 +1290,17 @@ type MatchByPathExists<TValue, TPath extends PropertyPath> =
           : DotPathExists<TValue, TPath>
         : false
 
+/**
+ * Compile-time diagnostic gate for `matchBy(value, path)` paths.
+ *
+ * The path must exist on the input type and resolve to a usable discriminant tag.
+ * Dot paths are checked by segment; tuple paths support symbol keys and keys that
+ * contain dots.
+ *
+ * @typeParam TValue - Value type being matched.
+ * @typeParam TPath - Direct key, dot path, or tuple path.
+ * @see https://github.com/DiegoGBrisa/ts-match#invalid-paths
+ */
 export type MatchByPathArgument<TValue, TPath extends PropertyPath> =
   MatchByPathExists<TValue, TPath> extends true
     ? [Extract<PathValue<TValue, TPath>, Discriminant>] extends [never]
@@ -1027,6 +1314,17 @@ export type MatchByPathArgument<TValue, TPath extends PropertyPath> =
         { readonly path: TPath; readonly value: TValue }
       >
 
+/**
+ * Compile-time diagnostic gate for one `matchBy(...).with(tag, handler)` tag.
+ *
+ * Tags must be JavaScript discriminants and must be possible values at the
+ * selected path.
+ *
+ * @typeParam TValue - Value type being matched.
+ * @typeParam TPath - Selected path.
+ * @typeParam TTag - Candidate tag.
+ * @see https://github.com/DiegoGBrisa/ts-match#impossible-cases
+ */
 export type MatchByTagArgument<TValue, TPath extends PropertyPath, TTag> = TTag extends Discriminant
   ? TTag extends PathValue<TValue, TPath>
     ? unknown
@@ -1039,10 +1337,28 @@ export type MatchByTagArgument<TValue, TPath extends PropertyPath, TTag> = TTag 
       { readonly path: TPath; readonly tag: TTag }
     >
 
+/**
+ * Maps every variadic `matchBy(...).with(...tags, handler)` tag through diagnostics.
+ *
+ * @typeParam TValue - Value type being matched.
+ * @typeParam TPath - Selected path.
+ * @typeParam TTags - Variadic tag tuple.
+ * @see https://github.com/DiegoGBrisa/ts-match#withtags-handler
+ */
 export type MatchByTagsArgument<TValue, TPath extends PropertyPath, TTags extends readonly unknown[]> = {
   readonly [K in keyof TTags]: TTags[K] & MatchByTagArgument<TValue, TPath, TTags[K]>
 }
 
+/**
+ * Compile-time diagnostic gate for `matchBy(...).exhaustive()`.
+ *
+ * When remaining tag cases are not fully handled, this type reports the remaining
+ * tag/value information in a readable diagnostic.
+ *
+ * @typeParam TRemaining - Value union not yet handled by the chain.
+ * @typeParam TPath - Selected path used to compute remaining tags.
+ * @see https://github.com/DiegoGBrisa/ts-match#missing-exhaustive-cases
+ */
 export type NonExhaustiveMatchByArgument<TRemaining, TPath extends PropertyPath> = [TRemaining] extends [never]
   ? unknown
   : TsMatchTypeError<
@@ -1082,6 +1398,16 @@ type MissingObjectCaseKeysArgument<THandlers, TTags> =
         >
     : unknown
 
+/**
+ * Compile-time diagnostic gate for exhaustive object-map `.cases({...})` inputs.
+ *
+ * Object maps require finite literal tags, no nullish tags, no key-normalization
+ * collisions, and no missing required keys.
+ *
+ * @typeParam TTags - Expected tag union at the selected path.
+ * @typeParam THandlers - Handler object supplied by the caller.
+ * @see https://github.com/DiegoGBrisa/ts-match#object-map-case-mistakes
+ */
 export type ObjectCaseMapArgument<TTags, THandlers> = ObjectCaseMapSupportArgument<TTags> &
   MissingObjectCaseKeysArgument<THandlers, TTags>
 
@@ -1110,12 +1436,32 @@ type MissingCaseTagsArgument<TExpectedTags, THandledTags> =
         { readonly expected: TExpectedTags }
       >
 
+/**
+ * Compile-time diagnostic gate for exhaustive tuple/grouped case entries.
+ *
+ * Ensures grouped entries do not include impossible tags and do include every
+ * expected finite tag.
+ *
+ * @typeParam TExpectedTags - Tag union that must be handled.
+ * @typeParam THandledTags - Tags covered by the supplied entries.
+ * @see https://github.com/DiegoGBrisa/ts-match#grouped-case-inference
+ */
 export type ExhaustiveEntriesArgument<TExpectedTags, THandledTags> = ExtraCaseTagsArgument<
   TExpectedTags,
   THandledTags
 > &
   MissingCaseTagsArgument<TExpectedTags, THandledTags>
 
+/**
+ * Compile-time diagnostic gate for partial tuple/grouped case entries.
+ *
+ * Partial entries may omit tags but still cannot include tags that are impossible
+ * at the selected path.
+ *
+ * @typeParam TExpectedTags - Tag union that may be handled.
+ * @typeParam THandledTags - Tags covered by the supplied entries.
+ * @see https://github.com/DiegoGBrisa/ts-match#partialotherwise
+ */
 export type PartialEntriesArgument<TExpectedTags, THandledTags> = ExtraCaseTagsArgument<TExpectedTags, THandledTags>
 
 type OptionalSelectionPayload<TPayload> = [TPayload] extends [never]
@@ -1174,6 +1520,16 @@ type SelectPayloadFromTupleUnion<TValue, TPatterns extends readonly unknown[]> =
     : never
   : never
 
+/**
+ * Computes the value passed to a `match(...).with(...)` handler.
+ *
+ * Patterns without selections pass the narrowed matched value. Anonymous
+ * selections pass the selected value. Named selections pass an object of captures.
+ *
+ * @typeParam TValue - Candidate value type before the branch.
+ * @typeParam TPattern - Pattern used by the branch.
+ * @see https://github.com/DiegoGBrisa/ts-match#selections-change-the-handler-payload
+ */
 export type HandlerInput<TValue, TPattern> = TPattern extends unknown
   ? Simplify<HandlerInputForPattern<TValue, TPattern>>
   : never
@@ -1189,6 +1545,13 @@ type HandlerInputForPattern<TValue, TPattern> =
           : Simplify<TSelect>
         : never
 
+/**
+ * Value type produced by `isMatching` and `assertMatching` after a successful check.
+ *
+ * @typeParam TValue - Original value type.
+ * @typeParam TPattern - Pattern used for validation.
+ * @see https://github.com/DiegoGBrisa/ts-match#ismatching
+ */
 export type GuardedValue<TValue, TPattern> = TValue & MatchedValue<TValue, TPattern>
 
 type DotPathLeaf =
@@ -1222,6 +1585,16 @@ type DotPath<TValue> = TValue extends unknown
     : never
   : never
 
+/**
+ * Resolves the TypeScript value type at a `matchBy` property path.
+ *
+ * Missing or nullable path segments contribute `undefined`, matching runtime path
+ * traversal behavior.
+ *
+ * @typeParam TValue - Root value type.
+ * @typeParam TPath - Direct key, dot path, or tuple path.
+ * @see https://github.com/DiegoGBrisa/ts-match#nested-dot-path-and-tuple-path
+ */
 export type PathValue<TValue, TPath extends PropertyPath> = TPath extends readonly PropertyKey[]
   ? PathValueFromTuple<TValue, TPath>
   : TPath extends string
@@ -1259,12 +1632,28 @@ type PathValueFromTuple<TValue, TPath extends readonly PropertyKey[]> = TPath ex
     : never
   : TValue
 
+/**
+ * Narrows a value union to members whose selected path can match a tag.
+ *
+ * @typeParam TValue - Root value union.
+ * @typeParam TPath - Selected path.
+ * @typeParam TTag - Tag used for narrowing.
+ * @see https://github.com/DiegoGBrisa/ts-match#matchby
+ */
 export type ExtractByPath<TValue, TPath extends PropertyPath, TTag> = TValue extends unknown
   ? TagOverlaps<PathValue<TValue, TPath>, TTag> extends true
     ? RefineByPath<TValue, TPath, TTag>
     : never
   : never
 
+/**
+ * Extracts value union members fully covered by a `matchBy` tag branch.
+ *
+ * @typeParam TValue - Root value union.
+ * @typeParam TPath - Selected path.
+ * @typeParam TTag - Tag handled by the branch.
+ * @see https://github.com/DiegoGBrisa/ts-match#matchby
+ */
 export type CoveredByPath<TValue, TPath extends PropertyPath, TTag> = TValue extends unknown
   ? TagFullyCovers<PathValue<TValue, TPath>, TTag> extends true
     ? TValue
@@ -1327,6 +1716,12 @@ type NormalizedCaseKey<TTag> = TTag extends true
         : never
 
 type ObjectCaseTags<TTags> = Exclude<TTags, null | undefined>
+/**
+ * Property keys an object case map can use for a tag union.
+ *
+ * @typeParam TTags - Tag union to normalize into object keys.
+ * @see https://github.com/DiegoGBrisa/ts-match#object-map-case-mistakes
+ */
 export type ObjectCaseKeys<TTags> =
   | NormalizedCaseKey<ObjectCaseTags<TTags>>
   | Extract<ObjectCaseTags<TTags>, string | number | symbol>
@@ -1353,6 +1748,14 @@ type IsFiniteCaseUnion<TTags> = [TTags] extends [never]
     ? false
     : true
 
+/**
+ * Object-map handler shape for `matchBy(...).cases({...})`.
+ *
+ * @typeParam TValue - Root value type.
+ * @typeParam TPath - Selected path.
+ * @typeParam TTags - Tags represented by the map.
+ * @see https://github.com/DiegoGBrisa/ts-match#cases
+ */
 export type CaseMap<TValue, TPath extends PropertyPath, TTags> = {
   [K in ObjectCaseKeys<TTags>]: (value: ExtractByNormalizedKey<TValue, TPath, TTags, K>) => unknown
 }
@@ -1365,6 +1768,13 @@ type ExtractByNormalizedKey<TValue, TPath extends PropertyPath, TTags, TKey> = E
   TTags extends unknown ? (CaseKeyMatches<TTags, TKey> extends true ? TTags : never) : never
 >
 
+/**
+ * Compile-time diagnostic gate that rejects extra object-map keys.
+ *
+ * @typeParam TActual - User-supplied object map.
+ * @typeParam TAllowedKeys - Keys allowed for the selected tag union.
+ * @see https://github.com/DiegoGBrisa/ts-match#object-map-case-mistakes
+ */
 export type NoExtraKeys<TActual, TAllowedKeys extends PropertyKey> =
   Exclude<keyof TActual, TAllowedKeys> extends infer TExtra
     ? [TExtra] extends [never]
@@ -1377,4 +1787,10 @@ export type NoExtraKeys<TActual, TAllowedKeys extends PropertyKey> =
         }
     : unknown
 
+/**
+ * Recursively unwraps promise-like return types from async match handlers.
+ *
+ * @typeParam T - Handler return type to unwrap.
+ * @see https://github.com/DiegoGBrisa/ts-match#matchasync
+ */
 export type AwaitedReturn<T> = T extends PromiseLike<infer TResult> ? AwaitedReturn<TResult> : T

@@ -54,6 +54,18 @@ const expectedPackageFiles = [
   ...EXAMPLE_FILES.map((fileName) => `package/examples/${fileName}`),
 ] as const
 
+/**
+ * Lists normalized file paths from a packed npm tarball.
+ *
+ * Run this after `pnpm pack --pack-destination .pack --json`. The package
+ * contents check compares the returned paths against a strict allowlist so
+ * releases include the intended docs/examples and exclude accidental local files.
+ *
+ * @param tarball - Path to the `.tgz` package archive produced by `pnpm pack`.
+ * @returns Sorted package-relative tarball entries such as `package/dist/index.js`.
+ * @throws When the `tar` command cannot read the archive.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#package-contents
+ */
 function listTarballFiles(tarball: string): readonly string[] {
   return execFileSync('tar', ['-tf', tarball], { encoding: 'utf8' })
     .split('\n')

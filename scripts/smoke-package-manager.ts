@@ -35,10 +35,34 @@ if (label !== 'ready') throw new Error('match subpath smoke failed')
 console.log('package-manager smoke ok')
 `
 
+/**
+ * Validates the package-manager argument accepted by this smoke test.
+ *
+ * CI calls the script once per package manager. This guard keeps accidental
+ * misspellings or unsupported package managers from creating misleading temp
+ * projects.
+ *
+ * @param value - CLI argument after `pnpm smoke:package-manager --`.
+ * @returns `true` when `value` is one of the supported package-manager names.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#local-preflight
+ */
 function isPackageManager(value: string | undefined): value is PackageManager {
   return value !== undefined && PACKAGE_MANAGERS.some((packageManager) => packageManager === value)
 }
 
+/**
+ * Installs the packed library tarball with the requested package manager.
+ *
+ * The temporary project also installs TypeScript so the smoke test can compile a
+ * real consumer file after installation. npm uses `--ignore-scripts` to avoid
+ * running package lifecycle scripts during this install-only compatibility check.
+ *
+ * @param packageManager - Supported client to use for installation.
+ * @param directory - Temporary project directory.
+ * @param tarball - Packed library tarball produced by `pnpm pack`.
+ * @throws When installation fails.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#local-preflight
+ */
 function installWithPackageManager(packageManager: PackageManager, directory: string, tarball: string): void {
   if (packageManager === 'npm') {
     runCommand('npm', ['install', '--ignore-scripts', tarball, 'typescript'], directory)
