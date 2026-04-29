@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
  *
  * @param value - Version string provided by the release workflow or local caller.
  * @returns A regex-safe literal version fragment.
- * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#publish-workflow
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
  */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

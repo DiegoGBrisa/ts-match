@@ -4,13 +4,13 @@ import { isRecord } from './script-utils.js'
 /**
  * Reads the package version that a GitHub Release tag must match.
  *
- * The publish workflow uses this helper to enforce that release tags follow the
+ * The release publishing job uses this helper to enforce that release tags follow the
  * package version in `package.json` exactly as `v<version>`, preventing an
  * accidental GitHub Release from publishing the wrong npm version.
  *
  * @returns The package version string from `package.json`.
  * @throws When `package.json` does not contain a string `version` field.
- * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#publish-workflow
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
  */
 function packageVersion(): string {
   const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
