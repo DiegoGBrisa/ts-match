@@ -115,8 +115,18 @@ jobs:
       - name: Audit production dependency tree
         run: pnpm audit --prod
 
-      - name: Run project checks
-        run: pnpm check
+      - name: Run release checks
+        run: |
+          pnpm lint
+          pnpm build
+          pnpm typecheck:only
+          pnpm test:type
+          pnpm test:diagnostics
+          pnpm test:coverage
+          pnpm smoke:exports
+          pnpm test:docs
+          pnpm test:examples:validate
+          pnpm test:examples:run
 
       - name: Run TypeScript performance benchmark
         run: pnpm bench:types
