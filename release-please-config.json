@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "adb7340197be0735cb607cd8e63d9fef91a408a7",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "@diegogbrisa/ts-match",
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true,
+      "include-component-in-tag": false,
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: 10.0.0
+  YARN_VERSION: 4.5.3
+  BUN_VERSION: 1.3.13
+
+jobs:
+  commit-messages:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check PR commits
+        if: github.event_name == 'pull_request'
+        run: pnpm check:commits -- "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+
+      - name: Check pushed commits
+        if: github.event_name == 'push'
+        run: pnpm check:commits -- "${{ github.event.before }}" "${{ github.sha }}"
+
+  quality:
+    name: Quality / Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check package has zero runtime dependencies
+        run: pnpm check:zero-runtime-deps
+
+      - name: Audit production dependency tree
+        run: pnpm audit --prod
+
+      - name: Run project checks
+        run: pnpm check
+
+      - name: Run TypeScript performance benchmark
+        run: pnpm bench:types
+
+      - name: Run runtime benchmark budgets
+        run: pnpm bench:native:check
+
+      - name: Check package contents and tarball smoke
+        run: pnpm pack:check
+
+  package-manager-smoke:
+    name: Package smoke / Node ${{ matrix.node-version }} / ${{ matrix.package-manager }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22, 24]
+        package-manager: [npm, pnpm, yarn, bun]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Yarn
+        if: matrix.package-manager == 'yarn'
+        run: corepack prepare yarn@${YARN_VERSION} --activate
+
+      - name: Setup Bun
+        if: matrix.package-manager == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pack package
+        run: |
+          rm -rf .pack
+          mkdir -p .pack
+          pnpm build
+          pnpm pack --pack-destination .pack --json
+
+      - name: Smoke test packed tarball
+        run: pnpm smoke:package-manager -- "${{ matrix.package-manager }}"

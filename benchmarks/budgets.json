@@ -1,0 +1,21 @@
+{
+  "unit": "ns/op",
+  "policy": "Broad absolute ceilings calibrated from local pre-release measurements with generous headroom. Native baselines are intentionally unbudgeted.",
+  "budgets": [
+    { "name": "matchBy fluent", "maxNsPerOp": 1500 },
+    { "name": "matchBy cases inline object", "maxNsPerOp": 6500 },
+    { "name": "matchBy cases hoisted object", "maxNsPerOp": 500 },
+    { "name": "matchBy partial hoisted object", "maxNsPerOp": 700 },
+    { "name": "matchBy nested path", "maxNsPerOp": 900 },
+    { "name": "matchBy grouped callback", "maxNsPerOp": 1500 },
+    { "name": "match object pattern", "maxNsPerOp": 1500 },
+    { "name": "match nested object pattern", "maxNsPerOp": 2500 },
+    { "name": "match tuple pattern", "maxNsPerOp": 1000 },
+    { "name": "match array pattern", "maxNsPerOp": 1100 },
+    { "name": "match predicate", "maxNsPerOp": 1500 },
+    { "name": "isMatching primitive", "maxNsPerOp": 250 },
+    { "name": "isMatching record", "maxNsPerOp": 3500 },
+    { "name": "match.async exhaustive", "maxNsPerOp": 2000 },
+    { "name": "matchBy.async cases", "maxNsPerOp": 1000 }
+  ]
+}
