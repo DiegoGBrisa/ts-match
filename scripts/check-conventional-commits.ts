@@ -16,7 +16,7 @@ function singleArgumentRange(from: string): string | undefined {
 }
 
 function twoArgumentRange(from: string, to: string): string {
-  return isAllZeroSha(from) ? `${to}~1..${to}` : `${from}..${to}`
+  return isAllZeroSha(from) ? to : `${from}..${to}`
 }
 
 function cliCommitRange(): string | undefined {
