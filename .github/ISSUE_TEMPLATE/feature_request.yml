@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest an API, TypeScript DX, diagnostic, packaging, or documentation improvement.
+title: 'feat: '
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Please describe the problem first so the API stays small and purposeful.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user-facing problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Show the TypeScript shape or usage you would like to write.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: release-impact
+    attributes:
+      label: Expected release impact
+      options:
+        - Feature/minor
+        - Bug fix/patch
+        - Breaking change/major
+        - Documentation only
+        - Not sure
+    validations:
+      required: true
