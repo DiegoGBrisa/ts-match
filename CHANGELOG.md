@@ -6,11 +6,10 @@ This project follows [Semantic Versioning](https://semver.org/) and uses Convent
 
 ## [1.0.1](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.0...v1.0.1) (2026-04-29)
 
-
 ### Bug Fixes
 
-* **ci:** address release review feedback ([646618e](https://github.com/DiegoGBrisa/ts-match/commit/646618e70f6db70597b6840cefe3620f4c8d627f))
-* **ci:** validate initial push commit range ([2429775](https://github.com/DiegoGBrisa/ts-match/commit/24297753bcc158516861d222721d3a67390a9791))
+- **ci:** address release review feedback ([646618e](https://github.com/DiegoGBrisa/ts-match/commit/646618e70f6db70597b6840cefe3620f4c8d627f))
+- **ci:** validate initial push commit range ([2429775](https://github.com/DiegoGBrisa/ts-match/commit/24297753bcc158516861d222721d3a67390a9791))
 
 ## [1.0.0] - 2026-04-29
 
