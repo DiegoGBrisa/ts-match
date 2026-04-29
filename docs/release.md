@@ -61,16 +61,19 @@ When release-please creates a stable release, the workflow:
 3. Runs validation on Node 20, 22, and 24.
 4. Runs package-manager smoke tests for npm, pnpm, Yarn v4, and Bun across Node 20, 22, and 24.
 5. Verifies the npm version is not already published.
-6. Publishes with npm Trusted Publishing provenance:
+6. Builds and validates the publish tarball with `pnpm pack:check`.
+7. Publishes that validated tarball with npm Trusted Publishing provenance:
 
 ```bash
-npm publish --provenance --access public
+npm publish .pack/<tarball>.tgz --ignore-scripts --provenance --access public
 ```
 
 The npm Trusted Publisher must match the publishing workflow and environment:
 
 - workflow filename: `release-please.yml`
 - environment name: `npm`
+
+The publish command uses `--ignore-scripts` because the workflow already runs the release validation gate and publishes a freshly built, validated tarball. This prevents tag-owned lifecycle scripts from re-running stale checks during historical recovery while keeping npm publication gated by CI.
 
 Do not publish manually for normal releases.
 
