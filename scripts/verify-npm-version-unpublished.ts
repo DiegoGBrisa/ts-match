@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { isRecord } from './script-utils.js'
 
 /**
- * Reads the package identity that the publish workflow is about to publish.
+ * Reads the package identity that the release publishing job is about to publish.
  *
  * The npm preflight uses the current `package.json` rather than duplicating the
  * package name or version in workflow YAML, keeping release validation tied to
@@ -11,7 +11,7 @@ import { isRecord } from './script-utils.js'
  *
  * @returns Package name and version from `package.json`.
  * @throws When either field is missing or not a string.
- * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#publish-workflow
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#npm-version-already-exists
  */
 function packageNameAndVersion(): readonly [string, string] {
@@ -27,7 +27,7 @@ function packageNameAndVersion(): readonly [string, string] {
  *
  * `npm view` returns a non-zero exit code for both "not found" and operational
  * failures. This helper accepts only known not-found messages so the publish
- * workflow does not continue after registry, network, or auth problems.
+ * release publishing job does not continue after registry, network, or auth problems.
  *
  * @param output - Combined stdout and stderr from `npm view <specifier> version`.
  * @returns `true` when npm reported that the package version does not exist.

@@ -10,7 +10,7 @@ Releases are driven by Conventional Commits and release-please:
 2. release-please opens or updates a release PR.
 3. The release PR updates `package.json`, `pnpm-lock.yaml`, and `CHANGELOG.md`.
 4. Merging the release PR creates a GitHub Release and tag.
-5. The publish workflow validates that tag and publishes `@diegogbrisa/ts-match` to npm with provenance.
+5. The same Release Please workflow validates that tag and publishes `@diegogbrisa/ts-match` to npm with provenance.
 
 The npm registry is the only publish target. npm, pnpm, Yarn, and Bun users all install the same npm package.
 
@@ -48,13 +48,13 @@ When a release PR opens:
 3. Confirm CI is green.
 4. Merge the release PR.
 
-After merge, release-please creates the GitHub Release. That release triggers npm publishing.
+After merge, release-please creates the GitHub Release and the Release Please workflow publishes npm from the same workflow run. This avoids relying on a separate `release.published` workflow event, because GitHub does not start downstream workflow runs for releases created with the repository `GITHUB_TOKEN`.
 
-## Publish workflow
+## Automated npm publishing
 
-`.github/workflows/publish.yml` runs only for published GitHub Releases.
+`.github/workflows/release-please.yml` owns both release creation and npm publishing.
 
-The workflow skips draft and prerelease GitHub Releases. For stable releases, it:
+When release-please creates a stable release, the workflow:
 
 1. Checks out the release tag.
 2. Verifies the tag matches `package.json` version, for example `v1.2.3` ↔ `1.2.3`.
@@ -66,6 +66,11 @@ The workflow skips draft and prerelease GitHub Releases. For stable releases, it
 ```bash
 npm publish --provenance --access public
 ```
+
+The npm Trusted Publisher must match the publishing workflow and environment:
+
+- workflow filename: `release-please.yml`
+- environment name: `npm`
 
 Do not publish manually for normal releases.
 
@@ -140,7 +145,7 @@ The package intentionally excludes source maps, declaration maps, tests, type te
 
 ## Verifying a published release
 
-After the publish workflow succeeds:
+After the Release Please workflow publishes npm:
 
 ```bash
 npm view @diegogbrisa/ts-match@<version> version
@@ -163,6 +168,10 @@ Use disposable directories for manual install checks.
 ### Validation fails before npm publish
 
 If validation fails before `npm publish` runs, rerun the workflow only if the failure is clearly transient. If the tag is bad, delete the GitHub Release and tag, fix `main`, and let release-please create a new release.
+
+### GitHub Release exists but npm publish did not run
+
+Use the Release Please workflow's manual dispatch with `publish_tag` set to the existing tag, for example `v1.0.1`. The workflow validates the tag, verifies the npm version is unpublished, and publishes with provenance.
 
 ### npm version already exists
 
