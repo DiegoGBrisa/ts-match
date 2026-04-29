@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/index.ts",
+    "src/assertions.ts",
+    "src/errors.ts",
+    "src/group.ts",
+    "src/match.ts",
+    "src/match-by.ts",
+    "src/patterns.ts",
+    "scripts/*.ts",
+    "benchmarks/*.ts",
+    "tests/*.test.ts",
+    "type-tests/*.typecheck.ts",
+    "diagnostics/*.ts",
+    "examples/*.ts",
+    "eslint.config.mjs",
+    "vitest.config.ts"
+  ],
+  "duplicates": {
+    "minTokens": 80,
+    "ignore": ["benchmarks/**", "diagnostics/**", "examples/**", "tests/**", "type-tests/**"]
+  },
+  "health": {
+    "ignore": ["benchmarks/**"]
+  },
+  "rules": {}
+}
