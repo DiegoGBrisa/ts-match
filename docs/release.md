@@ -74,6 +74,10 @@ The npm Trusted Publisher must match the publishing workflow and environment:
 
 Do not publish manually for normal releases.
 
+## Changelog formatting
+
+release-please owns `CHANGELOG.md` and may generate Markdown that differs from Prettier's preferred bullet and spacing style. `CHANGELOG.md` is intentionally excluded from Prettier so generated release PRs and historical release tags are not blocked by formatting-only churn.
+
 ## Local preflight
 
 Run this before merging release-sensitive changes or before manually checking a release branch:
@@ -167,7 +171,7 @@ Use disposable directories for manual install checks.
 
 ### Validation fails before npm publish
 
-If validation fails before `npm publish` runs, rerun the workflow only if the failure is clearly transient. If the tag is bad, delete the GitHub Release and tag, fix `main`, and let release-please create a new release.
+If validation fails before `npm publish` runs, rerun the workflow only if the failure is clearly transient. Release publishing runs the same substantive checks as `pnpm check` but intentionally omits `format:check`, because historical release tags should not be blocked by generated changelog formatting. If the tag is bad, delete the GitHub Release and tag, fix `main`, and let release-please create a new release.
 
 ### GitHub Release exists but npm publish did not run
 
