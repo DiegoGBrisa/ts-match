@@ -1,6 +1,8 @@
-# @diegogbrisa/ts-match
+# ts-match
 
 TypeScript-first pattern matching for values, objects, tuples, arrays, records, and discriminated unions. It provides `match`, `matchBy`, exhaustive checking, strong handler inference, explicit async matching, zero runtime dependencies, ESM-only packaging, and Node 20+ support.
+
+The library is branded as **ts-match**. It is published on npm as `@diegogbrisa/ts-match` because the unscoped `ts-match` package name is unavailable.
 
 ## Installation
 
@@ -66,7 +68,7 @@ Use this library where those constraints make code clearer. Keep simple branches
 
 ## Imports and package entrypoints
 
-Root imports cover normal usage:
+Install and import from the published package name, `@diegogbrisa/ts-match`. Root imports cover normal usage:
 
 ```ts
 import { assertMatching, group, isMatching, match, matchBy, P } from '@diegogbrisa/ts-match'
@@ -475,7 +477,7 @@ Properties:
 
 Checked example: [`examples/12-error-handling.ts`](examples/12-error-handling.ts).
 
-The `@diegogbrisa/ts-match/errors` subpath also currently exports `preview(value)` and the `MatchErrorMetadata` interface used by `NonExhaustiveMatchError`. They are low-level diagnostic exports; normal application code should prefer the error classes.
+The ts-match errors subpath (`@diegogbrisa/ts-match/errors`) also currently exports `preview(value)` and the `MatchErrorMetadata` interface used by `NonExhaustiveMatchError`. They are low-level diagnostic exports; normal application code should prefer the error classes.
 
 ## TypeScript inference guide
 
@@ -754,7 +756,7 @@ These are mainly for library authors and advanced integrations:
 
 ### Focused subpath exports
 
-| Subpath                            | Public exports                                                                              |
+| Published subpath                  | Public exports                                                                              |
 | ---------------------------------- | ------------------------------------------------------------------------------------------- |
 | `@diegogbrisa/ts-match/match`      | `match`, `SyncMatchBuilder`, `AsyncMatchBuilder`, `MatchFunction`, `MatchedValue`           |
 | `@diegogbrisa/ts-match/match-by`   | `matchBy`, `SyncMatchByBuilder`, `AsyncMatchByBuilder`, `MatchByBuilder`, `MatchByFunction` |

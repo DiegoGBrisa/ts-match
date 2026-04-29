@@ -1,13 +1,13 @@
 ---
 name: ts-match-usage
-description: This skill should be used when an agent is writing or reviewing TypeScript code that uses @diegogbrisa/ts-match for pattern matching, exhaustive discriminated-union handling, async branching, runtime validation, or boundary assertions.
+description: This skill should be used when an agent is writing or reviewing TypeScript code that uses ts-match (published as @diegogbrisa/ts-match) for pattern matching, exhaustive discriminated-union handling, async branching, runtime validation, or boundary assertions.
 ---
 
-# @diegogbrisa/ts-match usage skill
+# ts-match usage skill
 
 ## What the library is for
 
-Use `@diegogbrisa/ts-match` for TypeScript-first pattern matching with strong handler inference, exhaustive handling of closed unions, explicit async terminals, and runtime validation helpers.
+Use ts-match for TypeScript-first pattern matching with strong handler inference, exhaustive handling of closed unions, explicit async terminals, and runtime validation helpers. The library is published and installed as `@diegogbrisa/ts-match` because the unscoped `ts-match` package name is unavailable.
 
 Primary APIs:
 
@@ -24,7 +24,7 @@ Use `matchBy` when one key/path decides a discriminated union branch. Use `match
 
 ## Hard rules for agents
 
-- Import only public APIs from `@diegogbrisa/ts-match` or documented package subpaths.
+- Import only public APIs from the published package `@diegogbrisa/ts-match` or documented package subpaths.
 - Never import from `src`, `dist`, or internal files.
 - Do not invent helpers. Use only the helpers listed in this skill.
 - Prefer `.exhaustive()` for closed unions.

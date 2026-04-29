@@ -2,7 +2,7 @@
 
 ## Product goal
 
-`@diegogbrisa/ts-match` is a TypeScript-first pattern matching library intended to provide tiny, fast, tree-shakable pattern matching for frontend, backend, library, and CLI code while staying zero-runtime-dependency and frontend-friendly.
+ts-match is a TypeScript-first pattern matching library intended to provide tiny, fast, tree-shakable pattern matching for frontend, backend, library, and CLI code while staying zero-runtime-dependency and frontend-friendly. It is published on npm as `@diegogbrisa/ts-match` because the unscoped `ts-match` package name is unavailable.
 
 The canonical API is:
 
@@ -14,7 +14,8 @@ User-facing guide: [`../README.md`](../README.md). Checked examples: [`../exampl
 
 ## Locked API decisions
 
-- Package: `@diegogbrisa/ts-match`.
+- Brand/name: ts-match.
+- Published npm package: `@diegogbrisa/ts-match`.
 - Runtime dependencies: none.
 - Module format: ESM only.
 - Runtime target: Node 20+ and modern browsers/bundlers.
