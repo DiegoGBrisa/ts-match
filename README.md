@@ -62,6 +62,7 @@ bun add @diegogbrisa/ts-match
 - [Limitations and tradeoffs](#limitations-and-tradeoffs)
 - [Examples index](#full-examples-index)
 - [API summary](#api-reference-summary)
+- [Agent skill](SKILL.md)
 
 ## Quick start
 
@@ -838,4 +839,4 @@ Example validation checks that examples compile, run, avoid internal `src`/`dist
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md)
 - Release process: [`docs/release.md`](docs/release.md)
 - Design notes: [`docs/design.md`](docs/design.md)
-- Agent usage skill: [`docs/agent-skill/SKILL.md`](docs/agent-skill/SKILL.md)
+- Agent skill: [`SKILL.md`](SKILL.md)

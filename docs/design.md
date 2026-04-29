@@ -10,7 +10,7 @@ The canonical API is:
 import { match, matchBy, P } from '@diegogbrisa/ts-match'
 ```
 
-User-facing guide: [`../README.md`](../README.md). Checked examples: [`../examples`](../examples). Agent usage guide: [`agent-skill/SKILL.md`](agent-skill/SKILL.md).
+User-facing guide: [`../README.md`](../README.md). Checked examples: [`../examples`](../examples). Agent skill: [`../SKILL.md`](../SKILL.md).
 
 ## Locked API decisions
 

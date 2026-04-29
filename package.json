@@ -22,6 +22,7 @@
     "examples",
     "benchmarks/native.ts",
     "README.md",
+    "SKILL.md",
     "CHANGELOG.md",
     "LICENSE"
   ],

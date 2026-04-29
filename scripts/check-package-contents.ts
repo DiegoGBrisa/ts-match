@@ -43,9 +43,9 @@ const EXAMPLE_FILES = [
 const expectedPackageFiles = [
   'package/package.json',
   'package/README.md',
+  'package/SKILL.md',
   'package/CHANGELOG.md',
   'package/LICENSE',
-  'package/docs/agent-skill/SKILL.md',
   'package/docs/design.md',
   'package/docs/release.md',
   'package/benchmarks/native.ts',
