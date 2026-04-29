@@ -174,8 +174,8 @@ Treat the npm version as published. Fix forward with a new release.
 
 ## Do not do this
 
-- Do not run `npm publish` locally for normal releases.
-- Do not use `pnpm publish`, `yarn npm publish`, or `bun publish` for this package.
-- Do not add an `NPM_TOKEN` secret unless Trusted Publishing is intentionally replaced.
-- Do not reuse an npm version after publication.
-- Do not hand-edit release-please version bumps except for intentional changelog wording fixes inside the release PR.
+- Avoid running `npm publish` locally for normal releases.
+- Use neither `pnpm publish`, `yarn npm publish`, nor `bun publish` for this package.
+- Keep `NPM_TOKEN` unset unless Trusted Publishing is intentionally replaced.
+- Never reuse a published npm version.
+- Leave release-please version bumps untouched, except intentional changelog wording edits inside the release PR.

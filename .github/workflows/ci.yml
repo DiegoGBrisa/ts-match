@@ -48,7 +48,11 @@ jobs:
         run: pnpm check:commits -- "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
 
       - name: Check pushed commits
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: pnpm check:commits -- "${{ github.event.before }}" "${{ github.sha }}"
+
+      - name: Check initial pushed commits
+        if: github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000'
         run: pnpm check:commits -- "${{ github.event.before }}" "${{ github.sha }}"
 
   quality:
@@ -88,10 +92,10 @@ jobs:
         run: pnpm bench:types
 
       - name: Run runtime benchmark budgets
-        run: pnpm bench:native:check
+        run: pnpm bench:native:check:only
 
       - name: Check package contents and tarball smoke
-        run: pnpm pack:check
+        run: pnpm pack:check:only
 
   package-manager-smoke:
     name: Package smoke / Node ${{ matrix.node-version }} / ${{ matrix.package-manager }}
