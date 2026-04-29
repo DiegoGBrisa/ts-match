@@ -1,3 +1,13 @@
+/**
+ * Optional context attached to matching errors.
+ *
+ * Runtime matchers pass this metadata when they can identify which matcher,
+ * property path, object key, or discriminant tag failed. Consumers can read the
+ * copied fields on `NonExhaustiveMatchError` instead of parsing the message.
+ *
+ * @see https://github.com/DiegoGBrisa/ts-match#error-classes
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#matchby-semantics
+ */
 export interface MatchErrorMetadata {
   readonly matcher?: 'match' | 'matchBy' | 'isMatching' | 'assertMatching'
   readonly key?: PropertyKey
@@ -7,6 +17,17 @@ export interface MatchErrorMetadata {
 
 const MAX_PREVIEW_LENGTH = 500
 
+/**
+ * Formats an unknown runtime value for readable error messages.
+ *
+ * The formatter handles `bigint`, `symbol`, functions, and circular references
+ * without throwing. Long previews are truncated so assertion and exhaustiveness
+ * errors remain readable in CI logs and terminals.
+ *
+ * @param value - Unknown value to include in an error message.
+ * @returns A stable string preview capped to the internal preview length.
+ * @see https://github.com/DiegoGBrisa/ts-match#error-classes
+ */
 export function preview(value: unknown): string {
   const seen = new WeakSet<object>()
 
@@ -29,6 +50,27 @@ export function preview(value: unknown): string {
   }
 }
 
+/**
+ * Error thrown when an exhaustive matcher receives an unhandled value.
+ *
+ * `match(...).exhaustive()` and `matchBy(...).exhaustive()` use this error when
+ * runtime data reaches a branch that TypeScript could not prove impossible. The
+ * original value is attached as a non-enumerable `value` property, and the error
+ * also exposes `valuePreview`, `matcher`, `path`, `key`, and `tag` for diagnostics.
+ *
+ * @param value - Runtime value that did not match any exhaustive branch.
+ * @param metadata - Optional matcher/path/tag context for the failure.
+ * @example
+ * ```ts
+ * try {
+ *   match(value).with('ready', () => 'ok').exhaustive()
+ * } catch (error) {
+ *   if (error instanceof NonExhaustiveMatchError) console.error(error.valuePreview)
+ * }
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#nonexhaustivematcherror
+ * @see https://github.com/DiegoGBrisa/ts-match#missing-exhaustive-cases
+ */
 export class NonExhaustiveMatchError extends Error {
   readonly valuePreview: string
   readonly matcher: MatchErrorMetadata['matcher'] | undefined
@@ -60,6 +102,22 @@ export class NonExhaustiveMatchError extends Error {
   }
 }
 
+/**
+ * Error thrown by `assertMatching` when a value fails its required pattern.
+ *
+ * The error message includes short previews of the value and pattern. The full
+ * value and pattern are attached as non-enumerable properties so callers can log
+ * or inspect them without polluting normal JSON serialization.
+ *
+ * @param pattern - Pattern that was required.
+ * @param value - Runtime value that failed the pattern.
+ * @example
+ * ```ts
+ * assertMatching({ type: 'ready' }, value)
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#patternmismatcherror
+ * @see https://github.com/DiegoGBrisa/ts-match#assertmatching
+ */
 export class PatternMismatchError extends Error {
   readonly valuePreview: string
   readonly patternPreview: string

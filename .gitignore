@@ -3,5 +3,6 @@ dist
 coverage
 .pack
 *.tgz
+.release-notes-*.md
 .DS_Store
 .fallow

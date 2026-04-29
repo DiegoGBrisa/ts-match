@@ -1,0 +1,58 @@
+name: Bug report
+description: Report incorrect runtime behavior, TypeScript inference, diagnostics, or packaging issues.
+title: 'bug: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a ts-match bug. Please include a minimal reproduction so the behavior can be verified in tests.
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: The version from package.json, lockfile, or npm.
+      placeholder: '1.0.0'
+    validations:
+      required: true
+  - type: dropdown
+    id: issue-area
+    attributes:
+      label: Issue area
+      options:
+        - Runtime matching
+        - TypeScript inference
+        - TypeScript diagnostic message
+        - Package install/import
+        - Documentation/examples
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the smallest TypeScript snippet, package-manager command, or repository link that shows the problem.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: 'Node 20/22/24, TypeScript version, package manager'
+    validations:
+      required: false

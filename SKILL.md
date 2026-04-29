@@ -7,7 +7,7 @@ description: This skill should be used when an agent is writing or reviewing Typ
 
 ## What the library is for
 
-Use ts-match for TypeScript-first pattern matching with strong handler inference, exhaustive handling of closed unions, explicit async terminals, and runtime validation helpers. The library is published and installed as `@diegogbrisa/ts-match` because the unscoped `ts-match` package name is unavailable.
+Use ts-match for TypeScript-first pattern matching with strong handler inference, exhaustive handling of closed unions, explicit async terminals, and runtime validation helpers. Install and import it as `@diegogbrisa/ts-match`.
 
 Primary APIs:
 
