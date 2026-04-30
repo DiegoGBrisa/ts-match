@@ -109,7 +109,7 @@ export function group(...args: readonly unknown[]): GroupEntry<readonly Discrimi
   const handler = args.at(-1)
   if (typeof handler !== 'function') throw new TypeError('group(...) handler must be a function.')
 
-  const tags = normalizeTags(args.slice(0, -1))
+  const tags: readonly Discriminant[] = Object.freeze([...normalizeTags(args.slice(0, -1))])
   const entry: GroupEntry<readonly Discriminant[], unknown> = {
     [GROUP_TOKEN]: true,
     tags,

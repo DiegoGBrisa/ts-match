@@ -1128,6 +1128,7 @@ function normalizeGroupArgs(args: readonly unknown[]): RuntimeGroupArgs {
 
   const first = tags[0]
   if (tags.length === 1 && Array.isArray(first)) {
+    if (first.length === 0) throw new TypeError('group(...) requires at least one tag.')
     if (!isDiscriminantArray(first)) throw new TypeError('group(...) tags must be discriminants.')
     return { tags: first, handler }
   }
