@@ -211,7 +211,8 @@ Behavior:
 - async handlers are awaited by the terminal promise;
 - synchronous handler throws become promise rejections;
 - `.otherwise(...)` returns `Promise<...>`;
-- `.exhaustive()` returns `Promise<...>`.
+- `.exhaustive()` returns `Promise<...>`;
+- the input value is matched as provided, so await promise-producing sources before calling `match.async(...)`.
 
 ## `matchBy`
 
@@ -305,7 +306,7 @@ const description = await matchBy
 
 Checked example: [`examples/06-match-by-async.ts`](examples/06-match-by-async.ts).
 
-Behavior mirrors `match.async`: returned values and promises are normalized into one terminal promise, and synchronous handler throws become rejections.
+Behavior mirrors `match.async`: returned values and promises are normalized into one terminal promise, and synchronous handler throws become rejections. Await promise-producing sources before calling `matchBy.async(...)`; the selected value itself is not unwrapped.
 
 ## `group`
 
@@ -328,7 +329,9 @@ group(['start', 'resume'], handler)
 group('start', 'resume', handler)
 ```
 
-Use the array form when it reads better or when the tags already exist as a reusable list. It keeps `group` to two arguments. Use the variadic form when you want the best inline autocomplete while typing tags. TypeScript's language service can complete direct variadic argument positions more reliably than string literals nested inside generic array arguments.
+Use the array form when it reads better or when the tags already exist as a reusable literal tuple. It keeps `group` to two arguments. Use the variadic form when you want the best inline autocomplete while typing tags. TypeScript's language service can complete direct variadic argument positions more reliably than string literals nested inside generic array arguments.
+
+For exhaustiveness, array-form tags must be statically known. Inline arrays and `as const` reusable arrays count as handled tags; broad runtime arrays such as `readonly ('start' | 'resume')[]` do not prove coverage because TypeScript cannot know which tags are actually present at runtime.
 
 Single-tag groups do not need a second tag:
 
@@ -683,13 +686,13 @@ Prefer callback grouped cases when handlers need inferred variants:
 matchBy(event, 'type').cases((group) => [group('open', 'close', (event) => event.type), group('idle', () => 'idle')])
 ```
 
-Array-form callback groups are still supported and can be more readable:
+Array-form callback groups are still supported and can be more readable when their tags are statically known:
 
 ```ts
 matchBy(event, 'type').cases((group) => [group(['open', 'close'], (event) => event.type), group('idle', () => 'idle')])
 ```
 
-The tradeoff is editor behavior: TypeScript currently provides more reliable autocomplete in variadic positions like `group('open', '|', handler)` than inside nested arrays like `group(['|'], handler)`. This is a language-service contextual-typing limitation, not a runtime limitation.
+The tradeoff is editor behavior: TypeScript currently provides more reliable autocomplete in variadic positions like `group('open', '|', handler)` than inside nested arrays like `group(['|'], handler)`. This is a language-service contextual-typing limitation, not a runtime limitation. Exhaustiveness also only counts literal tuple arrays; dynamic runtime arrays are accepted at runtime but cannot prove that every tag is covered.
 
 Standalone exported `group(...)` is useful for reusable groups, but because it is created before `.cases(...)` has context, handler annotations can still help in complex prebuilt tuple/group arrays. Do not add unsafe casts; use callback `group` first.
 

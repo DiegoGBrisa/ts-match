@@ -29,7 +29,7 @@ Use `matchBy` when one key/path decides a discriminated union branch. Use `match
 - Do not invent helpers. Use only the helpers listed in this skill.
 - Prefer `.exhaustive()` for closed unions.
 - Use `.otherwise(...)` only when a fallback is intentional.
-- Use `match.async` or `matchBy.async` when handlers may be async or callers need one normalized promise.
+- Use `match.async` or `matchBy.async` when handlers may be async or callers need one normalized promise. Await promise-producing input sources before matching; async matchers do not unwrap the input value.
 - Do not use unsafe TypeScript casts. Only `as const` is acceptable for literal preservation, such as reusable grouped tag arrays.
 - Do not use broad `any` in examples or generated code.
 - Do not use `switch` in generated examples unless explicitly writing a short before/after comparison requested by the user.
@@ -189,7 +189,7 @@ const status = matchBy(event, 'type').cases((group) => [
 ])
 ```
 
-Array-form callback groups remain supported and are often more readable because `group` keeps two arguments. TypeScript gives better editor completions in variadic tag positions than inside `group(['...'], handler)`, so prefer variadic form only when inline autocomplete/inference matters. Use exported `group(...)` for reusable prebuilt groups, especially when handlers do not need narrowed parameters:
+Array-form callback groups remain supported and are often more readable because `group` keeps two arguments. TypeScript gives better editor completions in variadic tag positions than inside `group(['...'], handler)`, so prefer variadic form only when inline autocomplete/inference matters. For exhaustiveness, array-form tags must be statically known: inline arrays and reusable `as const` arrays count as covered tags; broad runtime arrays do not prove coverage. Use exported `group(...)` for reusable prebuilt groups, especially when handlers do not need narrowed parameters:
 
 ```ts
 const statusCases = [group(['start', 'resume'] as const, () => 'active'), group('stop', () => 'inactive')]
@@ -254,6 +254,7 @@ If grouped-case inference is weak, prefer `.cases((group) => [...])` and the var
 - Using undocumented helper aliases.
 - Adding casts to force handler types instead of changing the pattern or using callback `group`.
 - Using sync `match` with async handlers when callers expect one promise.
+- Passing an unresolved `Promise<T>` into `match.async(...)` or `matchBy.async(...)` and expecting the matcher to unwrap it.
 - Using inline `.cases({...})` inside hot loops.
 - Recommending hoisted case maps that require manual handler annotations as normal user-facing code.
 - Using object-map `.cases({...})` for `null`, `undefined`, `__proto__`, or normalized key collisions.

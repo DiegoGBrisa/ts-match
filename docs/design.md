@@ -23,7 +23,7 @@ User-facing guide: [`../README.md`](../README.md). Checked examples: [`../exampl
 - Fluent method: `.with(...)`.
 - Fallback: `.otherwise(...)`.
 - Exhaustive terminal: `.exhaustive()`.
-- Async normalization is explicit: `match.async(...)` and `matchBy.async(...)`.
+- Async normalization is explicit: `match.async(...)` and `matchBy.async(...)` normalize handler results and synchronous throws into terminal promises; they do not unwrap promise input values.
 - `matchBy(value, path)` is the differentiator for discriminated unions and nested discriminants.
 
 ## Pattern helpers
@@ -104,10 +104,10 @@ Out of scope for v1:
 - `matchBy(...).partial({...}).otherwise(...)` is partial and fallback-based.
 - `matchBy(...).with(...)` supports multiple tags before the handler.
 - Object-map `.cases({...})` supports string, number, symbol, and boolean tags when representable without collision.
-- Tuple/grouped `.cases([...])` is the universal exact form and supports string, number, symbol, boolean, null, and undefined.
+- Tuple/grouped `.cases([...])` is the universal exact form and supports string, number, symbol, boolean, null, and undefined. Exhaustive coverage only counts statically known tags; broad runtime tag arrays do not prove that every tag is present.
 - Callback `.cases((group) => [...])` is the preferred grouped form when handlers need inferred values; the local `group` callback has full `matchBy` context and requires no TypeScript annotations.
 - Callback `group(tag, handler)` handles one tag. Callback `group(tag, tag, handler)` handles two or more tags and is the best inline autocomplete shape because TypeScript completes direct variadic argument positions reliably.
-- Callback `group([tag, tag], handler)` remains supported and is often more visually tidy because `group` has only two arguments. Its tradeoff is editor-only: TypeScript's language service does not reliably complete literals nested inside generic array arguments such as `group(['|'], handler)`.
+- Callback `group([tag, tag], handler)` remains supported and is often more visually tidy because `group` has only two arguments. Inline arrays and reusable `as const` tuples count toward exhaustiveness. Broad runtime arrays are accepted by runtime normalization but intentionally do not count as exhaustive coverage because TypeScript cannot know which tags they contain.
 - Exported group helper: `group(tag, handler)`, `group(tag, tag, handler)`, and `group(tags, handler)` remain available for reusable prebuilt groups, but standalone helpers cannot receive callback-contextual handler types from a later `cases(...)` call.
 
 ## Assertion helpers
@@ -123,7 +123,7 @@ Favor the simplest behavior that is predictable at runtime, strongly typed in Ty
 Known TypeScript/editor limitations:
 
 - Standalone exported `group(...)` cannot receive contextual handler types from a later `.cases(...)` call due to TypeScript inference limits. Prefer `.cases((group) => [...])` when grouped handlers should infer without annotations.
-- Array-form callback groups (`group(['a', 'b'], handler)`) are valid runtime and type-level inputs, but inline autocomplete inside the nested array is less reliable than variadic callback groups (`group('a', 'b', handler)`). Prefer the variadic form when editor completion is the priority; keep array form when readability or reusable tag arrays matter more.
+- Array-form callback groups (`group(['a', 'b'], handler)`) are valid runtime and type-level inputs when the array is a literal tuple, but inline autocomplete inside the nested array is less reliable than variadic callback groups (`group('a', 'b', handler)`). Prefer the variadic form when editor completion is the priority; keep array form when readability or reusable `as const` tag arrays matter more.
 
 Current verification includes runtime tests, deterministic property-style tests, suite-inspired adversarial tests, adversarial type tests, diagnostic fixtures (`pnpm test:diagnostics`), checked examples, README local-link validation, package export smoke tests, coverage reporting, a native runtime benchmark, a dispatch-strategy benchmark (`pnpm bench:dispatch`), and a type-performance benchmark (`pnpm bench:types`). Object-map `.cases({...})` rejects broad discriminants, `null`/`undefined` tags, and normalized key collisions such as `true` vs `'true'` or `1` vs `'1'`; tuple/grouped entries remain the universal exact form. Runtime benchmarks measure both inline and hoisted object case maps because hoisting handlers is the realistic hot-path shape for allocation-sensitive code.
 
