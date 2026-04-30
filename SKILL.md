@@ -18,7 +18,7 @@ Primary APIs:
 - `P` — namespace of pattern helpers.
 - `isMatching(pattern, value)` / `isMatching(pattern)(value)` — runtime type guards.
 - `assertMatching(pattern, value)` — boundary assertion that throws `PatternMismatchError` on mismatch.
-- `group(tag, handler)`, `group(tag, tag, handler)`, and `group(tags, handler)` — grouped `matchBy` case entries.
+- `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, and `group(tags, handler)` — grouped `matchBy` case entries.
 
 Use `matchBy` when one key/path decides a discriminated union branch. Use `match` when matching structure, tuples, arrays, predicates, selections, records, exact objects, or non-discriminant values.
 

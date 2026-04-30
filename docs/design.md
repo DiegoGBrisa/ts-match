@@ -106,9 +106,9 @@ Out of scope for v1:
 - Object-map `.cases({...})` supports string, number, symbol, and boolean tags when representable without collision.
 - Tuple/grouped `.cases([...])` is the universal exact form and supports string, number, symbol, boolean, null, and undefined. Exhaustive coverage only counts statically known tags; broad runtime tag arrays do not prove that every tag is present.
 - Callback `.cases((group) => [...])` is the preferred grouped form when handlers need inferred values; the local `group` callback has full `matchBy` context and requires no TypeScript annotations.
-- Callback `group(tag, handler)` handles one tag. Callback `group(tag, tag, handler)` handles two or more tags and is the best inline autocomplete shape because TypeScript completes direct variadic argument positions reliably.
+- Callback `group(tag, handler)` handles one tag. Callback `group(tag1, tag2, ...moreTags, handler)` handles two or more tags and is the best inline autocomplete shape because TypeScript completes direct variadic argument positions reliably.
 - Callback `group([tag, tag], handler)` remains supported and is often more visually tidy because `group` has only two arguments. Inline arrays and reusable `as const` tuples count toward exhaustiveness. Broad runtime arrays are accepted by runtime normalization but intentionally do not count as exhaustive coverage because TypeScript cannot know which tags they contain.
-- Exported group helper: `group(tag, handler)`, `group(tag, tag, handler)`, and `group(tags, handler)` remain available for reusable prebuilt groups, but standalone helpers cannot receive callback-contextual handler types from a later `cases(...)` call.
+- Exported group helper: `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, and `group(tags, handler)` remain available for reusable prebuilt groups, but standalone helpers cannot receive callback-contextual handler types from a later `cases(...)` call.
 
 ## Assertion helpers
 

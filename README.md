@@ -782,7 +782,7 @@ Run all examples with `pnpm test:examples`.
 
 ### Utilities
 
-- `group(tag, handler)`, `group(tag, tag, handler)`, `group(tags, handler)`
+- `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, `group(tags, handler)`
 - `isMatching(pattern, value)`
 - `isMatching(pattern)(value)`
 - `assertMatching(pattern, value)`
