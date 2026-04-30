@@ -38,11 +38,11 @@ matchBy(action, 'type')
 // @ts-expect-error ts-match: object-map cases are missing required key(s)
 matchBy(action, 'type').cases({ start: (value) => value.payload })
 
-// @ts-expect-error ts-match: object-map case contains an extra key
 matchBy(action, 'type').cases({
   start: (value) => value.payload,
   stop: (value) => value.code,
   reset: () => 'reset',
+  // @ts-expect-error ts-match: object-map case contains an extra key
   extra: () => 'extra',
 })
 

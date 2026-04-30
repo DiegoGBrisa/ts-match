@@ -1,4 +1,5 @@
 import { assertMatching, isMatching, match, matchBy, P } from '../src/index.js'
+import type { MatchByPath } from '../src/index.js'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
@@ -71,6 +72,20 @@ type Action =
 
 declare const action: Action
 
+const _byWithResult = matchBy(action, 'type')
+  .with('clear', () => 0)
+  .with('load-success', (value) => {
+    const files: readonly string[] = value.fileDiffs
+    // @ts-expect-error handler should be narrowed to the load-success variant
+    const error = value.error
+    void error
+    return files.length
+  })
+  .with('load-failure', (value) => value.error.length)
+  .exhaustive()
+
+type _byWith = Expect<Equal<typeof _byWithResult, number>>
+
 const _byMapResult = matchBy(action, 'type').cases({
   clear: () => 0,
   'load-success': (value) => value.fileDiffs.length,
@@ -79,10 +94,10 @@ const _byMapResult = matchBy(action, 'type').cases({
 
 type _byMap = Expect<Equal<typeof _byMapResult, number>>
 
-// @ts-expect-error extra keys should be rejected
 matchBy(action, 'type').cases({
   clear: () => 0,
   'load-success': (value) => value.fileDiffs.length,
+  // @ts-expect-error extra keys should be rejected
   nope: () => 1,
   'load-failure': (value) => value.error.length,
 })
@@ -90,11 +105,11 @@ matchBy(action, 'type').cases({
 // @ts-expect-error missing load-failure should be rejected
 matchBy(action, 'type').cases({
   clear: () => 0,
-  'load-success': (value) => value.fileDiffs.length,
+  'load-success': (value: Extract<Action, { type: 'load-success' }>) => value.fileDiffs.length,
 })
 
 const _byGroupedResult = matchBy(action, 'type').cases((group) => [
-  group(['clear', 'load-failure'], (value) => ('error' in value ? value.error.length : 0)),
+  group('clear', 'load-failure', (value) => ('error' in value ? value.error.length : 0)),
   group('load-success', (value) => value.fileDiffs.length),
 ])
 
@@ -113,6 +128,59 @@ type Nested =
   | { meta?: undefined; empty: true }
 
 declare const nested: Nested
+
+type UiEventPathAutocomplete =
+  | {
+      readonly type: 'click'
+      readonly value: { readonly meta: { readonly form: string; readonly kind: 'primary' }; readonly x: number }
+    }
+  | {
+      readonly type: 'submit'
+      readonly value: { readonly meta: { readonly form: string; readonly kind: 'secondary' }; readonly y: number }
+    }
+
+type _matchByStringPathCompletions = Expect<
+  Equal<Extract<MatchByPath<UiEventPathAutocomplete>, string>, 'type' | 'value.meta.kind'>
+>
+
+type _matchByTuplePathCompletions = Expect<
+  Equal<
+    Extract<MatchByPath<UiEventPathAutocomplete>, readonly PropertyKey[]>,
+    readonly ['type'] | readonly ['value', 'meta', 'kind']
+  >
+>
+
+declare const broadPoint: { readonly type: 'point'; readonly x: number; readonly y: number }
+const _broadNumericPathStillWorks = matchBy(broadPoint, 'x')
+  .with(1, (value) => value.y)
+  .otherwise((value) => value.x)
+
+type _broadNumericPath = Expect<Equal<typeof _broadNumericPathStillWorks, number>>
+
+type OptionalNestedPath = { readonly meta: { readonly kind: 'ready' } } | { readonly meta?: undefined }
+type _optionalNestedPathAutocomplete = Expect<Equal<Extract<MatchByPath<OptionalNestedPath>, string>, 'meta.kind'>>
+
+declare const EVENT_KIND: unique symbol
+type SymbolPathEvent =
+  | { readonly meta: { readonly [EVENT_KIND]: 'user'; readonly code: number } }
+  | { readonly meta: { readonly [EVENT_KIND]: 'system'; readonly code: number } }
+type _symbolTuplePathAutocomplete = Expect<
+  Equal<Extract<MatchByPath<SymbolPathEvent>, readonly PropertyKey[]>, readonly ['meta', typeof EVENT_KIND]>
+>
+declare const symbolPathEvent: SymbolPathEvent
+const _symbolTuplePathValue = matchBy(symbolPathEvent, ['meta', EVENT_KIND])
+  .with('user', (value) => value.meta.code)
+  .with('system', (value) => value.meta.code)
+  .exhaustive()
+type _symbolTuplePath = Expect<Equal<typeof _symbolTuplePathValue, number>>
+
+type DottedKeyPathEvent =
+  | { readonly 'meta.type': 'click'; readonly x: number }
+  | { readonly 'meta.type': 'submit'; readonly y: number }
+type _dottedKeyStringPathAutocomplete = Expect<Equal<Extract<MatchByPath<DottedKeyPathEvent>, string>, never>>
+type _dottedKeyTuplePathAutocomplete = Expect<
+  Equal<Extract<MatchByPath<DottedKeyPathEvent>, readonly PropertyKey[]>, readonly ['meta.type']>
+>
 
 const _nestedResultValue = matchBy(nested, 'meta.type').cases([
   ['click', (value: Extract<Nested, { meta: { type: 'click' } }>) => value.meta.x],

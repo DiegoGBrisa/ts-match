@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assertMatching,
   isMatching,
+  group,
   match,
   matchBy,
   NonExhaustiveMatchError,
@@ -187,6 +188,9 @@ describe('matchBy', () => {
         group(false, (value) => value.error),
       ]),
     ).toBe('boom')
+
+    expect(matchBy(result, 'ok').cases((group) => [group(true, false, () => 'done')])).toBe('done')
+    expect(matchBy(result, 'ok').cases([group(true, false, () => 'reusable')])).toBe('reusable')
   })
 
   it('supports typed dot paths and tuple paths', () => {
