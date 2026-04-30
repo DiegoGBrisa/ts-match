@@ -1,4 +1,4 @@
-import { assertMatching, isMatching, match, matchBy, P } from '../src/index.js'
+import { assertMatching, group, isMatching, match, matchBy, P } from '../src/index.js'
 import type { MatchByPath } from '../src/index.js'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
@@ -121,6 +121,27 @@ const _byGroupHelperResult = matchBy(action, 'type').cases((group) => [
 ])
 
 type _byGroupHelper = Expect<Equal<typeof _byGroupHelperResult, number>>
+
+const reusableActionTags = ['clear', 'load-failure'] as const
+const _byReusableGroupHelperResult = matchBy(action, 'type').cases((group) => [
+  group(reusableActionTags, (value) => ('error' in value ? value.error.length : 0)),
+  group('load-success', (value) => value.fileDiffs.length),
+])
+
+type _byReusableGroupHelper = Expect<Equal<typeof _byReusableGroupHelperResult, number>>
+
+const runtimeActionTags: readonly ('clear' | 'load-failure')[] = ['clear']
+
+// @ts-expect-error runtime arrays cannot prove exhaustive grouped-case coverage
+matchBy(action, 'type').cases((group) => [
+  group(runtimeActionTags, (value) => ('error' in value ? value.error.length : 0)),
+  group('load-success', (value) => value.fileDiffs.length),
+])
+
+const exportedRuntimeGroup = group(runtimeActionTags, (value: Action) => ('error' in value ? value.error.length : 0))
+
+// @ts-expect-error runtime arrays cannot prove exhaustive exported-group coverage
+matchBy(action, 'type').cases([exportedRuntimeGroup, group('load-success', (value: Action) => value.fileDiffs.length)])
 
 type Nested =
   | { meta: { type: 'click'; x: number } }

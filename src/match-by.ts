@@ -522,13 +522,16 @@ type EntryReturn<TEntries extends readonly unknown[]> = TEntries[number] extends
       : never
   : never
 
+/** Tags only count toward exhaustiveness when the entry carries a literal tuple, not a broad runtime array. */
+type StaticEntryTags<TTags extends readonly Discriminant[]> = number extends TTags['length'] ? never : TTags[number]
+
 type EntryTags<TEntries extends readonly unknown[]> = TEntries[number] extends infer TEntry
   ? TEntry extends readonly [infer TTags extends readonly Discriminant[], unknown]
-    ? TTags[number]
+    ? StaticEntryTags<TTags>
     : TEntry extends readonly [infer TTag extends Discriminant, unknown]
       ? TTag
       : TEntry extends { readonly tags: infer TTags extends readonly Discriminant[] }
-        ? TTags[number]
+        ? StaticEntryTags<TTags>
         : never
   : never
 
