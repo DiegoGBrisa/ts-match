@@ -25,6 +25,12 @@ const eventCaseMap = {
   stop: (value: Extract<Event, { type: 'stop' }>) => value.value * 3,
 }
 
+const asyncEventCaseMap = {
+  start: async (value: Extract<Event, { type: 'start' }>) => value.value,
+  delta: async (value: Extract<Event, { type: 'delta' }>) => value.value * 2,
+  stop: async (value: Extract<Event, { type: 'stop' }>) => value.value * 3,
+}
+
 const nestedPhaseCaseMap = {
   open: (value: Extract<Event, { meta: { phase: 'open' } }>) => value.value,
   active: (value: Extract<Event, { meta: { phase: 'active' } }>) => value.value * 2,
@@ -40,7 +46,7 @@ const stringPattern = P.string
 const recordValue = { 1: 'one', 2: 'two', 3: 'three' }
 const tupleValue = ['ok', 1, true] as const
 const arrayValue = [1, 2, 3, 4, 5]
-function asyncEvent(): Event {
+async function asyncEvent(): Promise<Event> {
   return { type: 'delta', value: 2, meta: { phase: 'active' } }
 }
 
@@ -341,10 +347,11 @@ const asyncTasks: readonly AsyncTask[] = [
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
+        const event = await asyncEvent()
         total += await match
-          .async(asyncEvent())
-          .with({ type: 'delta' }, (event) => event.value)
-          .otherwise(() => 0)
+          .async(event)
+          .with({ type: 'delta' }, async (value) => value.value)
+          .otherwise(async () => 0)
       }
       return total
     },
@@ -355,7 +362,8 @@ const asyncTasks: readonly AsyncTask[] = [
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        total += await matchBy.async(asyncEvent(), 'type').cases(eventCaseMap)
+        const event = await asyncEvent()
+        total += await matchBy.async(event, 'type').cases(asyncEventCaseMap)
       }
       return total
     },
