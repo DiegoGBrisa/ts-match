@@ -3,25 +3,74 @@ import type { Discriminant, GroupEntry } from './types.js'
 
 type CaseHandler = (value: never) => unknown
 
+function isDiscriminant(value: unknown): value is Discriminant {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'symbol' ||
+    typeof value === 'boolean' ||
+    value === null ||
+    value === undefined
+  )
+}
+
+function isDiscriminantArray(values: readonly unknown[]): values is readonly Discriminant[] {
+  return values.every(isDiscriminant)
+}
+
+function normalizeTags(values: readonly unknown[]): readonly Discriminant[] {
+  if (values.length === 0) throw new TypeError('group(...) requires at least one tag.')
+
+  const first = values[0]
+  if (values.length === 1 && Array.isArray(first)) {
+    if (first.length === 0) throw new TypeError('group(...) requires at least one tag.')
+    if (!isDiscriminantArray(first)) throw new TypeError('group(...) tags must be discriminants.')
+    return first
+  }
+
+  if (!isDiscriminantArray(values)) throw new TypeError('group(...) tags must be discriminants.')
+  return values
+}
+
 /**
  * Creates a reusable grouped case entry for `matchBy(...).cases(...)`.
  *
  * Use `group` when several discriminant tags should share one handler while
- * keeping exhaustiveness checking. Pass either a single tag or a readonly array
- * of tags, plus a handler that accepts the union of values covered by those tags
- * when used through `matchBy`'s typed `.cases(...)` APIs.
+ * keeping exhaustiveness checking. Pass either a single tag, multiple variadic
+ * tags, or a readonly array of tags, plus a handler that accepts the union of
+ * values covered by those tags when used through `matchBy`'s typed `.cases(...)`
+ * APIs.
  *
- * @param tags - One discriminant tag or a readonly list of tags to handle together.
+ * @param tags - Variadic discriminant tags to handle together.
  * @param handler - Function invoked when the value at the `matchBy` path equals one of the tags.
  * @returns A frozen grouped case entry consumable by `matchBy(...).cases(...)`.
- * @throws {TypeError} When `handler` is not a function.
+ * @throws {TypeError} When `handler` is not a function or tags are not discriminants.
  * @example
  * ```ts
- * matchBy(event, 'type').cases([
- *   group(['created', 'updated'] as const, (value) => value.id),
- *   ['deleted', (value) => value.id],
+ * matchBy(event, 'type').cases((group) => [
+ *   group('created', 'updated', (value) => value.id),
+ *   group('deleted', (value) => value.id),
  * ])
  * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#group
+ * @see https://github.com/DiegoGBrisa/ts-match#grouped-case-inference
+ */
+export function group<
+  const TTags extends readonly [Discriminant, Discriminant, ...Discriminant[]],
+  THandler extends CaseHandler,
+>(...args: readonly [...tags: TTags, handler: THandler]): GroupEntry<TTags, THandler>
+
+/**
+ * Creates a reusable grouped case entry from a readonly array of tags.
+ *
+ * Prefer the variadic form inside grouped-case callbacks when you want
+ * segment-by-segment tag autocomplete. The array form remains useful for
+ * reusable tag lists that already exist as readonly arrays.
+ *
+ * @param tags - Readonly list of discriminant tags to handle together.
+ * @param handler - Function invoked when the value at the `matchBy` path equals one of the tags.
+ * @returns A frozen grouped case entry consumable by `matchBy(...).cases(...)`.
+ * @throws {TypeError} When `handler` is not a function or a tag is not a discriminant.
  * @see https://github.com/DiegoGBrisa/ts-match#group
  * @see https://github.com/DiegoGBrisa/ts-match#grouped-case-inference
  */
@@ -48,20 +97,19 @@ export function group<TTag extends Discriminant, THandler extends CaseHandler>(
 ): GroupEntry<readonly [TTag], THandler>
 
 /**
- * Implements grouped case creation for both single-tag and multi-tag overloads.
+ * Implements grouped case creation for single-tag, variadic multi-tag, and
+ * readonly-array overloads.
  *
- * @param tagOrTags - One discriminant tag or readonly list of tags.
- * @param handler - Runtime handler stored on the grouped entry.
+ * @param args - Tags followed by the runtime handler, or a tag array followed by the handler.
  * @returns A frozen grouped case entry.
- * @throws {TypeError} When `handler` is not callable.
+ * @throws {TypeError} When `handler` is not callable or a tag is not a discriminant.
  * @see https://github.com/DiegoGBrisa/ts-match#group
  */
-export function group(
-  tagOrTags: Discriminant | readonly Discriminant[],
-  handler: unknown,
-): GroupEntry<readonly Discriminant[], unknown> {
+export function group(...args: readonly unknown[]): GroupEntry<readonly Discriminant[], unknown> {
+  const handler = args.at(-1)
   if (typeof handler !== 'function') throw new TypeError('group(...) handler must be a function.')
-  const tags: readonly Discriminant[] = Array.isArray(tagOrTags) ? tagOrTags : [tagOrTags]
+
+  const tags: readonly Discriminant[] = Object.freeze([...normalizeTags(args.slice(0, -1))])
   const entry: GroupEntry<readonly Discriminant[], unknown> = {
     [GROUP_TOKEN]: true,
     tags,

@@ -270,6 +270,48 @@ export type BuiltInPattern =
   | RecordPattern<unknown, unknown>
   | NonEmptyRecordPattern<unknown, unknown>
 
+type PatternKey<TValue> = TValue extends unknown ? keyof TValue : never
+
+type PatternValueAtKey<TValue, TKey extends PropertyKey> = TValue extends unknown
+  ? TKey extends keyof TValue
+    ? TValue[TKey]
+    : never
+  : never
+
+type ObjectPatternSuggestion<TValue> = {
+  readonly [K in PatternKey<TValue>]?: MatchPatternSuggestion<PatternValueAtKey<TValue, K>>
+}
+
+type ArrayPatternSuggestion<TValue> = TValue extends readonly (infer TItem)[]
+  ? readonly MatchPatternSuggestion<TItem>[]
+  : never
+
+/**
+ * Autocomplete-friendly structural pattern shape accepted by `match(...).with(...)`.
+ *
+ * This excludes `P.*` helper object internals so object-literal completions show
+ * user value keys instead of helper implementation fields. The public matcher
+ * overloads still accept helpers through the normal validation fallback.
+ *
+ * @typeParam TValue - Value type currently remaining in a match chain.
+ * @see https://github.com/DiegoGBrisa/ts-match#withpattern-handler
+ */
+export type MatchPatternSuggestion<TValue> =
+  IsUnsafe<TValue> extends true
+    ? never
+    :
+        | Extract<TValue, Primitive>
+        | ArrayPatternSuggestion<TValue>
+        | (TValue extends object ? ObjectPatternSuggestion<TValue> : never)
+
+/**
+ * Autocomplete-friendly pattern type accepted by `match(...).with(...)`.
+ *
+ * @typeParam TValue - Value type currently remaining in a match chain.
+ * @see https://github.com/DiegoGBrisa/ts-match#withpattern-handler
+ */
+export type MatchPattern<TValue> = MatchPatternSuggestion<TValue> | BuiltInPattern
+
 /**
  * Constructor shape accepted by `P.instanceOf(...)`.
  *
@@ -1092,6 +1134,18 @@ type TsMatchTypeError<TMessage extends string, TDetails = unknown> = {
   readonly 'ts-match: diagnostic': true
 }
 
+/**
+ * Turns a diagnostic gate into an optional rest argument.
+ *
+ * Valid inputs produce no extra argument. Invalid inputs require one diagnostic
+ * argument whose type carries the readable ts-match error message, which keeps
+ * primary API arguments autocomplete-friendly while preserving compile failures.
+ *
+ * @typeParam TDiagnostic - Diagnostic gate result, usually `unknown` or `TsMatchTypeError`.
+ * @see https://github.com/DiegoGBrisa/ts-match#typescript-diagnostics-and-troubleshooting
+ */
+export type DiagnosticArgs<TDiagnostic> = unknown extends TDiagnostic ? readonly [] : readonly [diagnostic: TDiagnostic]
+
 type InvalidRestUsageError<TPattern> = TsMatchTypeError<
   'ts-match: invalid P.rest(...) usage. P.rest(...) can only appear as the final item of a tuple pattern; move it to the end of P.tuple([...]) or remove it.',
   { readonly pattern: TPattern }
@@ -1366,7 +1420,7 @@ export type NonExhaustiveMatchByArgument<TRemaining, TPath extends PropertyPath>
       { readonly path: TPath; readonly remaining: PathValue<TRemaining, TPath>; readonly remainingValue: TRemaining }
     >
 
-type ObjectCaseMapSupportArgument<TTags> =
+export type ObjectCaseMapSupportArgument<TTags> =
   IsFiniteCaseUnion<TTags> extends true
     ? Extract<TTags, null | undefined> extends never
       ? HasNormalizedCaseKeyCollisions<TTags> extends true
@@ -1584,6 +1638,66 @@ type DotPath<TValue> = TValue extends unknown
       }[Extract<keyof TValue, string>]
     : never
   : never
+
+type TuplePathKey<TKey extends PropertyKey> = string extends TKey
+  ? never
+  : number extends TKey
+    ? never
+    : symbol extends TKey
+      ? never
+      : TKey
+
+type TuplePathChild<TValue, TKey extends PropertyKey> =
+  NonNullable<TValue> extends DotPathLeaf
+    ? never
+    : NonNullable<TValue> extends object
+      ? TuplePath<NonNullable<TValue>> extends infer TChild extends readonly PropertyKey[]
+        ? readonly [TKey, ...TChild]
+        : never
+      : never
+
+type TuplePath<TValue> = TValue extends unknown
+  ? TValue extends object
+    ? {
+        [K in TuplePathKey<keyof TValue>]: readonly [K] | TuplePathChild<TValue[K], K>
+      }[TuplePathKey<keyof TValue>]
+    : never
+  : never
+
+type SuggestedMatchByPath<TValue, TPath extends PropertyPath> =
+  Extract<PathValue<TValue, TPath>, Discriminant> extends infer TTags
+    ? IsFiniteCaseUnion<TTags> extends true
+      ? [Exclude<TTags, undefined>] extends [never]
+        ? never
+        : TPath
+      : never
+    : never
+
+type DotDiscriminantPath<TValue> =
+  DotPath<TValue> extends infer TPath ? (TPath extends string ? SuggestedMatchByPath<TValue, TPath> : never) : never
+
+type TupleDiscriminantPath<TValue> =
+  TuplePath<TValue> extends infer TPath
+    ? TPath extends readonly PropertyKey[]
+      ? SuggestedMatchByPath<TValue, TPath>
+      : never
+    : never
+
+type MatchByStringPath<TValue> = IsUnsafe<TValue> extends true ? string : DotDiscriminantPath<TValue>
+type MatchByTuplePath<TValue> = IsUnsafe<TValue> extends true ? readonly PropertyKey[] : TupleDiscriminantPath<TValue>
+
+/**
+ * Autocomplete-friendly path type accepted by `matchBy(value, path)`.
+ *
+ * For known object inputs, string paths are narrowed to common direct keys and
+ * nested dot paths whose resolved value can act as a discriminant tag. Tuple
+ * paths provide the same autocomplete-friendly traversal for symbols and literal
+ * keys that contain dots.
+ *
+ * @typeParam TValue - Root value type passed to `matchBy`.
+ * @see https://github.com/DiegoGBrisa/ts-match#nested-dot-path-and-tuple-path
+ */
+export type MatchByPath<TValue> = MatchByStringPath<TValue> | MatchByTuplePath<TValue>
 
 /**
  * Resolves the TypeScript value type at a `matchBy` property path.

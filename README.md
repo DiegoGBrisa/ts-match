@@ -62,6 +62,7 @@ bun add @diegogbrisa/ts-match
 - [Limitations and tradeoffs](#limitations-and-tradeoffs)
 - [Examples index](#full-examples-index)
 - [API summary](#api-reference-summary)
+- [Acknowledgements](#acknowledgements)
 - [Agent skill](SKILL.md)
 
 ## Quick start
@@ -210,7 +211,8 @@ Behavior:
 - async handlers are awaited by the terminal promise;
 - synchronous handler throws become promise rejections;
 - `.otherwise(...)` returns `Promise<...>`;
-- `.exhaustive()` returns `Promise<...>`.
+- `.exhaustive()` returns `Promise<...>`;
+- the input value is matched as provided, so await promise-producing sources before calling `match.async(...)`.
 
 ## `matchBy`
 
@@ -230,7 +232,7 @@ Checked example: [`examples/04-match-by-direct-key.ts`](examples/04-match-by-dir
 
 ### Nested dot path and tuple path
 
-Dot paths read nested string-key properties. Tuple paths are useful for symbols and exact path segments.
+Dot paths read nested string-key properties and autocomplete finite tag-like paths from the input value type. Tuple paths provide segment-by-segment autocomplete and are useful for symbols and exact path segments.
 
 ```ts
 const label = matchBy(event, 'meta.type')
@@ -245,6 +247,8 @@ const symbolLabel = matchBy(event, ['meta', EVENT_KIND])
 ```
 
 Checked example: [`examples/05-match-by-nested-path.ts`](examples/05-match-by-nested-path.ts).
+
+Autocomplete intentionally suggests finite tag-like paths, such as literal string/number/boolean unions. Broad payload leaves such as `number` coordinates or arbitrary `string` labels can still be typed manually when you want fallback-based matching, but they are not suggested as primary discriminant paths.
 
 Dot-path limitation: a dot string always means nesting. Use tuple paths for literal keys that contain dots.
 
@@ -302,7 +306,7 @@ const description = await matchBy
 
 Checked example: [`examples/06-match-by-async.ts`](examples/06-match-by-async.ts).
 
-Behavior mirrors `match.async`: returned values and promises are normalized into one terminal promise, and synchronous handler throws become rejections.
+Behavior mirrors `match.async`: returned values and promises are normalized into one terminal promise, and synchronous handler throws become rejections. Await promise-producing sources before calling `matchBy.async(...)`; the selected value itself is not unwrapped.
 
 ## `group`
 
@@ -310,13 +314,36 @@ Grouped cases let several tags share one handler. Prefer the callback form when 
 
 ```ts
 const status = matchBy(event, 'type').cases((group) => [
-  group(['start', 'resume'], (value) => `active:${value.at}`),
+  group('start', 'resume', (value) => `active:${value.at}`),
   group('stop', (value) => `stopped:${value.reason}`),
   group('error', (value) => `error:${value.message}`),
 ])
 ```
 
 Checked example: [`examples/07-grouped-cases.ts`](examples/07-grouped-cases.ts).
+
+Both inline grouped forms are valid:
+
+```ts
+group(['start', 'resume'], handler)
+group('start', 'resume', handler)
+```
+
+Use the array form when it reads better or when the tags already exist as a reusable literal tuple. It keeps `group` to two arguments. Use the variadic form when you want the best inline autocomplete while typing tags. TypeScript's language service can complete direct variadic argument positions more reliably than string literals nested inside generic array arguments.
+
+For exhaustiveness, array-form tags must be statically known. Inline arrays and `as const` reusable arrays count as handled tags; broad runtime arrays such as `readonly ('start' | 'resume')[]` do not prove coverage because TypeScript cannot know which tags are actually present at runtime.
+
+Single-tag groups do not need a second tag:
+
+```ts
+group('stop', (value) => `stopped:${value.reason}`)
+```
+
+Variadic groups can contain two or more tags; the handler is always the final argument:
+
+```ts
+group('start', 'resume', 'retry', (value) => `active:${value.at}`)
+```
 
 The exported `group(...)` helper is useful for reusable prebuilt groups, especially when the handler does not need the narrowed value:
 
@@ -656,8 +683,16 @@ const label = matchBy(state, 'kind').cases((group) => [
 Prefer callback grouped cases when handlers need inferred variants:
 
 ```ts
+matchBy(event, 'type').cases((group) => [group('open', 'close', (event) => event.type), group('idle', () => 'idle')])
+```
+
+Array-form callback groups are still supported and can be more readable when their tags are statically known:
+
+```ts
 matchBy(event, 'type').cases((group) => [group(['open', 'close'], (event) => event.type), group('idle', () => 'idle')])
 ```
+
+The tradeoff is editor behavior: TypeScript currently provides more reliable autocomplete in variadic positions like `group('open', '|', handler)` than inside nested arrays like `group(['|'], handler)`. This is a language-service contextual-typing limitation, not a runtime limitation. Exhaustiveness also only counts literal tuple arrays; dynamic runtime arrays are accepted at runtime but cannot prove that every tag is covered.
 
 Standalone exported `group(...)` is useful for reusable groups, but because it is created before `.cases(...)` has context, handler annotations can still help in complex prebuilt tuple/group arrays. Do not add unsafe casts; use callback `group` first.
 
@@ -747,7 +782,7 @@ Run all examples with `pnpm test:examples`.
 
 ### Utilities
 
-- `group(tagOrTags, handler)`
+- `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, `group(tags, handler)`
 - `isMatching(pattern, value)`
 - `isMatching(pattern)(value)`
 - `assertMatching(pattern, value)`
@@ -782,6 +817,7 @@ These are mainly for library authors and advanced integrations:
 - `InstanceOfPattern`
 - `IntegerPattern`
 - `MatchedValue`
+- `MatchByPath`
 - `NamedSelectPattern`
 - `NanPattern`
 - `NonEmptyArrayPattern`
@@ -800,14 +836,22 @@ These are mainly for library authors and advanced integrations:
 
 ### Focused subpath exports
 
-| Published subpath                  | Public exports                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| `@diegogbrisa/ts-match/match`      | `match`, `SyncMatchBuilder`, `AsyncMatchBuilder`, `MatchFunction`, `MatchedValue`           |
-| `@diegogbrisa/ts-match/match-by`   | `matchBy`, `SyncMatchByBuilder`, `AsyncMatchByBuilder`, `MatchByBuilder`, `MatchByFunction` |
-| `@diegogbrisa/ts-match/patterns`   | `P` and every public `p*` helper                                                            |
-| `@diegogbrisa/ts-match/assertions` | `isMatching`, `assertMatching`                                                              |
-| `@diegogbrisa/ts-match/errors`     | `NonExhaustiveMatchError`, `PatternMismatchError`, `preview`, `MatchErrorMetadata`          |
-| `@diegogbrisa/ts-match/group`      | `group`                                                                                     |
+| Published subpath                  | Public exports                                                                                             |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `@diegogbrisa/ts-match/match`      | `match`, `SyncMatchBuilder`, `AsyncMatchBuilder`, `MatchFunction`, `MatchedValue`                          |
+| `@diegogbrisa/ts-match/match-by`   | `matchBy`, `SyncMatchByBuilder`, `AsyncMatchByBuilder`, `MatchByBuilder`, `MatchByFunction`, `MatchByPath` |
+| `@diegogbrisa/ts-match/patterns`   | `P` and every public `p*` helper                                                                           |
+| `@diegogbrisa/ts-match/assertions` | `isMatching`, `assertMatching`                                                                             |
+| `@diegogbrisa/ts-match/errors`     | `NonExhaustiveMatchError`, `PatternMismatchError`, `preview`, `MatchErrorMetadata`                         |
+| `@diegogbrisa/ts-match/group`      | `group`                                                                                                    |
+
+## Acknowledgements
+
+ts-match was inspired by the excellent work Gabriel Vergnaud has done on [ts-pattern](https://github.com/gvergnaud/ts-pattern).
+
+ts-pattern set a very high bar for ergonomic, type-safe pattern matching in TypeScript. I built ts-match independently because I wanted to explore a smaller ESM-only library with a different emphasis: `matchBy` for discriminant/path dispatch, explicit async matchers, named `p*` helper exports, and runtime semantics that fit my own preferences.
+
+ts-match is not affiliated with ts-pattern.
 
 ## Package notes
 

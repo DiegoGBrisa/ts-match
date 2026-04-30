@@ -2,8 +2,10 @@ import { NonExhaustiveMatchError } from './errors.js'
 import { attemptMatch } from './runtime.js'
 import type {
   AwaitedReturn,
+  BuiltInPattern,
   HandlerInput,
   MatchPatternArgument,
+  MatchPatternSuggestion,
   MatchedValue,
   NonExhaustiveMatchArgument,
   RemainingAfterPattern,
@@ -20,6 +22,12 @@ type NoInferValue<T> = [T][T extends unknown ? 0 : never]
 
 type MatchPatternArgs<TValue, TPatterns extends readonly unknown[]> = {
   readonly [K in keyof TPatterns]: TPatterns[K] & MatchPatternArgument<TValue, TPatterns[K]>
+}
+
+type SuggestedPattern<TPattern> = TPattern extends BuiltInPattern ? never : TPattern
+
+type SuggestedPatternArgs<TPatterns extends readonly unknown[]> = {
+  readonly [K in keyof TPatterns]: SuggestedPattern<TPatterns[K]>
 }
 
 const UNMATCHED_SYNC_STATE: SyncMatchState = { matched: false }
@@ -169,6 +177,11 @@ export interface SyncMatchBuilder<TValue, TRemaining, TOutput> {
    * @returns A new builder with covered cases removed from `TRemaining`.
    * @see https://github.com/DiegoGBrisa/ts-match#withpattern-handler
    */
+  with<const TPattern extends MatchPatternSuggestion<TRemaining>, const TResult>(
+    pattern: SuggestedPattern<TPattern>,
+    handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
+  ): SyncMatchBuilder<TValue, RemainingAfterPattern<TRemaining, TPattern>, TOutput | TResult>
+
   with<const TPattern, const TResult>(
     pattern: TPattern & MatchPatternArgument<TRemaining, TPattern>,
     handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
@@ -184,6 +197,20 @@ export interface SyncMatchBuilder<TValue, TRemaining, TOutput> {
    * @returns A new builder with all covered cases removed from `TRemaining`.
    * @see https://github.com/DiegoGBrisa/ts-match#withpattern-handler
    */
+  with<
+    const TPatterns extends readonly [
+      MatchPatternSuggestion<TRemaining>,
+      MatchPatternSuggestion<TRemaining>,
+      ...MatchPatternSuggestion<TRemaining>[],
+    ],
+    const TResult,
+  >(
+    ...args: [
+      ...patterns: SuggestedPatternArgs<TPatterns>,
+      handler: (value: HandlerInput<TRemaining, NoInferValue<TPatterns[number]>>) => TResult,
+    ]
+  ): SyncMatchBuilder<TValue, RemainingAfterPatterns<TRemaining, TPatterns[number]>, TOutput | TResult>
+
   with<const TPatterns extends readonly [unknown, unknown, ...unknown[]], const TResult>(
     ...args: [
       ...patterns: MatchPatternArgs<TRemaining, TPatterns>,
@@ -273,6 +300,11 @@ export interface AsyncMatchBuilder<TValue, TRemaining, TOutput> {
    * @returns A new async builder with covered cases removed from `TRemaining`.
    * @see https://github.com/DiegoGBrisa/ts-match#matchasync
    */
+  with<const TPattern extends MatchPatternSuggestion<TRemaining>, const TResult>(
+    pattern: SuggestedPattern<TPattern>,
+    handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
+  ): AsyncMatchBuilder<TValue, RemainingAfterPattern<TRemaining, TPattern>, TOutput | TResult>
+
   with<const TPattern, const TResult>(
     pattern: TPattern & MatchPatternArgument<TRemaining, TPattern>,
     handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
@@ -285,6 +317,20 @@ export interface AsyncMatchBuilder<TValue, TRemaining, TOutput> {
    * @returns A new async builder with all covered cases removed from `TRemaining`.
    * @see https://github.com/DiegoGBrisa/ts-match#matchasync
    */
+  with<
+    const TPatterns extends readonly [
+      MatchPatternSuggestion<TRemaining>,
+      MatchPatternSuggestion<TRemaining>,
+      ...MatchPatternSuggestion<TRemaining>[],
+    ],
+    const TResult,
+  >(
+    ...args: [
+      ...patterns: SuggestedPatternArgs<TPatterns>,
+      handler: (value: HandlerInput<TRemaining, NoInferValue<TPatterns[number]>>) => TResult,
+    ]
+  ): AsyncMatchBuilder<TValue, RemainingAfterPatterns<TRemaining, TPatterns[number]>, TOutput | TResult>
+
   with<const TPatterns extends readonly [unknown, unknown, ...unknown[]], const TResult>(
     ...args: [
       ...patterns: MatchPatternArgs<TRemaining, TPatterns>,
@@ -354,10 +400,27 @@ class SyncMatchBuilderImpl<TValue, TRemaining, TOutput> {
     private readonly state: SyncMatchState,
   ) {}
 
+  with<const TPattern extends MatchPatternSuggestion<TRemaining>, const TResult>(
+    pattern: SuggestedPattern<TPattern>,
+    handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
+  ): SyncMatchBuilder<TValue, RemainingAfterPattern<TRemaining, TPattern>, TOutput | TResult>
   with<const TPattern, const TResult>(
     pattern: TPattern & MatchPatternArgument<TRemaining, TPattern>,
     handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
   ): SyncMatchBuilder<TValue, RemainingAfterPattern<TRemaining, TPattern>, TOutput | TResult>
+  with<
+    const TPatterns extends readonly [
+      MatchPatternSuggestion<TRemaining>,
+      MatchPatternSuggestion<TRemaining>,
+      ...MatchPatternSuggestion<TRemaining>[],
+    ],
+    const TResult,
+  >(
+    ...args: [
+      ...patterns: SuggestedPatternArgs<TPatterns>,
+      handler: (value: HandlerInput<TRemaining, NoInferValue<TPatterns[number]>>) => TResult,
+    ]
+  ): SyncMatchBuilder<TValue, RemainingAfterPatterns<TRemaining, TPatterns[number]>, TOutput | TResult>
   with<const TPatterns extends readonly [unknown, unknown, ...unknown[]], const TResult>(
     ...args: [
       ...patterns: MatchPatternArgs<TRemaining, TPatterns>,
@@ -423,10 +486,27 @@ class AsyncMatchBuilderImpl<TValue, TRemaining, TOutput> {
     private readonly state: AsyncMatchState,
   ) {}
 
+  with<const TPattern extends MatchPatternSuggestion<TRemaining>, const TResult>(
+    pattern: SuggestedPattern<TPattern>,
+    handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
+  ): AsyncMatchBuilder<TValue, RemainingAfterPattern<TRemaining, TPattern>, TOutput | TResult>
   with<const TPattern, const TResult>(
     pattern: TPattern & MatchPatternArgument<TRemaining, TPattern>,
     handler: (value: HandlerInput<TRemaining, NoInferValue<TPattern>>) => TResult,
   ): AsyncMatchBuilder<TValue, RemainingAfterPattern<TRemaining, TPattern>, TOutput | TResult>
+  with<
+    const TPatterns extends readonly [
+      MatchPatternSuggestion<TRemaining>,
+      MatchPatternSuggestion<TRemaining>,
+      ...MatchPatternSuggestion<TRemaining>[],
+    ],
+    const TResult,
+  >(
+    ...args: [
+      ...patterns: SuggestedPatternArgs<TPatterns>,
+      handler: (value: HandlerInput<TRemaining, NoInferValue<TPatterns[number]>>) => TResult,
+    ]
+  ): AsyncMatchBuilder<TValue, RemainingAfterPatterns<TRemaining, TPatterns[number]>, TOutput | TResult>
   with<const TPatterns extends readonly [unknown, unknown, ...unknown[]], const TResult>(
     ...args: [
       ...patterns: MatchPatternArgs<TRemaining, TPatterns>,

@@ -14,6 +14,6 @@ async function describeJob(job: Job): Promise<string> {
     .exhaustive()
 }
 
-const description = await describeJob({ type: 'finished', id: 'job-1', durationMs: 42 })
+const description = await describeJob({ type: 'queued', id: 'job-1' })
 
-if (description !== 'finished:job-1:42') throw new Error(`Unexpected job description: ${description}`)
+if (description !== 'queued:job-1') throw new Error(`Unexpected job description: ${description}`)

@@ -284,12 +284,14 @@ describe('match terminal behavior', () => {
   })
 
   it('normalizes match.async return values and rejections', async () => {
-    await expect(
-      match
-        .async('x')
-        .with('x', () => 1)
-        .exhaustive(),
-    ).resolves.toBe(1)
+    const value = await Promise.resolve('x' as const)
+    const terminal = match
+      .async(value)
+      .with('x', () => Promise.resolve(1))
+      .exhaustive()
+
+    expect(terminal).toBeInstanceOf(Promise)
+    await expect(terminal).resolves.toBe(1)
     await expect(
       match
         .async('x')
@@ -361,7 +363,11 @@ describe('matchBy behavior', () => {
   })
 
   it('normalizes matchBy.async return values and rejections', async () => {
-    await expect(matchBy.async({ type: 'a' as const }, 'type').cases({ a: async () => 1 })).resolves.toBe(1)
+    const event = await Promise.resolve({ type: 'a' as const })
+    const terminal = matchBy.async(event, 'type').cases({ a: () => Promise.resolve(1) })
+
+    expect(terminal).toBeInstanceOf(Promise)
+    await expect(terminal).resolves.toBe(1)
     await expect(
       matchBy.async({ type: 'a' as const }, 'type').cases({
         a: () => {

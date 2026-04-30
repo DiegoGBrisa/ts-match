@@ -7,17 +7,19 @@ import type {
   CaseMap,
   CasesEntry,
   CoveredByPath,
+  DiagnosticArgs,
   Discriminant,
   ExhaustiveEntriesArgument,
   ExtractByPath,
   GroupEntry,
+  MatchByPath,
   MatchByPathArgument,
-  MatchByTagArgument,
   MatchByTagsArgument,
   NoExtraKeys,
   NonExhaustiveMatchByArgument,
   ObjectCaseKeys,
   ObjectCaseMapArgument,
+  ObjectCaseMapSupportArgument,
   PartialEntriesArgument,
   PathValue,
   PropertyPath,
@@ -33,6 +35,7 @@ interface IndexableObject {
 }
 
 type PathTag<TValue, TPath extends PropertyPath> = Extract<PathValue<TValue, TPath>, Discriminant>
+type PathTagTuple<TValue, TPath extends PropertyPath> = readonly [PathTag<TValue, TPath>, ...PathTag<TValue, TPath>[]]
 
 type TupleCase<TValue, TPath extends PropertyPath> =
   PathTag<TValue, TPath> extends infer TTag extends Discriminant
@@ -52,17 +55,45 @@ type GroupedTupleCase<TValue, TPath extends PropertyPath> =
   | CasesEntry<(value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown>
 
 type AnyTupleCase<TValue, TPath extends PropertyPath> = TupleCase<TValue, TPath> | GroupedTupleCase<TValue, TPath>
+type AnyTupleCaseList<TValue, TPath extends PropertyPath> = readonly AnyTupleCase<TValue, TPath>[]
+
+type SuggestedTupleCase<TValue, TPath extends PropertyPath> =
+  | readonly [PathTag<TValue, TPath>, (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown]
+  | readonly [PathTagTuple<TValue, TPath>, (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown]
+
+type SuggestedTupleCaseList<TValue, TPath extends PropertyPath> =
+  | readonly []
+  | readonly [SuggestedTupleCase<TValue, TPath>, ...SuggestedTupleCase<TValue, TPath>[]]
 
 type CaseBuilder<TValue, TPath extends PropertyPath> = {
-  <const TTag extends Discriminant, const TResult>(
-    tag: TTag & MatchByTagArgument<TValue, TPath, TTag>,
-    handler: (value: ExtractByPath<TValue, TPath, TTag>) => TResult,
-  ): GroupEntry<readonly [TTag], (value: ExtractByPath<TValue, TPath, TTag>) => TResult>
+  <const TTags extends PathTagTuple<TValue, TPath>, const TResult>(
+    ...args: [...tags: TTags, handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult]
+  ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
+
+  <const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
+    ...args: [
+      ...tags: MatchByTagsArgument<TValue, TPath, TTags>,
+      handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
+    ]
+  ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
+
+  <const TTags extends PathTagTuple<TValue, TPath>, const TResult>(
+    tags: TTags,
+    handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
+  ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
 
   <const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
     tags: TTags & MatchByTagsArgument<TValue, TPath, TTags>,
     handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
   ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
+
+  <const TResult>(
+    tags: readonly PathTag<TValue, TPath>[],
+    handler: (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => TResult,
+  ): GroupEntry<
+    readonly PathTag<TValue, TPath>[],
+    (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => TResult
+  >
 }
 
 /** Normalized runtime representation of one or more `matchBy` case handlers. */
@@ -136,6 +167,15 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
    * @returns A new builder with those tags removed from the remaining union.
    * @see https://github.com/DiegoGBrisa/ts-match#withtags-handler
    */
+  with<const TTags extends PathTagTuple<TRemaining, TPath>, const TResult>(
+    ...args: [...tags: TTags, handler: (value: ExtractByPath<TRemaining, TPath, TTags[number]>) => TResult]
+  ): SyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, TTags[number]>>,
+    TOutput | TResult
+  >
+
   with<const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
     ...args: [
       ...tags: MatchByTagsArgument<TRemaining, TPath, TTags>,
@@ -164,7 +204,7 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
   cases<const THandlers extends Partial<CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>>>>(
     handlers: CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>> &
       THandlers &
-      ObjectCaseMapArgument<PathValue<TRemaining, TPath>, THandlers> &
+      ObjectCaseMapSupportArgument<PathValue<TRemaining, TPath>> &
       NoExtraKeys<THandlers, ObjectCaseKeys<PathValue<TRemaining, TPath>>>,
   ): TOutput | ReturnType<Extract<THandlers[keyof THandlers], AnyCaseHandler>>
 
@@ -198,9 +238,21 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
    * @throws {NonExhaustiveMatchError} When no entry handles the runtime tag.
    * @see https://github.com/DiegoGBrisa/ts-match#group
    */
-  cases<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  cases<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): TOutput | EntryReturn<TEntries>
+
+  cases<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
+  ): TOutput | EntryReturn<TEntries>
+
+  cases<const THandlers extends Partial<CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>>>>(
+    handlers: CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>> &
+      THandlers &
+      ObjectCaseMapArgument<PathValue<TRemaining, TPath>, THandlers> &
+      NoExtraKeys<THandlers, ObjectCaseKeys<PathValue<TRemaining, TPath>>>,
+  ): never
 
   /**
    * Adds a non-exhaustive object case map and keeps matching open.
@@ -232,8 +284,18 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
    * @returns A new builder with entry tags removed from the remaining union.
    * @see https://github.com/DiegoGBrisa/ts-match#partialotherwise
    */
-  partial<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  partial<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
+  ): SyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
+    TOutput | EntryReturn<TEntries>
+  >
+
+  partial<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
   ): SyncMatchByBuilder<
     TValue,
     TPath,
@@ -284,6 +346,15 @@ export interface AsyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemain
    * @returns A new async builder with those tags removed from the remaining union.
    * @see https://github.com/DiegoGBrisa/ts-match#matchbyasync
    */
+  with<const TTags extends PathTagTuple<TRemaining, TPath>, const TResult>(
+    ...args: [...tags: TTags, handler: (value: ExtractByPath<TRemaining, TPath, TTags[number]>) => TResult]
+  ): AsyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, TTags[number]>>,
+    TOutput | TResult
+  >
+
   with<const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
     ...args: [
       ...tags: MatchByTagsArgument<TRemaining, TPath, TTags>,
@@ -308,7 +379,7 @@ export interface AsyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemain
   cases<const THandlers extends Partial<CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>>>>(
     handlers: CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>> &
       THandlers &
-      ObjectCaseMapArgument<PathValue<TRemaining, TPath>, THandlers> &
+      ObjectCaseMapSupportArgument<PathValue<TRemaining, TPath>> &
       NoExtraKeys<THandlers, ObjectCaseKeys<PathValue<TRemaining, TPath>>>,
   ): Promise<AwaitedReturn<TOutput | ReturnType<Extract<THandlers[keyof THandlers], AnyCaseHandler>>>>
 
@@ -327,6 +398,11 @@ export interface AsyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemain
     ) => TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
 
+  cases<const TEntries extends readonly GroupEntry<readonly PathTag<TRemaining, TPath>[], unknown>[]>(
+    builder: (group: CaseBuilder<TRemaining, TPath>) => TEntries,
+    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
+  ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
+
   /**
    * Exhaustively handles async tags with tuple or grouped entries.
    *
@@ -335,8 +411,13 @@ export interface AsyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemain
    * @throws {NonExhaustiveMatchError} When no entry handles the runtime tag.
    * @see https://github.com/DiegoGBrisa/ts-match#matchbyasync
    */
-  cases<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  cases<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
+  ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
+
+  cases<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
 
   /**
@@ -365,8 +446,18 @@ export interface AsyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemain
    * @returns A new async builder with entry tags removed from the remaining union.
    * @see https://github.com/DiegoGBrisa/ts-match#matchbyasync
    */
-  partial<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  partial<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
+  ): AsyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
+    TOutput | EntryReturn<TEntries>
+  >
+
+  partial<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
   ): AsyncMatchByBuilder<
     TValue,
     TPath,
@@ -431,13 +522,16 @@ type EntryReturn<TEntries extends readonly unknown[]> = TEntries[number] extends
       : never
   : never
 
+/** Tags only count toward exhaustiveness when the entry carries a literal tuple, not a broad runtime array. */
+type StaticEntryTags<TTags extends readonly Discriminant[]> = number extends TTags['length'] ? never : TTags[number]
+
 type EntryTags<TEntries extends readonly unknown[]> = TEntries[number] extends infer TEntry
   ? TEntry extends readonly [infer TTags extends readonly Discriminant[], unknown]
-    ? TTags[number]
+    ? StaticEntryTags<TTags>
     : TEntry extends readonly [infer TTag extends Discriminant, unknown]
       ? TTag
       : TEntry extends { readonly tags: infer TTags extends readonly Discriminant[] }
-        ? TTags[number]
+        ? StaticEntryTags<TTags>
         : never
   : never
 
@@ -472,6 +566,14 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
     private readonly handled: readonly RuntimeTagCase[],
   ) {}
 
+  with<const TTags extends PathTagTuple<TRemaining, TPath>, const TResult>(
+    ...args: [...tags: TTags, handler: (value: ExtractByPath<TRemaining, TPath, TTags[number]>) => TResult]
+  ): SyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, TTags[number]>>,
+    TOutput | TResult
+  >
   with<const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
     ...args: [
       ...tags: MatchByTagsArgument<TRemaining, TPath, TTags>,
@@ -495,7 +597,7 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
   cases<const THandlers extends Partial<CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>>>>(
     handlers: CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>> &
       THandlers &
-      ObjectCaseMapArgument<PathValue<TRemaining, TPath>, THandlers> &
+      ObjectCaseMapSupportArgument<PathValue<TRemaining, TPath>> &
       NoExtraKeys<THandlers, ObjectCaseKeys<PathValue<TRemaining, TPath>>>,
   ): TOutput | ReturnType<Extract<THandlers[keyof THandlers], AnyCaseHandler>>
   cases<const TEntries extends readonly GroupEntry<readonly Discriminant[], unknown>[]>(
@@ -503,8 +605,13 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
       group: CaseBuilder<TRemaining, TPath>,
     ) => TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): TOutput | EntryReturn<TEntries>
-  cases<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  cases<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
+  ): TOutput | EntryReturn<TEntries>
+
+  cases<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
   ): TOutput | EntryReturn<TEntries>
   cases(handlersOrEntries: unknown, ..._missing: readonly unknown[]): unknown {
     if (!Array.isArray(handlersOrEntries) && typeof handlersOrEntries !== 'function' && this.handled.length === 0) {
@@ -527,7 +634,7 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
     RemainingAfterMap<TRemaining, TPath, TTags, keyof THandlers>,
     TOutput | ReturnType<Extract<THandlers[keyof THandlers], AnyCaseHandler>>
   >
-  partial<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  partial<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): SyncMatchByBuilder<
     TValue,
@@ -535,7 +642,17 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
     Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
     TOutput | EntryReturn<TEntries>
   >
-  partial(handlersOrEntries: unknown): unknown {
+
+  partial<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
+  ): SyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
+    TOutput | EntryReturn<TEntries>
+  >
+  partial(handlersOrEntries: unknown, ..._diagnostic: readonly unknown[]): unknown {
     const cases = Array.isArray(handlersOrEntries)
       ? normalizeEntries(handlersOrEntries)
       : normalizeCaseMap(handlersOrEntries)
@@ -575,6 +692,14 @@ class AsyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TO
     private readonly handled: readonly RuntimeTagCase[],
   ) {}
 
+  with<const TTags extends PathTagTuple<TRemaining, TPath>, const TResult>(
+    ...args: [...tags: TTags, handler: (value: ExtractByPath<TRemaining, TPath, TTags[number]>) => TResult]
+  ): AsyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, TTags[number]>>,
+    TOutput | TResult
+  >
   with<const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
     ...args: [
       ...tags: MatchByTagsArgument<TRemaining, TPath, TTags>,
@@ -598,7 +723,7 @@ class AsyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TO
   cases<const THandlers extends Partial<CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>>>>(
     handlers: CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>> &
       THandlers &
-      ObjectCaseMapArgument<PathValue<TRemaining, TPath>, THandlers> &
+      ObjectCaseMapSupportArgument<PathValue<TRemaining, TPath>> &
       NoExtraKeys<THandlers, ObjectCaseKeys<PathValue<TRemaining, TPath>>>,
   ): Promise<AwaitedReturn<TOutput | ReturnType<Extract<THandlers[keyof THandlers], AnyCaseHandler>>>>
   cases<const TEntries extends readonly GroupEntry<readonly Discriminant[], unknown>[]>(
@@ -606,7 +731,11 @@ class AsyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TO
       group: CaseBuilder<TRemaining, TPath>,
     ) => TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
-  cases<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  cases<const TEntries extends readonly GroupEntry<readonly PathTag<TRemaining, TPath>[], unknown>[]>(
+    builder: (group: CaseBuilder<TRemaining, TPath>) => TEntries,
+    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
+  ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
+  cases<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
   cases(handlersOrEntries: unknown, ..._missing: readonly unknown[]): Promise<unknown> {
@@ -632,7 +761,7 @@ class AsyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TO
     RemainingAfterMap<TRemaining, TPath, TTags, keyof THandlers>,
     TOutput | ReturnType<Extract<THandlers[keyof THandlers], AnyCaseHandler>>
   >
-  partial<const TEntries extends readonly AnyTupleCase<TRemaining, TPath>[]>(
+  partial<const TEntries extends AnyTupleCaseList<TRemaining, TPath>>(
     entries: TEntries & PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): AsyncMatchByBuilder<
     TValue,
@@ -640,7 +769,17 @@ class AsyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TO
     Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
     TOutput | EntryReturn<TEntries>
   >
-  partial(handlersOrEntries: unknown): unknown {
+
+  partial<const TEntries extends SuggestedTupleCaseList<TRemaining, TPath>>(
+    entries: TEntries,
+    ...diagnostic: DiagnosticArgs<PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
+  ): AsyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
+    TOutput | EntryReturn<TEntries>
+  >
+  partial(handlersOrEntries: unknown, ..._diagnostic: readonly unknown[]): unknown {
     const cases = Array.isArray(handlersOrEntries)
       ? normalizeEntries(handlersOrEntries)
       : normalizeCaseMap(handlersOrEntries)
@@ -937,33 +1076,78 @@ function normalizeCaseMap(value: unknown): readonly RuntimeTagCase[] {
   return [{ map: value }]
 }
 
+/** Runtime grouped-case builder arguments after validation. */
+interface RuntimeGroupArgs {
+  readonly tags: readonly Discriminant[]
+  readonly handler: UnknownHandler
+}
+
+/**
+ * Checks whether an unknown runtime value is a valid matchBy discriminant.
+ *
+ * @param value - Candidate grouped-case tag.
+ * @returns `true` when the value can be compared as a discriminant.
+ * @see https://github.com/DiegoGBrisa/ts-match#group
+ */
+function isDiscriminant(value: unknown): value is Discriminant {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'symbol' ||
+    typeof value === 'boolean' ||
+    value === null ||
+    value === undefined
+  )
+}
+
 /**
  * Narrows a grouped-case tag argument to a readonly tag array.
  *
- * @param value - Single tag or list of tags from `group(...)` builder input.
- * @returns `true` when `value` is an array of tags.
+ * @param value - Candidate list of tags from `group(...)` builder input.
+ * @returns `true` when `value` is an array of discriminant tags.
  * @see https://github.com/DiegoGBrisa/ts-match#group
  */
-function isDiscriminantArray(value: Discriminant | readonly Discriminant[]): value is readonly Discriminant[] {
-  return Array.isArray(value)
+function isDiscriminantArray(value: unknown): value is readonly Discriminant[] {
+  return Array.isArray(value) && value.every(isDiscriminant)
+}
+
+/**
+ * Validates and normalizes callback-local `group(...)` arguments.
+ *
+ * @param args - Single tag plus handler, readonly tag array plus handler, or variadic tags plus handler.
+ * @returns Normalized tags and handler.
+ * @throws {TypeError} When the handler or tags are invalid.
+ * @see https://github.com/DiegoGBrisa/ts-match#group
+ */
+function normalizeGroupArgs(args: readonly unknown[]): RuntimeGroupArgs {
+  const handler = args.at(-1)
+  assertFunction(handler, 'group(...) handler')
+
+  const tags = args.slice(0, -1)
+  if (tags.length === 0) throw new TypeError('group(...) requires at least one tag.')
+
+  const first = tags[0]
+  if (tags.length === 1 && Array.isArray(first)) {
+    if (first.length === 0) throw new TypeError('group(...) requires at least one tag.')
+    if (!isDiscriminantArray(first)) throw new TypeError('group(...) tags must be discriminants.')
+    return { tags: first, handler }
+  }
+
+  if (!isDiscriminantArray(tags)) throw new TypeError('group(...) tags must be discriminants.')
+  return { tags, handler }
 }
 
 /**
  * Builds a typed grouped entry for the `.cases((group) => ...)` callback API.
  *
- * @param tagOrTags - Single tag or readonly list of tags to group.
- * @param handler - Handler shared by the grouped tags.
+ * @param args - Single tag, variadic tags, or readonly tag list followed by a shared handler.
  * @returns Frozen grouped case entry.
- * @throws {TypeError} When `handler` is not callable.
+ * @throws {TypeError} When `handler` is not callable or tags are invalid.
  * @see https://github.com/DiegoGBrisa/ts-match#group
  */
-function buildGroupEntry(
-  tagOrTags: Discriminant | readonly Discriminant[],
-  handler: unknown,
-): GroupEntry<readonly Discriminant[], unknown> {
-  assertFunction(handler, 'group(...) handler')
-  if (isDiscriminantArray(tagOrTags)) return group(tagOrTags, handler)
-  return group(tagOrTags, handler)
+function buildGroupEntry(...args: readonly unknown[]): GroupEntry<readonly Discriminant[], unknown> {
+  const normalized = normalizeGroupArgs(args)
+  return group(normalized.tags, normalized.handler)
 }
 
 /**
@@ -1052,6 +1236,10 @@ function readGroupEntry(value: unknown): RuntimeTagCase | undefined {
  * @see https://github.com/DiegoGBrisa/ts-match#matchby
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#matchby-semantics
  */
+function matchBySync<const TValue, const TPath extends MatchByPath<TValue>>(
+  value: TValue,
+  path: TPath & MatchByPathArgument<TValue, TPath>,
+): SyncMatchByBuilder<TValue, TPath, TValue, never>
 function matchBySync<const TValue, const TPath extends PropertyPath>(
   value: TValue,
   path: TPath & MatchByPathArgument<TValue, TPath>,
@@ -1079,6 +1267,10 @@ function matchBySync(value: unknown, path: PropertyPath): SyncMatchByBuilder<unk
  * @returns An asynchronous `matchBy` builder.
  * @see https://github.com/DiegoGBrisa/ts-match#matchbyasync
  */
+function matchByAsync<const TValue, const TPath extends MatchByPath<TValue>>(
+  value: TValue,
+  path: TPath & MatchByPathArgument<TValue, TPath>,
+): AsyncMatchByBuilder<TValue, TPath, TValue, never>
 function matchByAsync<const TValue, const TPath extends PropertyPath>(
   value: TValue,
   path: TPath & MatchByPathArgument<TValue, TPath>,
@@ -1117,3 +1309,4 @@ export { matchByValue as matchBy }
  * @see https://github.com/DiegoGBrisa/ts-match#matchby
  */
 export type MatchByFunction = typeof matchByValue
+export type { MatchByPath }

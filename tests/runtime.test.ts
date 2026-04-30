@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assertMatching,
   isMatching,
+  group,
   match,
   matchBy,
   NonExhaustiveMatchError,
@@ -187,6 +188,21 @@ describe('matchBy', () => {
         group(false, (value) => value.error),
       ]),
     ).toBe('boom')
+
+    expect(matchBy(result, 'ok').cases((group) => [group(true, false, () => 'done')])).toBe('done')
+    expect(matchBy(result, 'ok').cases([group(true, false, () => 'reusable')])).toBe('reusable')
+    expect(() => group([], () => 'empty')).toThrow(TypeError)
+
+    const emptyTags: readonly boolean[] = []
+    expect(() =>
+      matchBy(result, 'ok').cases((group) => [group(emptyTags, () => 'empty'), group(true, false, () => 'done')]),
+    ).toThrow(TypeError)
+
+    const mutableTags = ['start']
+    const entry = group(mutableTags, () => 'active')
+    mutableTags[0] = 'stop'
+    expect(entry.tags).toEqual(['start'])
+    expect(Object.isFrozen(entry.tags)).toBe(true)
   })
 
   it('supports typed dot paths and tuple paths', () => {

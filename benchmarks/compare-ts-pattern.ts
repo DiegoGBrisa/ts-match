@@ -24,6 +24,12 @@ const ownEventCaseMap = {
   stop: (value: Extract<Event, { type: 'stop' }>) => value.value * 3,
 }
 
+const ownAsyncEventCaseMap = {
+  start: async (value: Extract<Event, { type: 'start' }>) => value.value,
+  delta: async (value: Extract<Event, { type: 'delta' }>) => value.value * 2,
+  stop: async (value: Extract<Event, { type: 'stop' }>) => value.value * 3,
+}
+
 const ownNestedPhaseCaseMap = {
   open: (value: Extract<Event, { meta: { phase: 'open' } }>) => value.value,
   active: (value: Extract<Event, { meta: { phase: 'active' } }>) => value.value * 2,
@@ -73,7 +79,7 @@ function eventAt(index: number): Event {
   return event
 }
 
-function asyncEvent(): Event {
+async function asyncEvent(): Promise<Event> {
   return { type: 'delta', value: 2, meta: { phase: 'active' } }
 }
 
@@ -544,7 +550,8 @@ const asyncTasks: readonly AsyncTask[] = [
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        total += await matchBy.async(asyncEvent(), 'type').cases(ownEventCaseMap)
+        const event = await asyncEvent()
+        total += await matchBy.async(event, 'type').cases(ownAsyncEventCaseMap)
       }
       return total
     },
@@ -556,10 +563,11 @@ const asyncTasks: readonly AsyncTask[] = [
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        total += await tsPatternMatch(asyncEvent())
-          .with({ type: 'start' }, async (event) => event.value)
-          .with({ type: 'delta' }, async (event) => event.value * 2)
-          .with({ type: 'stop' }, async (event) => event.value * 3)
+        const event = await asyncEvent()
+        total += await tsPatternMatch(event)
+          .with({ type: 'start' }, async (value) => value.value)
+          .with({ type: 'delta' }, async (value) => value.value * 2)
+          .with({ type: 'stop' }, async (value) => value.value * 3)
           .exhaustive()
       }
       return total
@@ -572,10 +580,11 @@ const asyncTasks: readonly AsyncTask[] = [
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
+        const event = await asyncEvent()
         total += await ownMatch
-          .async(asyncEvent())
-          .with({ type: 'delta' }, (event) => event.value)
-          .otherwise(() => 0)
+          .async(event)
+          .with({ type: 'delta' }, async (value) => value.value)
+          .otherwise(async () => 0)
       }
       return total
     },
@@ -587,8 +596,9 @@ const asyncTasks: readonly AsyncTask[] = [
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        total += await tsPatternMatch(asyncEvent())
-          .with({ type: 'delta' }, async (event) => event.value)
+        const event = await asyncEvent()
+        total += await tsPatternMatch(event)
+          .with({ type: 'delta' }, async (value) => value.value)
           .otherwise(async () => 0)
       }
       return total

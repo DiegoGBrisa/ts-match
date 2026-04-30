@@ -48,6 +48,7 @@ export type {
   InstanceOfPattern,
   IntegerPattern,
   MatchedValue,
+  MatchByPath,
   NamedSelectPattern,
   NanPattern,
   NonEmptyArrayPattern,
