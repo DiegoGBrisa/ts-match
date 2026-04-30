@@ -18,7 +18,7 @@ Primary APIs:
 - `P` — namespace of pattern helpers.
 - `isMatching(pattern, value)` / `isMatching(pattern)(value)` — runtime type guards.
 - `assertMatching(pattern, value)` — boundary assertion that throws `PatternMismatchError` on mismatch.
-- `group(tagOrTags, handler)` — reusable grouped `matchBy` case entries.
+- `group(tag, handler)`, `group(tag, tag, handler)`, and `group(tags, handler)` — grouped `matchBy` case entries.
 
 Use `matchBy` when one key/path decides a discriminated union branch. Use `match` when matching structure, tuples, arrays, predicates, selections, records, exact objects, or non-discriminant values.
 
@@ -30,7 +30,7 @@ Use `matchBy` when one key/path decides a discriminated union branch. Use `match
 - Prefer `.exhaustive()` for closed unions.
 - Use `.otherwise(...)` only when a fallback is intentional.
 - Use `match.async` or `matchBy.async` when handlers may be async or callers need one normalized promise.
-- Do not use unsafe TypeScript casts. Only `as const` is acceptable for literal preservation, such as reusable grouped tags.
+- Do not use unsafe TypeScript casts. Only `as const` is acceptable for literal preservation, such as reusable grouped tag arrays.
 - Do not use broad `any` in examples or generated code.
 - Do not use `switch` in generated examples unless explicitly writing a short before/after comparison requested by the user.
 - Avoid inline object-map `.cases({...})` in hot loops. Prefer `.with(...).exhaustive()` unless the user explicitly accepts the manual-typing tradeoff of hoisted case maps.
@@ -180,16 +180,16 @@ const description = await matchBy
 
 ### Grouped tags
 
-Prefer callback `group` for inferred handler parameters:
+Prefer callback `group` for inferred handler parameters. Use the variadic form for the best tag autocomplete:
 
 ```ts
 const status = matchBy(event, 'type').cases((group) => [
-  group(['start', 'resume'], (event) => `active:${event.id}`),
+  group('start', 'resume', (event) => `active:${event.id}`),
   group('stop', (event) => `stopped:${event.reason}`),
 ])
 ```
 
-Use exported `group(...)` for reusable prebuilt groups, especially when handlers do not need narrowed parameters:
+Array-form callback groups remain supported and are often more readable because `group` keeps two arguments. TypeScript gives better editor completions in variadic tag positions than inside `group(['...'], handler)`, so prefer variadic form only when inline autocomplete/inference matters. Use exported `group(...)` for reusable prebuilt groups, especially when handlers do not need narrowed parameters:
 
 ```ts
 const statusCases = [group(['start', 'resume'] as const, () => 'active'), group('stop', () => 'inactive')]
@@ -234,7 +234,7 @@ Common diagnostic fixes:
 - `ts-match: P.exclude(pattern) cannot contain P.select(...)` — remove the selection or move it outside the excluded pattern.
 - `ts-match: invalid P.rest(...) usage` — use `P.rest(...)` only as the final tuple pattern item.
 
-If grouped-case inference is weak, prefer `.cases((group) => [...])`. Use exported `group(...)` for reusable groups whose handlers do not need contextual variant inference. Check the README diagnostics section for concrete examples.
+If grouped-case inference is weak, prefer `.cases((group) => [...])` and the variadic local form `group('a', 'b', handler)`. Do not treat `group(['a', 'b'], handler)` as invalid; it is supported, just less reliable for inline autocomplete. Use exported `group(...)` for reusable groups whose handlers do not need contextual variant inference. Check the README diagnostics section for concrete examples.
 
 ## Important limitations
 
@@ -270,4 +270,5 @@ Before introducing or modifying usage:
 4. Confirm async handlers use `match.async` or `matchBy.async` when callers need promises.
 5. Confirm no unsafe casts, broad `any`, internal imports, or unsupported helper names were added.
 6. Compile the affected project examples/tests.
-7. If editing this library itself, run `pnpm check` and `pnpm test:examples`.
+7. If editing this library itself, run `pnpm check`, `pnpm pack:check`, and `pnpm test`.
+8. If changing public types or overloads, ensure `pnpm test:editor-dx` is covered by `pnpm check` and verify packaged `dist/*.d.ts` autocomplete when relevant.

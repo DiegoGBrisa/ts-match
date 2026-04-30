@@ -13,7 +13,7 @@ type OptionalState =
 
 function streamStatus(event: StreamEvent): string {
   return matchBy(event, 'type').cases((group) => [
-    group(['start', 'resume'], (value) => `active:${String(value.at)}`),
+    group('start', 'resume', (value) => `active:${String(value.at)}`),
     group('stop', (value) => `stopped:${value.reason}`),
     group('error', (value) => `error:${value.message}`),
   ])
