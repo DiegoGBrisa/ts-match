@@ -13,6 +13,16 @@ function describeCommand(command: Command): string {
     .exhaustive()
 }
 
+function auditCommand(command: Command): string {
+  return matchBy(command, 'kind').cases({
+    create: (value) => `created:${value.id}`,
+    rename: (value) => `renamed:${value.id}:${value.name}`,
+    delete: (value) => `deleted:${value.id}`,
+  })
+}
+
 const description = describeCommand({ kind: 'rename', id: 'file-1', name: 'README.md' })
+const audit = auditCommand({ kind: 'delete', id: 'file-1' })
 
 if (description !== 'rename:file-1:README.md') throw new Error(`Unexpected description: ${description}`)
+if (audit !== 'deleted:file-1') throw new Error(`Unexpected audit entry: ${audit}`)

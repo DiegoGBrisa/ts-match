@@ -110,13 +110,13 @@ const _matchByPartial = matchBy(event, 'type')
   })
 type _matchByPartialReturn = Expect<Equal<typeof _matchByPartial, 1 | 'close' | 'idle'>>
 
-const _asyncReturn = match
-  .async(event)
+const _promiseReturn = match
+  .promise(Promise.resolve(event))
   .with({ type: 'open' }, async (value) => value.payload.count)
   .with({ type: 'close' }, (value) => value.payload.reason)
   .with({ type: 'idle' }, () => 'idle')
   .exhaustive()
-type _asyncReturnType = Expect<Equal<typeof _asyncReturn, Promise<1 | 'done' | 'idle'>>>
+type _promiseReturnType = Expect<Equal<typeof _promiseReturn, Promise<1 | 'done' | 'idle'>>>
 
 const _predicateNarrowing = match(event)
   .when(

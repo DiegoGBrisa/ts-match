@@ -49,6 +49,7 @@ export type {
   IntegerPattern,
   MatchedValue,
   MatchByPath,
+  MatchPromiseResult,
   NamedSelectPattern,
   NanPattern,
   NonEmptyArrayPattern,

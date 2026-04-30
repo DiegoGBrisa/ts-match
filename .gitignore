@@ -6,3 +6,4 @@ coverage
 .release-notes-*.md
 .DS_Store
 .fallow
+docs/promise-api-spec.md

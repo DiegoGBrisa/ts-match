@@ -214,12 +214,12 @@ describe('matchBy', () => {
     expect(matchBy(symbolEvent, ['meta', KIND]).cases({ symbolic: (value) => value.meta.value })).toBe(2)
   })
 
-  it('supports async mode', async () => {
+  it('supports promise mode', async () => {
     type Event = { type: 'a'; value: number } | { type: 'b'; value: number }
     const event = ((): Event => ({ type: 'a', value: 1 }))()
 
     await expect(
-      matchBy.async(event, 'type').cases({
+      matchBy.promise(Promise.resolve(event), 'type').cases({
         a: async (value) => value.value + 1,
         b: (value) => value.value + 2,
       }),

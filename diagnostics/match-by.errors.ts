@@ -76,8 +76,8 @@ matchBy(event, 'type').cases([
   ['idle', () => 'idle'],
 ])
 
-// Intended diagnostic: ts-match says matchBy.async is not exhaustive.
+// Intended diagnostic: ts-match says matchBy.promise is not exhaustive.
 matchBy
-  .async(event, 'type')
+  .promise(Promise.resolve(event), 'type')
   .with('open', (value) => value.payload.id)
   .exhaustive()

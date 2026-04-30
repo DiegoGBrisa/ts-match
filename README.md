@@ -25,7 +25,7 @@ function labelFor(event: Event): string {
 - Narrowed handler parameters without casts.
 - Structural patterns for objects, tuples, arrays, and records.
 - `matchBy` for ergonomic discriminant dispatch.
-- `match.async` and `matchBy.async` for promise-returning branches.
+- `match.promise` and `matchBy.promise` for promise-backed inputs and promise-returning branches.
 - `isMatching` and `assertMatching` for runtime validation.
 - ESM-only package for Node 20+ with no runtime dependencies.
 
@@ -46,9 +46,9 @@ bun add @diegogbrisa/ts-match
 - [Imports and entrypoints](#imports-and-package-entrypoints)
 - API
   - [`match`](#match)
-  - [`match.async`](#matchasync)
+  - [`match.promise`](#matchpromise)
   - [`matchBy`](#matchby)
-  - [`matchBy.async`](#matchbyasync)
+  - [`matchBy.promise`](#matchbypromise)
   - [`group`](#group)
   - [`P` patterns](#pattern-guide-p-namespace)
   - [Named `p*` helpers](#named-p-helper-exports)
@@ -97,7 +97,7 @@ Manual `if`/`else` or `switch` branches work, but domain logic often needs more 
 - nested object, tuple, array, and record patterns;
 - selected values passed directly to handlers;
 - reusable runtime validators through `isMatching` and `assertMatching`;
-- explicit promise normalization with `match.async` and `matchBy.async`.
+- promise-aware matching with `match.promise` and `matchBy.promise`.
 
 Use this library where those constraints make code clearer. Keep simple branches simple when a normal condition is already the clearest tool.
 
@@ -108,7 +108,7 @@ Use this library where those constraints make code clearer. Keep simple branches
 - **Handler** — the function called for the first matching branch. Its parameter is narrowed from the matched pattern.
 - **Exhaustiveness** — `.exhaustive()` is callable only when TypeScript can prove no variants remain. At runtime it throws `NonExhaustiveMatchError` if unexpected data reaches it.
 - **Fallback** — `.otherwise(handler)` handles the remaining value instead of requiring exhaustiveness.
-- **Sync vs async** — `match(...)` and `matchBy(...)` are synchronous. Use `match.async(...)` and `matchBy.async(...)` when the terminal result should be a promise and synchronous handler throws should become promise rejections.
+- **Sync vs promise** — `match(...)` and `matchBy(...)` are synchronous. Use `match.promise(...)` and `matchBy.promise(...)` when the source may be promise-backed or when the terminal result should be a promise. Promise builders resolve the input internally and handlers receive the resolved value.
 - **`P` vs `p*` helpers** — `P.string` and `pString` are the same pattern helper exposed in namespace and named-import form.
 
 ## Imports and package entrypoints
@@ -192,27 +192,59 @@ Use `.exhaustive()` for closed unions. It returns the union of branch return typ
 
 Runtime error: `NonExhaustiveMatchError` if unexpected data reaches the terminal at runtime.
 
-## `match.async`
+## `match.promise`
 
-`match.async(value)` has the same branch API as `match(value)`, but terminal methods return promises:
+`match.promise(valueOrPromise)` has the same branch API as `match(value)`, but it resolves the input internally and terminal methods return promises:
 
 ```ts
 const body = await match
-  .async(response)
+  .promise(fetchResponse())
   .with({ ok: true, body: P.select('body', P.string) }, async ({ body }) => body.trim())
   .with({ ok: false }, ({ status, message }) => `error:${status}:${message}`)
   .exhaustive()
 ```
 
-Checked example: [`examples/03-match-async.ts`](examples/03-match-async.ts).
+Checked example: [`examples/03-match-promise.ts`](examples/03-match-promise.ts).
 
 Behavior:
 
-- async handlers are awaited by the terminal promise;
-- synchronous handler throws become promise rejections;
-- `.otherwise(...)` returns `Promise<...>`;
-- `.exhaustive()` returns `Promise<...>`;
-- the input value is matched as provided, so await promise-producing sources before calling `match.async(...)`.
+- accepts values, promises, thenables, and maybe-promise sources;
+- handlers receive `Awaited<TInput>`, not the promise wrapper;
+- handler values and promise-like values are awaited by the terminal promise;
+- synchronous handler throws, predicate throws, pattern errors, and input rejections become promise rejections for normal terminals;
+- `.otherwise(...)` is a pattern fallback, not an input-error fallback;
+- `.otherwise(...)` and `.exhaustive()` return `Promise<...>`.
+
+Promise builders also expose safe terminals:
+
+```ts
+const result = await match
+  .promise(fetchResponse())
+  .with({ ok: true, body: P.select('body', P.string) }, ({ body }) => body.trim())
+  .safeOtherwise(() => '')
+
+if (result.ok) {
+  result.value
+} else {
+  result.error
+}
+```
+
+- `.safeExhaustive()` preserves the same compile-time exhaustiveness check as `.exhaustive()`.
+- `.safeOtherwise(handler)` requires a fallback handler.
+- Safe terminals resolve to `{ ok: true, value } | { ok: false, error }` and catch input, pattern, predicate, handler, fallback, and defensive non-exhaustive failures.
+
+Use `safeExhaustive()` when all variants should be handled but operational failures should be values:
+
+```ts
+const result = await match
+  .promise(fetchResponse())
+  .with({ ok: true }, ({ body }) => body)
+  .with({ ok: false }, ({ message }) => message)
+  .safeExhaustive()
+```
+
+Use sync `match(promise)` only if you intentionally want to pattern-match the `Promise` object itself.
 
 ## `matchBy`
 
@@ -252,13 +284,67 @@ Autocomplete intentionally suggests finite tag-like paths, such as literal strin
 
 Dot-path limitation: a dot string always means nesting. Use tuple paths for literal keys that contain dots.
 
-### `.cases({...})`
+### `.cases(...)`
+
+`.cases(...)` is an exhaustive terminal for `matchBy`. It supports three input shapes.
+
+#### Object case maps
 
 Object-map cases are exhaustive and exact for finite discriminants representable as object keys. They support string, number, symbol, and boolean tags when the normalized object keys do not collide.
 
+```ts
+const label = matchBy(command, 'kind').cases({
+  create: (value) => `create:${value.id}`,
+  rename: (value) => `rename:${value.id}:${value.name}`,
+  delete: (value) => `delete:${value.id}`,
+})
+```
+
 Use object-map cases when you want compact map-style DX in ordinary non-hot code. Avoid recreating inline case maps inside tight loops: fresh maps allocate handlers/maps and go through validation each time. The benchmark suite currently shows hoisted object maps as the fastest measured `ts-match` discriminant-dispatch shape, but hoisting removes contextual handler inference and can require manual handler parameter types. For JavaScript-feeling TypeScript, prefer `.with(...).exhaustive()` unless you deliberately choose that tradeoff.
 
-Use grouped/callback cases for `null`, `undefined`, `__proto__`, or collisions such as `1` and `'1'`.
+Use grouped/callback cases for `null`, `undefined`, or collisions such as `1` and `'1'`. Avoid bare `__proto__:` object-literal syntax because JavaScript treats it specially; use computed `['__proto__']`, tuple entries, or grouped cases when that tag matters.
+
+#### Callback grouped cases
+
+Callback grouped cases are exhaustive, preserve local handler inference, and support every discriminant value including `null` and `undefined`:
+
+```ts
+const label = matchBy(event, 'type').cases((group) => [
+  group('start', 'resume', (value) => `active:${value.id}`),
+  group('stop', (value) => `stopped:${value.reason}`),
+  group('error', (value) => `error:${value.message}`),
+])
+```
+
+Use this form when multiple tags share one handler and you want annotation-free narrowed parameters. Prefer variadic tags (`group('a', 'b', handler)`) for the best inline autocomplete; use array tags (`group(['a', 'b'], handler)`) when a reusable `as const` tuple is clearer.
+
+#### Tuple and grouped entry arrays
+
+Entry arrays are exhaustive and useful when cases are generated, reordered, or easier to express as tuples:
+
+```ts
+type State =
+  | { kind: 'ready'; data: string }
+  | { kind: 'failed'; reason: string }
+  | { kind: null }
+  | { kind?: undefined }
+
+declare const state: State
+
+const label = matchBy(state, 'kind').cases([
+  ['ready', (value) => value.data],
+  [[null, undefined] as const, () => 'empty'],
+  ['failed', (value) => value.reason],
+])
+```
+
+Valid entry shapes are:
+
+- `[tag, handler]` for one tag;
+- `[[tag1, tag2] as const, handler]` for a static group;
+- `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, or `group(tags, handler)` for reusable grouped entries.
+
+Array-form grouped tags must be statically known to prove exhaustive coverage. Inline literal arrays and reusable `as const` tuples count; broad runtime arrays are runtime-valid but do not prove all tags are present. Inline tuple-entry arrays contextually infer handlers from their sibling tags. Exported `group(...)` entries are useful for reusable structures but can need explicit handler parameter annotations; use callback `.cases((group) => [...])` when you want grouped entries with the strongest annotation-free handler inference.
 
 ### `.with(...tags, handler)`
 
@@ -275,7 +361,9 @@ Checked example: [`examples/15-match-by-with-partial.ts`](examples/15-match-by-w
 
 ### `.partial(...).otherwise(...)`
 
-Use `.partial(...)` when only some tags are handled by a reusable map or tuple list and the rest should go to fallback:
+Use `.partial(...)` when only some tags need special handling and the rest should go to `.otherwise(...)`. It accepts the same object-map and tuple/grouped entry shapes as `.cases(...)`, but it is intentionally non-exhaustive.
+
+Object-map partial:
 
 ```ts
 const label = matchBy(action, 'type')
@@ -285,28 +373,82 @@ const label = matchBy(action, 'type')
   .otherwise((remaining) => (remaining.type === 'close' ? `close:${remaining.documentId}` : 'noop'))
 ```
 
+Tuple/grouped-entry partial:
+
+```ts
+const label = matchBy(action, 'type')
+  .partial([
+    ['save', (value) => `save:${value.documentId}`],
+    [['rename', 'duplicate'] as const, (value) => `copy:${value.documentId}`],
+  ])
+  .otherwise((remaining) => `fallback:${remaining.type}`)
+```
+
+Callback grouped cases are supported by `.cases(...)`; for partial grouped behavior use `.partial([...])` with tuple entries or exported `group(...)` entries.
+
 Checked example: [`examples/15-match-by-with-partial.ts`](examples/15-match-by-with-partial.ts).
 
 ### Runtime behavior
 
-If no `matchBy` case matches, `cases(...)` and `.exhaustive()` throw `NonExhaustiveMatchError` with `matcher`, `path`, `key`, `tag`, and `valuePreview` metadata where available.
+If no `matchBy` case matches, `cases(...)` and `.exhaustive()` throw `NonExhaustiveMatchError` with `matcher`, `path`, `tag`, and `valuePreview` metadata where available. If a path segment is missing, the selected tag is `undefined`; handle it with tuple or grouped entries when that is a valid runtime state.
 
-## `matchBy.async`
+## `matchBy.promise`
 
-`matchBy.async(value, path)` is the async form of `matchBy`:
+`matchBy.promise(valueOrPromise, path)` resolves the input internally, then performs the same path/tag dispatch as `matchBy(value, path)`:
 
 ```ts
 const description = await matchBy
-  .async(job, 'type')
+  .promise(fetchJob(), 'type')
   .with('queued', async (value) => `queued:${value.id}`)
   .with('finished', (value) => `finished:${value.id}:${value.durationMs}`)
   .with('failed', (value) => `failed:${value.id}:${value.reason}`)
   .exhaustive()
 ```
 
-Checked example: [`examples/06-match-by-async.ts`](examples/06-match-by-async.ts).
+Checked example: [`examples/06-match-by-promise.ts`](examples/06-match-by-promise.ts).
 
-Behavior mirrors `match.async`: returned values and promises are normalized into one terminal promise, and synchronous handler throws become rejections. Await promise-producing sources before calling `matchBy.async(...)`; the selected value itself is not unwrapped.
+Path, tag, object-map, partial-map, and grouped-case inference all use the resolved input type (`Awaited<TInput>`). That means this keeps the same autocomplete as sync `matchBy(...)` even when the source is a `Promise<Event>` or `Event | PromiseLike<Event>`.
+
+Normal terminals return promises and reject normally for input rejections, path-read errors, handler throws/rejections, fallback throws/rejections, and defensive non-exhaustive failures. `.otherwise(...)` remains only a pattern fallback; it does not catch input promise failures.
+
+All `matchBy` case shapes are available on promise builders:
+
+```ts
+const compact = await matchBy.promise(fetchJob(), 'type').cases({
+  queued: async (value) => `queued:${value.id}`,
+  finished: (value) => `finished:${value.id}:${value.durationMs}`,
+  failed: (value) => `failed:${value.id}:${value.reason}`,
+})
+
+const partial = await matchBy
+  .promise(fetchJob(), 'type')
+  .partial({ queued: (value) => `queued:${value.id}` })
+  .otherwise((value) => `done:${value.id}`)
+
+const grouped = await matchBy
+  .promise(fetchJob(), 'type')
+  .cases((group) => [group('queued', 'finished', (value) => value.id), group('failed', (value) => value.reason)])
+```
+
+Safe terminals mirror `match.promise`:
+
+```ts
+const fallbackResult = await matchBy
+  .promise(fetchJob(), 'type')
+  .with('queued', (value) => `queued:${value.id}`)
+  .safeOtherwise(() => 'unknown')
+
+const exhaustiveResult = await matchBy
+  .promise(fetchJob(), 'type')
+  .with('queued', (value) => `queued:${value.id}`)
+  .with('finished', (value) => `finished:${value.id}`)
+  .with('failed', (value) => `failed:${value.reason}`)
+  .safeExhaustive()
+```
+
+- `.safeExhaustive()` keeps exhaustive tag checking.
+- `.safeOtherwise(handler)` requires a fallback handler.
+- Safe terminals resolve to `{ ok: true, value } | { ok: false, error }`.
 
 ## `group`
 
@@ -567,7 +709,7 @@ Each handler sees only the variant for its tag.
 
 ### Return types are inferred
 
-`match(...)`, `matchBy(...)`, and their async forms infer the union of branch return values. Async terminals wrap the awaited return in a promise.
+`match(...)`, `matchBy(...)`, and their promise forms infer the union of branch return values. Promise terminals wrap the awaited return in a promise.
 
 ### Selections change the handler payload
 
@@ -720,7 +862,7 @@ Performance guidance is intentionally practical, not absolute:
 - Avoid inline `.cases({...})` in hot loops because it recreates maps/handlers and validates fresh objects.
 - Hoisted `matchBy(...).cases(caseMap)` is currently the fastest measured `ts-match` discriminant-dispatch shape in `benchmarks/native.ts`, but it is a deliberate performance/DX tradeoff because reusable handler maps can lose contextual inference. Do not use it as the default user-facing style.
 - Hoist reusable patterns and validators when that preserves inference, for example `const isTelemetry = isMatching(P.exact(...))`.
-- Measure locally with `pnpm bench:native`. The benchmark includes inline object maps, hoisted object maps, grouped callback cases, structural patterns, predicate patterns, `isMatching`, and async terminals.
+- Measure locally with `pnpm bench:native`. The benchmark includes inline object maps, hoisted object maps, grouped callback cases, structural patterns, predicate patterns, `isMatching`, and promise terminals.
 
 Checked performance-style example: [`examples/14-performance-friendly-hoisting.ts`](examples/14-performance-friendly-hoisting.ts).
 
@@ -743,7 +885,7 @@ The repository also contains the development-only `benchmarks/dispatch.ts` strat
 - **Object patterns use normal JavaScript property lookup.** Getters can run or throw, and inherited properties can match.
 - **`P.exact(...)` checks enumerable own extra keys on values.** It is deep for object patterns, but it is not a cyclic-graph matcher.
 - **Dot paths mean nesting.** Use tuple paths when a literal key contains `.` or when path segments are symbols.
-- **Object-map `matchBy(...).cases({...})` cannot represent `null`, `undefined`, or key collisions.** Use `.cases((group) => [...])` or tuple entries for those cases.
+- **Object-map `matchBy(...).cases({...})` cannot represent `null`, `undefined`, or normalized key collisions.** Avoid bare `__proto__:` object-literal syntax; use computed `['__proto__']`, `.cases((group) => [...])`, or tuple entries for those cases.
 - **Standalone exported `group(...)` has limited handler inference.** Use the callback `group` parameter for JavaScript-feeling grouped cases.
 
 See [`docs/design.md`](docs/design.md) for locked design decisions and lower-level semantics.
@@ -752,32 +894,32 @@ See [`docs/design.md`](docs/design.md) for locked design decisions and lower-lev
 
 Run all examples with `pnpm test:examples`.
 
-| File                                                                                             | Demonstrates                                       | APIs used                                         |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------- |
-| [`examples/01-basic-match.ts`](examples/01-basic-match.ts)                                       | Basic fallback matching                            | `match`, `P.string`, `P.number`, `.otherwise`     |
-| [`examples/02-exhaustive-discriminated-union.ts`](examples/02-exhaustive-discriminated-union.ts) | Exhaustive discriminated union reducer             | `matchBy`, `.with`, `.exhaustive`                 |
-| [`examples/03-match-async.ts`](examples/03-match-async.ts)                                       | Async structural matching                          | `match.async`, `P.select`                         |
-| [`examples/04-match-by-direct-key.ts`](examples/04-match-by-direct-key.ts)                       | Direct-key discriminant dispatch                   | `matchBy`                                         |
-| [`examples/05-match-by-nested-path.ts`](examples/05-match-by-nested-path.ts)                     | Dot paths and tuple symbol paths                   | `matchBy`                                         |
-| [`examples/06-match-by-async.ts`](examples/06-match-by-async.ts)                                 | Async discriminant dispatch                        | `matchBy.async`                                   |
-| [`examples/07-grouped-cases.ts`](examples/07-grouped-cases.ts)                                   | Grouped tags, `null`, `undefined`, reusable groups | `matchBy`, callback `group`, exported `group`     |
-| [`examples/08-pattern-helpers.ts`](examples/08-pattern-helpers.ts)                               | `P` namespace helpers                              | `P`, `match`, `isMatching`                        |
-| [`examples/09-named-helper-imports.ts`](examples/09-named-helper-imports.ts)                     | Named `p*` helpers                                 | every public `p*` helper                          |
-| [`examples/10-is-matching.ts`](examples/10-is-matching.ts)                                       | Runtime type guards and filtering                  | `isMatching`, `P`                                 |
-| [`examples/11-assert-matching.ts`](examples/11-assert-matching.ts)                               | Boundary assertion and narrowing                   | `assertMatching`, `P`                             |
-| [`examples/12-error-handling.ts`](examples/12-error-handling.ts)                                 | Public error classes                               | `PatternMismatchError`, `NonExhaustiveMatchError` |
-| [`examples/13-real-world-events.ts`](examples/13-real-world-events.ts)                           | Event routing and nested selection                 | `match`, `matchBy`, `P.select`                    |
-| [`examples/14-performance-friendly-hoisting.ts`](examples/14-performance-friendly-hoisting.ts)   | Inference-friendly hot-path guidance               | `matchBy.with`, hoisted `isMatching`, `P.exact`   |
-| [`examples/15-match-by-with-partial.ts`](examples/15-match-by-with-partial.ts)                   | Chained tags and partial fallback                  | `matchBy.with`, `matchBy.partial`, `.otherwise`   |
+| File                                                                                             | Demonstrates                                       | APIs used                                                    |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------ |
+| [`examples/01-basic-match.ts`](examples/01-basic-match.ts)                                       | Basic fallback, shared handlers, and predicates    | `match`, multi-pattern `.with`, `.when`, `P`                 |
+| [`examples/02-exhaustive-discriminated-union.ts`](examples/02-exhaustive-discriminated-union.ts) | Exhaustive discriminated union reducer             | `matchBy`, `.with`, `.exhaustive`                            |
+| [`examples/03-match-promise.ts`](examples/03-match-promise.ts)                                   | Promise structural matching and safe terminals     | `match.promise`, `P.select`, safe terminals                  |
+| [`examples/04-match-by-direct-key.ts`](examples/04-match-by-direct-key.ts)                       | Direct-key discriminant dispatch and object maps   | `matchBy.with`, `matchBy.cases`                              |
+| [`examples/05-match-by-nested-path.ts`](examples/05-match-by-nested-path.ts)                     | Dot paths and tuple symbol paths                   | `matchBy`                                                    |
+| [`examples/06-match-by-promise.ts`](examples/06-match-by-promise.ts)                             | Promise discriminant dispatch, maps, groups, safe  | `matchBy.promise`, `.cases`, `.partial`, safe                |
+| [`examples/07-grouped-cases.ts`](examples/07-grouped-cases.ts)                                   | Grouped tags, `null`, `undefined`, reusable groups | `matchBy`, callback `group`, exported `group`                |
+| [`examples/08-pattern-helpers.ts`](examples/08-pattern-helpers.ts)                               | `P` namespace helpers                              | `P`, `match`, `isMatching`                                   |
+| [`examples/09-named-helper-imports.ts`](examples/09-named-helper-imports.ts)                     | Named `p*` helpers                                 | every public `p*` helper                                     |
+| [`examples/10-is-matching.ts`](examples/10-is-matching.ts)                                       | Runtime type guards and filtering                  | `isMatching`, `P`                                            |
+| [`examples/11-assert-matching.ts`](examples/11-assert-matching.ts)                               | Boundary assertion and narrowing                   | `assertMatching`, `P`                                        |
+| [`examples/12-error-handling.ts`](examples/12-error-handling.ts)                                 | Public error classes and previews                  | `PatternMismatchError`, `NonExhaustiveMatchError`, `preview` |
+| [`examples/13-real-world-events.ts`](examples/13-real-world-events.ts)                           | Event routing and nested selection                 | `match`, `matchBy`, `P.select`                               |
+| [`examples/14-performance-friendly-hoisting.ts`](examples/14-performance-friendly-hoisting.ts)   | Inference-friendly hot-path guidance               | `matchBy.with`, hoisted `isMatching`, `P.exact`              |
+| [`examples/15-match-by-with-partial.ts`](examples/15-match-by-with-partial.ts)                   | Chained tags and object/tuple partial fallback     | `matchBy.with`, `matchBy.partial`, `.otherwise`              |
 
 ## API reference summary
 
 ### Primary APIs
 
 - `match(value)`
-- `match.async(value)`
+- `match.promise(valueOrPromise)`
 - `matchBy(value, path)`
-- `matchBy.async(value, path)`
+- `matchBy.promise(valueOrPromise, path)`
 - `P`
 
 ### Utilities
@@ -818,6 +960,7 @@ These are mainly for library authors and advanced integrations:
 - `IntegerPattern`
 - `MatchedValue`
 - `MatchByPath`
+- `MatchPromiseResult`
 - `NamedSelectPattern`
 - `NanPattern`
 - `NonEmptyArrayPattern`
@@ -834,22 +977,42 @@ These are mainly for library authors and advanced integrations:
 - `UnionPattern`
 - `WildcardPattern`
 
+Advanced type helpers are useful when you are building wrappers around ts-match:
+
+```ts
+import type { InferPattern, MatchByPath, MatchPromiseResult } from '@diegogbrisa/ts-match'
+import { P } from '@diegogbrisa/ts-match'
+
+type UserPayload = InferPattern<{ id: typeof P.string; role: typeof P.string }>
+// { id: string; role: string }
+
+function makePath<TValue>(path: MatchByPath<TValue>): MatchByPath<TValue> {
+  return path
+}
+
+async function load(): Promise<MatchPromiseResult<UserPayload>> {
+  return { ok: true, value: { id: 'user-1', role: 'admin' } }
+}
+```
+
+Builder types (`SyncMatchBuilder`, `PromiseMatchBuilder`, `SyncMatchByBuilder`, `PromiseMatchByBuilder`) are mainly for libraries that accept a partially built matcher and return it. Application code should normally rely on inference from `match(...)`, `match.promise(...)`, `matchBy(...)`, and `matchBy.promise(...)`.
+
 ### Focused subpath exports
 
-| Published subpath                  | Public exports                                                                                             |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `@diegogbrisa/ts-match/match`      | `match`, `SyncMatchBuilder`, `AsyncMatchBuilder`, `MatchFunction`, `MatchedValue`                          |
-| `@diegogbrisa/ts-match/match-by`   | `matchBy`, `SyncMatchByBuilder`, `AsyncMatchByBuilder`, `MatchByBuilder`, `MatchByFunction`, `MatchByPath` |
-| `@diegogbrisa/ts-match/patterns`   | `P` and every public `p*` helper                                                                           |
-| `@diegogbrisa/ts-match/assertions` | `isMatching`, `assertMatching`                                                                             |
-| `@diegogbrisa/ts-match/errors`     | `NonExhaustiveMatchError`, `PatternMismatchError`, `preview`, `MatchErrorMetadata`                         |
-| `@diegogbrisa/ts-match/group`      | `group`                                                                                                    |
+| Published subpath                  | Public exports                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `@diegogbrisa/ts-match/match`      | `match`, `SyncMatchBuilder`, `PromiseMatchBuilder`, `MatchFunction`, `MatchedValue`, `MatchPromiseResult`                          |
+| `@diegogbrisa/ts-match/match-by`   | `matchBy`, `SyncMatchByBuilder`, `PromiseMatchByBuilder`, `MatchByBuilder`, `MatchByFunction`, `MatchByPath`, `MatchPromiseResult` |
+| `@diegogbrisa/ts-match/patterns`   | `P` and every public `p*` helper                                                                                                   |
+| `@diegogbrisa/ts-match/assertions` | `isMatching`, `assertMatching`                                                                                                     |
+| `@diegogbrisa/ts-match/errors`     | `NonExhaustiveMatchError`, `PatternMismatchError`, `preview`, `MatchErrorMetadata`                                                 |
+| `@diegogbrisa/ts-match/group`      | `group`                                                                                                                            |
 
 ## Acknowledgements
 
 ts-match was inspired by the excellent work Gabriel Vergnaud has done on [ts-pattern](https://github.com/gvergnaud/ts-pattern).
 
-ts-pattern set a very high bar for ergonomic, type-safe pattern matching in TypeScript. I built ts-match independently because I wanted to explore a smaller ESM-only library with a different emphasis: `matchBy` for discriminant/path dispatch, explicit async matchers, named `p*` helper exports, and runtime semantics that fit my own preferences.
+ts-pattern set a very high bar for ergonomic, type-safe pattern matching in TypeScript. I built ts-match independently because I wanted to explore a smaller ESM-only library with a different emphasis: `matchBy` for discriminant/path dispatch, promise-aware matchers, named `p*` helper exports, and runtime semantics that fit my own preferences.
 
 ts-match is not affiliated with ts-pattern.
 

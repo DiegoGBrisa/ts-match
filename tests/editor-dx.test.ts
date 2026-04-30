@@ -100,6 +100,157 @@ describe('editor DX', () => {
     expect(result.diagnostics.join('\n')).toContain('ts-match: invalid matchBy path')
   })
 
+  it('suggests finite matchBy.promise paths from the resolved input value type', () => {
+    const stringPath = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click'; readonly nested: { readonly kind: 'pointer' } }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit'; readonly nested: { readonly kind: 'form' } }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), '${COMPLETION_MARKER}')
+    `)
+
+    const tuplePath = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click'; readonly nested: { readonly kind: 'pointer' } }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit'; readonly nested: { readonly kind: 'form' } }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), ['${COMPLETION_MARKER}'])
+    `)
+
+    expect(stringPath.names).toEqual(expect.arrayContaining(['meta.type', 'meta.nested.kind']))
+    expect(stringPath.names).not.toEqual(expect.arrayContaining(['meta', 'value']))
+    expect(tuplePath.names).toEqual(expect.arrayContaining(['meta']))
+  })
+
+  it('suggests matchBy.promise tags, remaining tags, maps, partial maps, and grouped callbacks', () => {
+    const firstTag = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').with('${COMPLETION_MARKER}', (value) => value)
+    `)
+
+    const remainingTag = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type')
+        .with('click', (value) => value.value.x)
+        .with('${COMPLETION_MARKER}', (value) => value)
+    `)
+
+    const casesMap = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').cases({ ${COMPLETION_MARKER} })
+    `)
+
+    const partialMap = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').partial({ ${COMPLETION_MARKER} }).otherwise((value) => value)
+    `)
+
+    const tupleEntry = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').cases([['${COMPLETION_MARKER}', (value) => value]])
+    `)
+
+    const partialTupleEntry = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').partial([['${COMPLETION_MARKER}', (value) => value]]).otherwise((value) => value)
+    `)
+
+    const groupedCallback = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').cases((group) => [group('${COMPLETION_MARKER}', (value) => value)])
+    `)
+
+    const variadicGroupedCallback = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').cases((group) => [group('click', '${COMPLETION_MARKER}', (value) => value)])
+    `)
+
+    expect(firstTag.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(remainingTag.names).toEqual(expect.arrayContaining(['submit']))
+    expect(remainingTag.names).not.toEqual(expect.arrayContaining(['click']))
+    expect(casesMap.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(partialMap.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(tupleEntry.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(partialTupleEntry.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(groupedCallback.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(variadicGroupedCallback.names).toEqual(expect.arrayContaining(['click', 'submit']))
+  })
+
+  it('suggests P namespace helpers in promise builders', () => {
+    const directPattern = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      declare function fetchValue(): Promise<unknown>
+      match.promise(fetchValue()).with(P.${COMPLETION_MARKER}, (matched) => matched)
+    `)
+
+    const nestedPattern = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      type User = { readonly type: 'user'; readonly id: string }
+      declare function fetchUser(): Promise<User>
+      match.promise(fetchUser()).with({ id: P.${COMPLETION_MARKER} }, (matched) => matched.id)
+    `)
+
+    for (const result of [directPattern, nestedPattern]) {
+      expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'select', 'union']))
+    }
+  })
+
   it('suggests matchBy tags and remaining tags in .with(...) chains', () => {
     const firstTag = getCompletionsAtMarker(`
       import { matchBy } from '../src/index.ts'

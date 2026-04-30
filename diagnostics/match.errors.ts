@@ -27,9 +27,9 @@ match({ readonlyItems: ['a'] })
   .with({ readonlyItems: P.array(P.select('item')) }, ({ item }) => item)
   .otherwise(() => 'fallback')
 
-// Intended diagnostic: ts-match says match.async is not exhaustive.
+// Intended diagnostic: ts-match says match.promise is not exhaustive.
 match
-  .async(action)
+  .promise(Promise.resolve(action))
   .with({ type: 'start' }, (value) => value.payload)
   .exhaustive()
 

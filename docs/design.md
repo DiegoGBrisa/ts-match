@@ -23,7 +23,7 @@ User-facing guide: [`../README.md`](../README.md). Checked examples: [`../exampl
 - Fluent method: `.with(...)`.
 - Fallback: `.otherwise(...)`.
 - Exhaustive terminal: `.exhaustive()`.
-- Async normalization is explicit: `match.async(...)` and `matchBy.async(...)` normalize handler results and synchronous throws into terminal promises; they do not unwrap promise input values.
+- Promise normalization is explicit: `match.promise(...)` and `matchBy.promise(...)` resolve value, promise, thenable, and maybe-promise inputs internally; handlers receive `Awaited<TInput>`, terminal values are promise-normalized, normal terminals reject normally, and safe terminals return `MatchPromiseResult<T>`.
 - `matchBy(value, path)` is the differentiator for discriminated unions and nested discriminants.
 
 ## Pattern helpers
@@ -133,4 +133,4 @@ The source implementation intentionally avoids internal `switch` statements in `
 
 ## Type-safety implementation policy
 
-Non-const TypeScript assertions are forbidden across source, tests, benchmarks, and scripts. The only allowed assertion form is `as const`. Builder internals are split into sync and async implementations so terminal return types are modeled directly instead of forced through conditional-type casts. ESLint enforces the assertion policy through the local `local/no-non-const-assertions` rule, so `pnpm lint` and `pnpm check` cover it without a separate validation script.
+Non-const TypeScript assertions are forbidden across source, tests, benchmarks, and scripts. The only allowed assertion form is `as const`. Builder internals are split into sync and promise-aware implementations so terminal return types are modeled directly instead of forced through conditional-type casts. ESLint enforces the assertion policy through the local `local/no-non-const-assertions` rule, so `pnpm lint` and `pnpm check` cover it without a separate validation script.

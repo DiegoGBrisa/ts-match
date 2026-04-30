@@ -231,28 +231,28 @@ describe('adversarial runtime coverage', () => {
     ).toThrow('predicate failed')
   })
 
-  it('covers async success, rejection, and sync throws in async mode', async () => {
+  it('covers promise success, rejection, and sync throws in promise mode', async () => {
     await expect(
       match
-        .async('x')
+        .promise(Promise.resolve('x' as const))
         .with('x', async () => 'ok')
         .exhaustive(),
     ).resolves.toBe('ok')
     await expect(
       match
-        .async('x')
+        .promise(Promise.resolve('x' as const))
         .with('x', () => 'sync')
         .exhaustive(),
     ).resolves.toBe('sync')
     await expect(
       match
-        .async('x')
+        .promise(Promise.resolve('x' as const))
         .with('x', async () => Promise.reject(new Error('rejected')))
         .exhaustive(),
     ).rejects.toThrow('rejected')
     await expect(
       match
-        .async('x')
+        .promise(Promise.resolve('x' as const))
         .with('x', () => {
           throw new Error('sync failed')
         })
