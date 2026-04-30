@@ -23,8 +23,10 @@ export function evaluatePromiseOtherwise(
   handlerLabel: string,
   evaluate: (value: unknown, fallback: PromiseTerminalHandler) => unknown,
 ): Promise<unknown> {
-  assertHandler(handler, handlerLabel)
-  return Promise.resolve(input).then((value) => evaluate(value, handler))
+  return Promise.resolve(input).then((value) => {
+    assertHandler(handler, handlerLabel)
+    return evaluate(value, handler)
+  })
 }
 
 /** Resolves a maybe-promise input before evaluating an exhaustive promise matcher terminal. */

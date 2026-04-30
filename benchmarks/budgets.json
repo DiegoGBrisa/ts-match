@@ -15,7 +15,7 @@
     { "name": "match predicate", "maxNsPerOp": 1500 },
     { "name": "isMatching primitive", "maxNsPerOp": 250 },
     { "name": "isMatching record", "maxNsPerOp": 3500 },
-    { "name": "match.promise exhaustive", "maxNsPerOp": 2000 },
+    { "name": "match.promise with otherwise", "maxNsPerOp": 2000 },
     { "name": "matchBy.promise cases", "maxNsPerOp": 1000 }
   ]
 }

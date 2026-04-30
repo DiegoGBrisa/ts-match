@@ -342,7 +342,7 @@ const syncTasks: readonly SyncTask[] = [
 
 const asyncTasks: readonly AsyncTask[] = [
   {
-    name: 'match.promise exhaustive',
+    name: 'match.promise with otherwise',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
       let total = 0

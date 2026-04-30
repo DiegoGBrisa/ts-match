@@ -337,6 +337,14 @@ describe('match terminal behavior', () => {
     }).toThrow('match.promise(...).with(...) handler must be a function.')
   })
 
+  it('rejects invalid match.promise fallback handlers through the returned promise', async () => {
+    // @ts-expect-error runtime validation rejects non-function promise fallback handlers
+    const terminal = match.promise(Promise.resolve('x' as const)).otherwise('not a handler')
+
+    expect(terminal).toBeInstanceOf(Promise)
+    await expect(terminal).rejects.toThrow('match.promise(...).otherwise(...) handler must be a function.')
+  })
+
   it('rejects match.promise normal terminals for input, predicate, handler, and exhaustive failures', async () => {
     const inputError = new Error('input failed')
     const predicateError = new Error('predicate failed')
@@ -553,6 +561,17 @@ describe('matchBy behavior', () => {
     }).toThrow(TypeError)
   })
 
+  it('validates tuple-entry tags before storing cases', () => {
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-discriminant tuple tags
+      matchBy({ type: 'a' as const }, 'type').partial([[{}, () => 1]])
+    }).toThrow('group(...) tags must be discriminants.')
+
+    expect(() => {
+      matchBy({ type: 'a' as const }, 'type').partial([[[], () => 1]])
+    }).toThrow('group(...) requires at least one tag.')
+  })
+
   it('resolves matchBy.promise input values and normalizes handler outputs', async () => {
     type Event = { readonly type: 'a'; readonly value: number } | { readonly type: 'b'; readonly value: number }
     const event = ((): Event => ({ type: 'a', value: 1 }))()
@@ -644,6 +663,14 @@ describe('matchBy behavior', () => {
       // @ts-expect-error runtime validation rejects non-function promise .with(...) handlers
       matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').with('a', 'not a handler')
     }).toThrow('matchBy.promise(...).with(...) handler must be a function.')
+  })
+
+  it('rejects invalid matchBy.promise fallback handlers through the returned promise', async () => {
+    // @ts-expect-error runtime validation rejects non-function promise fallback handlers
+    const terminal = matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').otherwise('not a handler')
+
+    expect(terminal).toBeInstanceOf(Promise)
+    await expect(terminal).rejects.toThrow('matchBy.promise(...).otherwise(...) handler must be a function.')
   })
 
   it('rejects matchBy.promise normal terminals and catches failures with safe terminals', async () => {

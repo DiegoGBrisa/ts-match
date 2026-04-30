@@ -1672,11 +1672,8 @@ function normalizeEntries(entries: readonly unknown[]): readonly RuntimeTagCase[
 
     const tagOrTags = entry[0]
     const handler = entry[1]
-    assertFunction(handler, 'matchBy grouped case handler')
-    return {
-      tags: Array.isArray(tagOrTags) ? tagOrTags : [tagOrTags],
-      handler,
-    }
+    const normalized = normalizeGroupArgs([tagOrTags, handler])
+    return { tags: normalized.tags, handler: normalized.handler }
   })
 }
 
@@ -1694,8 +1691,8 @@ function readGroupEntry(value: unknown): RuntimeTagCase | undefined {
   const tags = Reflect.get(value, 'tags')
   const handler = Reflect.get(value, 'handler')
   if (!Array.isArray(tags)) throw new TypeError('matchBy group(...) entry tags must be an array.')
-  assertFunction(handler, 'matchBy grouped case handler')
-  return { tags, handler }
+  const normalized = normalizeGroupArgs([tags, handler])
+  return { tags: normalized.tags, handler: normalized.handler }
 }
 
 /**
