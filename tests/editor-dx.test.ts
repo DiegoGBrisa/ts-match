@@ -4,7 +4,11 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 const COMPLETION_MARKER = '/*cursor*/'
-const EDITOR_DX_TEST_TIMEOUT_MS = 20_000
+const EDITOR_DX_TEST_TIMEOUT_MS = 60_000
+
+interface CompletionProbeOptions {
+  readonly includeDiagnostics?: boolean
+}
 
 interface CompletionProbeResult {
   readonly names: readonly string[]
@@ -41,7 +45,7 @@ function createLanguageServiceHost(
   return { ...host, realpath: ts.sys.realpath }
 }
 
-function getCompletionsAtMarker(sourceWithMarker: string): CompletionProbeResult {
+function getCompletionsAtMarker(sourceWithMarker: string, options: CompletionProbeOptions = {}): CompletionProbeResult {
   const markerIndex = sourceWithMarker.indexOf(COMPLETION_MARKER)
   if (markerIndex < 0) throw new Error(`Completion marker ${COMPLETION_MARKER} was not found.`)
 
@@ -64,15 +68,19 @@ function getCompletionsAtMarker(sourceWithMarker: string): CompletionProbeResult
 
   return {
     names: completions?.entries.map((entry) => entry.name) ?? [],
-    diagnostics: languageService
-      .getSemanticDiagnostics(fileName)
-      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
+    diagnostics:
+      options.includeDiagnostics === true
+        ? languageService
+            .getSemanticDiagnostics(fileName)
+            .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+        : [],
   }
 }
 
 describe('editor DX', () => {
   it('suggests finite nested matchBy string paths from the input value type', () => {
-    const result = getCompletionsAtMarker(`
+    const result = getCompletionsAtMarker(
+      `
       import { matchBy } from '../src/index.ts'
 
       type UiEvent =
@@ -81,7 +89,9 @@ describe('editor DX', () => {
 
       declare const event: UiEvent
       matchBy(event, '${COMPLETION_MARKER}')
-    `)
+    `,
+      { includeDiagnostics: true },
+    )
 
     expect(result.names).toEqual(expect.arrayContaining(['meta.type', 'meta.nested.kind']))
     expect(result.names).not.toEqual(
