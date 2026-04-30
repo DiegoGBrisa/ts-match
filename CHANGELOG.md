@@ -4,6 +4,21 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.1.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.3...v1.1.0) (2026-04-30)
+
+
+### Features
+
+* **dx:** improve autocomplete inference ([c0e4966](https://github.com/DiegoGBrisa/ts-match/commit/c0e4966c496dfcc6b351463d852c6bcca8a088f2))
+
+
+### Bug Fixes
+
+* **dx:** harden autocomplete inference ([cfc303a](https://github.com/DiegoGBrisa/ts-match/commit/cfc303a63abc6f0484e290de1c49cc0b73da9df5))
+* **group:** harden group tag arrays ([98dcd69](https://github.com/DiegoGBrisa/ts-match/commit/98dcd69123cc8c2584d2865f698d8221c4780589))
+* **group:** reject empty array groups ([bb945a7](https://github.com/DiegoGBrisa/ts-match/commit/bb945a788b6d229404a613826a0735c41dcda49f))
+* **types:** require static grouped tags for coverage ([13d3271](https://github.com/DiegoGBrisa/ts-match/commit/13d32715737c4ab80f40c54996db7f3e6bf27cad))
+
 ## [1.0.3](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.2...v1.0.3) (2026-04-30)
 
 
