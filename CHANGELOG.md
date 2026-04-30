@@ -4,6 +4,18 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.0.2](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.1...v1.0.2) (2026-04-30)
+
+
+### Bug Fixes
+
+* **release:** allow manual publish recovery ([b480e7a](https://github.com/DiegoGBrisa/ts-match/commit/b480e7ab2d1b7bab2ab4d81e914547099ad7afa7))
+* **release:** allow manual publish recovery ([d26add9](https://github.com/DiegoGBrisa/ts-match/commit/d26add9838c273ffffaee9b08c9fd874805e7578))
+* **release:** avoid changelog formatting gate ([695a38b](https://github.com/DiegoGBrisa/ts-match/commit/695a38b71119fd6ade42d88e7994d8c460cbd1e2))
+* **release:** avoid changelog formatting gate ([8c55c4e](https://github.com/DiegoGBrisa/ts-match/commit/8c55c4ece5a46bc0b1ee2d5f09435a31c660ad63))
+* **release:** publish validated tarball ([8e4d25c](https://github.com/DiegoGBrisa/ts-match/commit/8e4d25ca75a5b1cb25fbd808989d6b23b3b8c0fd))
+* **release:** publish validated tarball ([1a14ebd](https://github.com/DiegoGBrisa/ts-match/commit/1a14ebd0051cf5847cc84ee814ac9f858a6dcdd6))
+
 ## [1.0.1](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.0...v1.0.1) (2026-04-29)
 
 ### Bug Fixes
