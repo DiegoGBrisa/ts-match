@@ -5,16 +5,21 @@ Pattern matching for TypeScript. Use `match` for structural patterns, `matchBy` 
 ```ts
 import { matchBy } from '@diegogbrisa/ts-match'
 
-type Event =
-  | { type: 'created'; id: string }
-  | { type: 'renamed'; id: string; name: string }
-  | { type: 'deleted'; id: string }
+type CartAction =
+  | { type: 'addItem'; sku: string; quantity: number }
+  | { type: 'applyCoupon'; code: string; percentOff: number }
+  | { type: 'clearCart'; reason: 'user' | 'timeout' }
 
-function labelFor(event: Event): string {
-  return matchBy(event, 'type')
-    .with('created', (event) => `created:${event.id}`)
-    .with('renamed', (event) => `renamed:${event.id}:${event.name}`)
-    .with('deleted', (event) => `deleted:${event.id}`)
+type CartOperation =
+  | { type: 'lineItemAdded'; sku: string; quantity: number }
+  | { type: 'discountApplied'; code: string; multiplier: number }
+  | { type: 'cartCleared'; reason: 'user' | 'timeout' }
+
+function planCartOperation(action: CartAction): CartOperation {
+  return matchBy(action, 'type')
+    .with('addItem', (action) => ({ type: 'lineItemAdded', sku: action.sku, quantity: action.quantity }))
+    .with('applyCoupon', (action) => ({ type: 'discountApplied', code: action.code, multiplier: 0.9 }))
+    .with('clearCart', (action) => ({ type: 'cartCleared', reason: action.reason }))
     .exhaustive()
 }
 ```
@@ -253,10 +258,10 @@ Use sync `match(promise)` only if you intentionally want to pattern-match the `P
 ### Direct key
 
 ```ts
-const description = matchBy(command, 'kind')
-  .with('create', (value) => `create:${value.id}`)
-  .with('rename', (value) => `rename:${value.id}:${value.name}`)
-  .with('delete', (value) => `delete:${value.id}`)
+const operation = matchBy(cartAction, 'kind')
+  .with('addItem', (value) => ({ type: 'lineItemAdded', sku: value.sku, quantity: value.quantity }))
+  .with('applyCoupon', (value) => ({ type: 'discountApplied', code: value.code, multiplier: 0.9 }))
+  .with('clearCart', (value) => ({ type: 'cartCleared', reason: value.reason }))
   .exhaustive()
 ```
 
@@ -293,10 +298,10 @@ Dot-path limitation: a dot string always means nesting. Use tuple paths for lite
 Object-map cases are exhaustive and exact for finite discriminants representable as object keys. They support string, number, symbol, and boolean tags when the normalized object keys do not collide.
 
 ```ts
-const label = matchBy(command, 'kind').cases({
-  create: (value) => `create:${value.id}`,
-  rename: (value) => `rename:${value.id}:${value.name}`,
-  delete: (value) => `delete:${value.id}`,
+const auditEvent = matchBy(cartAction, 'kind').cases({
+  addItem: (value) => ({ category: 'inventory', sku: value.sku, quantity: value.quantity }),
+  applyCoupon: (value) => ({ category: 'pricing', code: value.code, percentOff: value.percentOff }),
+  clearCart: (value) => ({ category: 'lifecycle', reason: value.reason }),
 })
 ```
 
@@ -366,22 +371,37 @@ Use `.partial(...)` when only some tags need special handling and the rest shoul
 Object-map partial:
 
 ```ts
-const label = matchBy(action, 'type')
+const response = matchBy(cartAction, 'type')
   .partial({
-    save: (value) => `save:${value.documentId}`,
+    addItem: (value) => ({ type: 'recalculate', cartId: value.cartId, sku: value.sku, quantity: value.quantity }),
   })
-  .otherwise((remaining) => (remaining.type === 'close' ? `close:${remaining.documentId}` : 'noop'))
+  .otherwise((remaining) =>
+    remaining.type === 'checkout'
+      ? { type: 'reviewTotal', cartId: remaining.cartId, total: remaining.total }
+      : { type: 'unchanged' },
+  )
 ```
 
 Tuple/grouped-entry partial:
 
 ```ts
-const label = matchBy(action, 'type')
+const review = matchBy(cartAction, 'type')
   .partial([
-    ['save', (value) => `save:${value.documentId}`],
-    [['rename', 'duplicate'] as const, (value) => `copy:${value.documentId}`],
+    ['addItem', (value) => ({ type: 'inventoryCheck', sku: value.sku, quantity: value.quantity })],
+    [
+      ['updateQuantity', 'applyCoupon'] as const,
+      (value) => ({
+        type: 'pricePreview',
+        cartId: value.cartId,
+        subtotal: value.subtotal,
+      }),
+    ],
   ])
-  .otherwise((remaining) => `fallback:${remaining.type}`)
+  .otherwise((remaining) =>
+    remaining.type === 'checkout'
+      ? { type: 'checkoutReview', cartId: remaining.cartId, total: remaining.total }
+      : { type: 'noReview' },
+  )
 ```
 
 Callback grouped cases are supported by `.cases(...)`; for partial grouped behavior use `.partial([...])` with tuple entries or exported `group(...)` entries.
@@ -397,11 +417,11 @@ If no `matchBy` case matches, `cases(...)` and `.exhaustive()` throw `NonExhaust
 `matchBy.promise(valueOrPromise, path)` resolves the input internally, then performs the same path/tag dispatch as `matchBy(value, path)`:
 
 ```ts
-const description = await matchBy
+const summary = await matchBy
   .promise(fetchJob(), 'type')
-  .with('queued', async (value) => `queued:${value.id}`)
-  .with('finished', (value) => `finished:${value.id}:${value.durationMs}`)
-  .with('failed', (value) => `failed:${value.id}:${value.reason}`)
+  .with('queued', async (value) => ({ state: 'waiting', id: value.id }))
+  .with('finished', (value) => ({ state: 'complete', id: value.id, durationMs: value.durationMs }))
+  .with('failed', (value) => ({ state: 'retryable', id: value.id, reason: value.reason }))
   .exhaustive()
 ```
 
@@ -415,19 +435,22 @@ All `matchBy` case shapes are available on promise builders:
 
 ```ts
 const compact = await matchBy.promise(fetchJob(), 'type').cases({
-  queued: async (value) => `queued:${value.id}`,
-  finished: (value) => `finished:${value.id}:${value.durationMs}`,
-  failed: (value) => `failed:${value.id}:${value.reason}`,
+  queued: async (value) => ({ state: 'waiting', id: value.id }),
+  finished: (value) => ({ state: 'complete', id: value.id, durationMs: value.durationMs }),
+  failed: (value) => ({ state: 'retryable', id: value.id, reason: value.reason }),
 })
 
 const partial = await matchBy
   .promise(fetchJob(), 'type')
-  .partial({ queued: (value) => `queued:${value.id}` })
-  .otherwise((value) => `done:${value.id}`)
+  .partial({ queued: (value) => ({ action: 'monitor', id: value.id }) })
+  .otherwise((value) => ({ action: 'archive', id: value.id }))
 
 const grouped = await matchBy
   .promise(fetchJob(), 'type')
-  .cases((group) => [group('queued', 'finished', (value) => value.id), group('failed', (value) => value.reason)])
+  .cases((group) => [
+    group('queued', 'finished', (value) => ({ bucket: 'resolvedOrWaiting', id: value.id })),
+    group('failed', (value) => ({ bucket: 'needsAttention', reason: value.reason })),
+  ])
 ```
 
 Safe terminals mirror `match.promise`:
@@ -435,14 +458,14 @@ Safe terminals mirror `match.promise`:
 ```ts
 const fallbackResult = await matchBy
   .promise(fetchJob(), 'type')
-  .with('queued', (value) => `queued:${value.id}`)
-  .safeOtherwise(() => 'unknown')
+  .with('queued', (value) => ({ status: 'waiting', id: value.id }))
+  .safeOtherwise(() => ({ status: 'unknown' }))
 
 const exhaustiveResult = await matchBy
   .promise(fetchJob(), 'type')
-  .with('queued', (value) => `queued:${value.id}`)
-  .with('finished', (value) => `finished:${value.id}`)
-  .with('failed', (value) => `failed:${value.reason}`)
+  .with('queued', (value) => ({ status: 'waiting', id: value.id }))
+  .with('finished', (value) => ({ status: 'complete', id: value.id }))
+  .with('failed', (value) => ({ status: 'failed', reason: value.reason }))
   .safeExhaustive()
 ```
 
@@ -656,7 +679,7 @@ payload.id // string
 
 Checked example: [`examples/11-assert-matching.ts`](examples/11-assert-matching.ts).
 
-Use it at runtime boundaries: parsed JSON, IPC payloads, storage reads, test fixtures, and external events.
+Use it at runtime boundaries: parsed JSON, API payloads, webhook events, storage reads, and test fixtures.
 
 ## Error classes
 

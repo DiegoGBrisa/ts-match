@@ -105,10 +105,10 @@ const label = match(input)
 Use promise builders when the input may be async or when terminals should return promises:
 
 ```ts
-const label = await matchBy
-  .promise(fetchEvent(), 'type')
-  .with('created', (event) => event.id)
-  .otherwise(() => 'unknown')
+const status = await matchBy
+  .promise(fetchOrder(), 'state')
+  .with('paid', (order) => ({ type: 'readyToShip', orderId: order.id }))
+  .otherwise(() => ({ type: 'needsReview' }))
 ```
 
 Use sync `match(promise)` only if you intentionally want to match the `Promise` object itself.
@@ -272,10 +272,10 @@ const result = await match
 ### Direct keys
 
 ```ts
-const label = matchBy(command, 'kind')
-  .with('create', (command) => `create:${command.id}`)
-  .with('rename', (command) => `rename:${command.id}:${command.name}`)
-  .with('delete', (command) => `delete:${command.id}`)
+const operation = matchBy(cartAction, 'kind')
+  .with('addItem', (action) => ({ type: 'lineItemAdded', sku: action.sku, quantity: action.quantity }))
+  .with('applyCoupon', (action) => ({ type: 'discountApplied', code: action.code, multiplier: 0.9 }))
+  .with('clearCart', (action) => ({ type: 'cartCleared', reason: action.reason }))
   .exhaustive()
 ```
 
@@ -315,10 +315,10 @@ const status = matchBy(event, 'type')
 Use object maps for compact exhaustive maps when tags are representable as object keys and there are no normalized key collisions.
 
 ```ts
-const label = matchBy(command, 'kind').cases({
-  create: (command) => `create:${command.id}`,
-  rename: (command) => `rename:${command.id}:${command.name}`,
-  delete: (command) => `delete:${command.id}`,
+const auditEvent = matchBy(cartAction, 'kind').cases({
+  addItem: (action) => ({ category: 'inventory', sku: action.sku, quantity: action.quantity }),
+  applyCoupon: (action) => ({ category: 'pricing', code: action.code, percentOff: action.percentOff }),
+  clearCart: (action) => ({ category: 'lifecycle', reason: action.reason }),
 })
 ```
 
@@ -373,20 +373,37 @@ Only statically known array tags prove exhaustiveness. Broad runtime arrays are 
 Use `.partial(...)` when only some tags need special behavior before a fallback.
 
 ```ts
-const label = matchBy(action, 'type')
-  .partial({ save: (action) => `save:${action.documentId}` })
-  .otherwise((remaining) => `fallback:${remaining.type}`)
+const response = matchBy(cartAction, 'type')
+  .partial({
+    addItem: (action) => ({ type: 'recalculate', cartId: action.cartId, sku: action.sku }),
+  })
+  .otherwise((remaining) =>
+    remaining.type === 'checkout'
+      ? { type: 'reviewTotal', cartId: remaining.cartId, total: remaining.total }
+      : { type: 'unchanged' },
+  )
 ```
 
 `.partial(...)` accepts object maps and tuple/grouped entry arrays:
 
 ```ts
-const label = matchBy(action, 'type')
+const review = matchBy(cartAction, 'type')
   .partial([
-    ['save', (action) => `save:${action.documentId}`],
-    [['rename', 'duplicate'] as const, (action) => `copy:${action.documentId}`],
+    ['addItem', (action) => ({ type: 'inventoryCheck', sku: action.sku, quantity: action.quantity })],
+    [
+      ['updateQuantity', 'applyCoupon'] as const,
+      (action) => ({
+        type: 'pricePreview',
+        cartId: action.cartId,
+        subtotal: action.subtotal,
+      }),
+    ],
   ])
-  .otherwise((remaining) => `fallback:${remaining.type}`)
+  .otherwise((remaining) =>
+    remaining.type === 'checkout'
+      ? { type: 'checkoutReview', cartId: remaining.cartId, total: remaining.total }
+      : { type: 'noReview' },
+  )
 ```
 
 Callback grouped cases are for exhaustive `.cases(...)`; use `.partial([...])` with tuple entries or exported `group(...)` for partial grouped behavior.
@@ -396,11 +413,11 @@ Callback grouped cases are for exhaustive `.cases(...)`; use `.partial([...])` w
 `matchBy.promise(...)` mirrors `matchBy(...)`, but resolves the input internally and returns promises from terminal methods. Path, tag, case-map, partial-map, and grouped-case inference all use `Awaited<TInput>`.
 
 ```ts
-const description = await matchBy
+const summary = await matchBy
   .promise(fetchJob(), 'type')
-  .with('queued', async (job) => `queued:${job.id}`)
-  .with('finished', (job) => `finished:${job.id}`)
-  .with('failed', (job) => `failed:${job.reason}`)
+  .with('queued', async (job) => ({ state: 'waiting', id: job.id }))
+  .with('finished', (job) => ({ state: 'complete', id: job.id, durationMs: job.durationMs }))
+  .with('failed', (job) => ({ state: 'retryable', id: job.id, reason: job.reason }))
   .exhaustive()
 ```
 
@@ -408,19 +425,22 @@ All synchronous `matchBy` case shapes are available:
 
 ```ts
 const compact = await matchBy.promise(fetchJob(), 'type').cases({
-  queued: async (job) => `queued:${job.id}`,
-  finished: (job) => `finished:${job.id}`,
-  failed: (job) => `failed:${job.reason}`,
+  queued: async (job) => ({ state: 'waiting', id: job.id }),
+  finished: (job) => ({ state: 'complete', id: job.id, durationMs: job.durationMs }),
+  failed: (job) => ({ state: 'retryable', id: job.id, reason: job.reason }),
 })
 
 const partial = await matchBy
   .promise(fetchJob(), 'type')
-  .partial({ queued: (job) => `queued:${job.id}` })
-  .otherwise((job) => `fallback:${job.id}`)
+  .partial({ queued: (job) => ({ action: 'monitor', id: job.id }) })
+  .otherwise((job) => ({ action: 'archive', id: job.id }))
 
 const grouped = await matchBy
   .promise(fetchJob(), 'type')
-  .cases((group) => [group('queued', 'finished', (job) => job.id), group('failed', (job) => job.reason)])
+  .cases((group) => [
+    group('queued', 'finished', (job) => ({ bucket: 'resolvedOrWaiting', id: job.id })),
+    group('failed', (job) => ({ bucket: 'needsAttention', reason: job.reason })),
+  ])
 ```
 
 Normal terminals reject for input rejection, path-read errors, handler throws/rejections, fallback throws/rejections, and defensive non-exhaustiveness. `.otherwise(...)` is only a tag fallback; it does not catch input rejection.
@@ -430,14 +450,14 @@ Promise-safe terminals mirror `match.promise`:
 ```ts
 const result = await matchBy
   .promise(fetchJob(), 'type')
-  .with('queued', (job) => job.id)
-  .safeOtherwise(() => 'unknown')
+  .with('queued', (job) => ({ status: 'waiting', id: job.id }))
+  .safeOtherwise(() => ({ status: 'unknown' }))
 
 const exhaustive = await matchBy
   .promise(fetchJob(), 'type')
-  .with('queued', (job) => job.id)
-  .with('finished', (job) => job.id)
-  .with('failed', (job) => job.reason)
+  .with('queued', (job) => ({ status: 'waiting', id: job.id }))
+  .with('finished', (job) => ({ status: 'complete', id: job.id }))
+  .with('failed', (job) => ({ status: 'failed', reason: job.reason }))
   .safeExhaustive()
 ```
 
@@ -522,7 +542,7 @@ assertMatching({ type: 'user', id: P.string }, payload)
 payload.id
 ```
 
-Use `assertMatching` at boundaries where mismatch should throw: parsed JSON, IPC payloads, storage reads, test fixtures, CLI arguments, and external events. A mismatch throws `PatternMismatchError`.
+Use `assertMatching` at boundaries where mismatch should throw: parsed JSON, API payloads, webhook events, storage reads, test fixtures, and CLI arguments. A mismatch throws `PatternMismatchError`.
 
 ## Error and diagnostic APIs
 

@@ -1,28 +1,46 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
-type Command =
-  | { readonly kind: 'create'; readonly id: string }
-  | { readonly kind: 'rename'; readonly id: string; readonly name: string }
-  | { readonly kind: 'delete'; readonly id: string }
+type CartAction =
+  | { readonly kind: 'addItem'; readonly sku: string; readonly quantity: number }
+  | { readonly kind: 'applyCoupon'; readonly code: string; readonly percentOff: number }
+  | { readonly kind: 'clearCart'; readonly reason: 'user' | 'timeout' }
 
-function describeCommand(command: Command): string {
-  return matchBy(command, 'kind')
-    .with('create', (value) => `create:${value.id}`)
-    .with('rename', (value) => `rename:${value.id}:${value.name}`)
-    .with('delete', (value) => `delete:${value.id}`)
+type CartOperation =
+  | { readonly type: 'lineItemAdded'; readonly sku: string; readonly quantity: number }
+  | { readonly type: 'discountApplied'; readonly code: string; readonly multiplier: number }
+  | { readonly type: 'cartCleared'; readonly reason: 'user' | 'timeout' }
+
+type CartAuditEvent =
+  | { readonly category: 'inventory'; readonly sku: string; readonly quantity: number }
+  | { readonly category: 'pricing'; readonly code: string; readonly percentOff: number }
+  | { readonly category: 'lifecycle'; readonly reason: 'user' | 'timeout' }
+
+function planCartOperation(action: CartAction): CartOperation {
+  return matchBy(action, 'kind')
+    .with('addItem', (value) => ({ type: 'lineItemAdded', sku: value.sku, quantity: value.quantity }))
+    .with('applyCoupon', (value) => ({
+      type: 'discountApplied',
+      code: value.code,
+      multiplier: 1 - value.percentOff / 100,
+    }))
+    .with('clearCart', (value) => ({ type: 'cartCleared', reason: value.reason }))
     .exhaustive()
 }
 
-function auditCommand(command: Command): string {
-  return matchBy(command, 'kind').cases({
-    create: (value) => `created:${value.id}`,
-    rename: (value) => `renamed:${value.id}:${value.name}`,
-    delete: (value) => `deleted:${value.id}`,
+function auditCartAction(action: CartAction): CartAuditEvent {
+  return matchBy(action, 'kind').cases({
+    addItem: (value) => ({ category: 'inventory', sku: value.sku, quantity: value.quantity }) as const,
+    applyCoupon: (value) => ({ category: 'pricing', code: value.code, percentOff: value.percentOff }) as const,
+    clearCart: (value) => ({ category: 'lifecycle', reason: value.reason }) as const,
   })
 }
 
-const description = describeCommand({ kind: 'rename', id: 'file-1', name: 'README.md' })
-const audit = auditCommand({ kind: 'delete', id: 'file-1' })
+const operation = planCartOperation({ kind: 'applyCoupon', code: 'SPRING', percentOff: 15 })
+const audit = auditCartAction({ kind: 'addItem', sku: 'sku-123', quantity: 2 })
 
-if (description !== 'rename:file-1:README.md') throw new Error(`Unexpected description: ${description}`)
-if (audit !== 'deleted:file-1') throw new Error(`Unexpected audit entry: ${audit}`)
+if (operation.type !== 'discountApplied' || operation.multiplier !== 0.85) {
+  throw new Error(`Unexpected cart operation: ${JSON.stringify(operation)}`)
+}
+if (audit.category !== 'inventory' || audit.sku !== 'sku-123') {
+  throw new Error(`Unexpected audit event: ${JSON.stringify(audit)}`)
+}
