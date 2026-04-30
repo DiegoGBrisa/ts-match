@@ -224,5 +224,15 @@ jobs:
       - name: Verify npm version is unpublished
         run: pnpm release:verify-unpublished
 
-      - name: Publish with provenance
-        run: npm publish --provenance --access public
+      - name: Build and validate publish tarball
+        run: pnpm pack:check
+
+      - name: Publish tarball with provenance
+        run: |
+          tarball_count=$(find .pack -maxdepth 1 -type f -name "*.tgz" | wc -l | tr -d ' ')
+          if [ "${tarball_count}" -ne 1 ]; then
+            printf 'Expected exactly one packed tarball, found %s.\n' "${tarball_count}" >&2
+            exit 1
+          fi
+          tarball=$(find .pack -maxdepth 1 -type f -name "*.tgz" | sort | sed -n '1p')
+          npm publish "${tarball}" --ignore-scripts --provenance --access public
