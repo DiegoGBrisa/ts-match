@@ -4,6 +4,10 @@
   "description": "TypeScript-first pattern matching with matchBy ergonomics, exhaustive checks, and zero runtime dependencies.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DiegoGBrisa/ts-match"
+  },
   "keywords": [
     "typescript",
     "pattern-matching",

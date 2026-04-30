@@ -22,6 +22,7 @@ env:
   PNPM_VERSION: 10.0.0
   YARN_VERSION: 4.5.3
   BUN_VERSION: 1.3.13
+  NPM_PROVENANCE_REPOSITORY_URL: https://github.com/DiegoGBrisa/ts-match
 
 jobs:
   release-please:
@@ -231,6 +232,41 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Normalize legacy package metadata for provenance
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_tag != ''
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs'
+
+          const packageJsonPath = 'package.json'
+          const expectedRepositoryUrl = process.env.NPM_PROVENANCE_REPOSITORY_URL
+          if (!expectedRepositoryUrl) throw new Error('NPM_PROVENANCE_REPOSITORY_URL is required.')
+
+          const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+          if (typeof packageJson !== 'object' || packageJson === null || Array.isArray(packageJson)) {
+            throw new Error('package.json must contain an object.')
+          }
+
+          const repository = packageJson.repository
+          if (typeof repository === 'object' && repository !== null && !Array.isArray(repository)) {
+            const repositoryUrl = repository.url
+            if (repositoryUrl === expectedRepositoryUrl) {
+              console.log(`package.json repository.url already matches ${expectedRepositoryUrl}`)
+              process.exit(0)
+            }
+
+            if (typeof repositoryUrl === 'string' && repositoryUrl.length > 0) {
+              throw new Error(`package.json repository.url is ${repositoryUrl}, expected ${expectedRepositoryUrl}.`)
+            }
+          } else if (repository !== undefined) {
+            throw new Error('package.json repository must be an object with type and url fields.')
+          }
+
+          packageJson.repository = { type: 'git', url: expectedRepositoryUrl }
+          writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
+          console.log(`normalized package.json repository.url to ${expectedRepositoryUrl}`)
+          NODE
+
       - name: Verify release tag matches package version
         run: pnpm release:verify-tag -- "${{ needs.resolve-release.outputs.tag_name }}"
 
@@ -240,7 +276,8 @@ jobs:
       - name: Build and validate publish tarball
         run: pnpm pack:check
 
-      - name: Publish tarball with provenance
+      - name: Resolve publish tarball
+        id: publish-tarball
         run: |
           tarball_count=$(find .pack -maxdepth 1 -type f -name "*.tgz" | wc -l | tr -d ' ')
           if [ "${tarball_count}" -ne 1 ]; then
@@ -248,4 +285,37 @@ jobs:
             exit 1
           fi
           tarball=$(find .pack -maxdepth 1 -type f -name "*.tgz" | sort | sed -n '1p')
-          npm publish "${tarball}" --ignore-scripts --provenance --access public
+          echo "path=${tarball}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify tarball provenance metadata
+        env:
+          PUBLISH_TARBALL: ${{ steps.publish-tarball.outputs.path }}
+        run: |
+          tar -xOf "${PUBLISH_TARBALL}" package/package.json > /tmp/ts-match-package.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+
+          const expectedRepositoryUrl = process.env.NPM_PROVENANCE_REPOSITORY_URL
+          if (!expectedRepositoryUrl) throw new Error('NPM_PROVENANCE_REPOSITORY_URL is required.')
+
+          const packageJson = JSON.parse(readFileSync('/tmp/ts-match-package.json', 'utf8'))
+          if (typeof packageJson !== 'object' || packageJson === null || Array.isArray(packageJson)) {
+            throw new Error('Packed package.json must contain an object.')
+          }
+
+          const repository = packageJson.repository
+          if (typeof repository !== 'object' || repository === null || Array.isArray(repository)) {
+            throw new Error('Packed package.json repository must be an object with type and url fields.')
+          }
+
+          if (repository.url !== expectedRepositoryUrl) {
+            throw new Error(`Packed package.json repository.url is ${repository.url ?? 'missing'}, expected ${expectedRepositoryUrl}.`)
+          }
+
+          console.log(`packed package.json repository.url matches ${expectedRepositoryUrl}`)
+          NODE
+
+      - name: Publish tarball with provenance
+        env:
+          PUBLISH_TARBALL: ${{ steps.publish-tarball.outputs.path }}
+        run: npm publish "${PUBLISH_TARBALL}" --ignore-scripts --provenance --access public

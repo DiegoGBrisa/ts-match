@@ -2,6 +2,47 @@ import { execFileSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
+export const NPM_PROVENANCE_REPOSITORY_URL = 'https://github.com/DiegoGBrisa/ts-match'
+
+/**
+ * Reads the repository URL from package metadata.
+ *
+ * npm Trusted Publishing requires `package.json.repository.url` to match the
+ * repository encoded in the generated provenance statement. Keeping this check
+ * in shared script utilities lets package-content validation fail before npm
+ * rejects the publish request.
+ *
+ * @param packageJson - Parsed package metadata from `package.json` or a packed tarball.
+ * @returns The repository URL when it is modeled as an object with a string `url` field.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
+ */
+export function packageRepositoryUrl(packageJson: unknown): string | undefined {
+  if (!isRecord(packageJson)) return undefined
+
+  const { repository } = packageJson
+  if (!isRecord(repository)) return undefined
+
+  const { url } = repository
+  return typeof url === 'string' ? url : undefined
+}
+
+/**
+ * Verifies package metadata is compatible with npm Trusted Publishing provenance.
+ *
+ * @param packageJson - Parsed package metadata from `package.json` or a packed tarball.
+ * @param context - Human-readable context included in failures, for example `packed package.json`.
+ * @throws When `repository.url` is missing or does not match this repository.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
+ */
+export function assertPackageRepositoryUrl(packageJson: unknown, context: string): void {
+  const repositoryUrl = packageRepositoryUrl(packageJson)
+  if (repositoryUrl !== NPM_PROVENANCE_REPOSITORY_URL) {
+    throw new Error(
+      `${context} repository.url must be ${NPM_PROVENANCE_REPOSITORY_URL} for npm Trusted Publishing provenance; received ${repositoryUrl ?? 'missing'}.`,
+    )
+  }
+}
+
 /**
  * Runs a command and returns trimmed standard output.
  *
