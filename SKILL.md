@@ -200,6 +200,40 @@ match(user).with(
 
 Do not mix anonymous and named selections in one successful pattern.
 
+### Rendering UI from typed data
+
+Use JSX examples when they make the pattern more visual: a match expression returns the selected handler's value, so branches can return components. Keep the scenario generic and self-contained.
+
+```tsx
+import { match, P } from '@diegogbrisa/ts-match'
+
+type ProductContent = { type: 'text'; body: string } | { type: 'image'; src: string; alt: string }
+
+type ProductResult =
+  | { status: 'loading' }
+  | { status: 'success'; product: { title: string; content: ProductContent } }
+  | { status: 'error'; error: Error }
+
+function ProductPreview({ result }: { result: ProductResult }) {
+  return match(result)
+    .with({ status: 'loading' }, () => <Spinner label="Loading product" />)
+    .with({ status: 'error' }, ({ error }) => <ErrorMessage message={error.message} />)
+    .with({ status: 'success', product: { content: { type: 'text' } } }, ({ product }) => (
+      <article>
+        <h2>{product.title}</h2>
+        <p>{product.content.body}</p>
+      </article>
+    ))
+    .with(
+      { status: 'success', product: { content: { type: 'image', src: P.select('src'), alt: P.select('alt') } } },
+      ({ src, alt }) => <img src={src} alt={alt} />,
+    )
+    .exhaustive()
+}
+```
+
+React is only an example consumer; do not imply `ts-match` depends on React. Prefer generic UI states such as products, checkout, onboarding, routes, forms, or API results over one app's private domain.
+
 ## `match.promise(valueOrPromise)` use cases
 
 Promise builders accept `T | PromiseLike<T>`, including thenables and maybe-promise sources. Handlers receive `Awaited<TInput>`.
@@ -601,6 +635,7 @@ If grouped-case inference is weak, prefer `.cases((group) => [...])` and the var
 - Using object-map `.cases({...})` for `null`, `undefined`, bare `__proto__:` syntax, or normalized key collisions.
 - Selecting inside repeated contexts such as arrays or records.
 - Writing examples that are not compiled against the installed package.
+- Writing examples that depend on one app's private domain, IPC payloads, or tool/event names instead of generic product/application scenarios.
 
 ## Validation checklist
 
@@ -614,6 +649,7 @@ Before introducing or modifying ts-match usage:
 6. Confirm `safeOtherwise(...)` always has a fallback handler.
 7. Confirm `matchBy.promise(...)` path/tag/case/group inference is based on the resolved input type.
 8. Confirm no unsafe casts, broad `any`, internal imports, unsupported helper names, or `switch` rewrites were added.
-9. Compile the affected project examples/tests.
-10. If editing this library itself, run `pnpm check`, `pnpm pack:check`, and `pnpm test`.
-11. If changing public types or overloads, ensure `pnpm test:editor-dx` is covered by `pnpm check` and verify packaged `dist/*.d.ts` autocomplete when relevant.
+9. Confirm docs/examples use generic scenarios; include JSX-return examples for UI-state use cases when helpful, without implying a React dependency.
+10. Compile the affected project examples/tests.
+11. If editing this library itself, run `pnpm check`, `pnpm pack:check`, and `pnpm test`.
+12. If changing public types or overloads, ensure `pnpm test:editor-dx` is covered by `pnpm check` and verify packaged `dist/*.d.ts` autocomplete when relevant.

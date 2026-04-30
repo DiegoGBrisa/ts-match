@@ -197,6 +197,40 @@ Use `.exhaustive()` for closed unions. It returns the union of branch return typ
 
 Runtime error: `NonExhaustiveMatchError` if unexpected data reaches the terminal at runtime.
 
+### Rendering UI from typed data
+
+A match expression returns whatever its handler returns, so JSX can be the result of a branch. This is useful for UI states where the data shape decides what should be rendered:
+
+```tsx
+import { match, P } from '@diegogbrisa/ts-match'
+
+type ProductContent = { type: 'text'; body: string } | { type: 'image'; src: string; alt: string }
+
+type ProductResult =
+  | { status: 'loading' }
+  | { status: 'success'; product: { title: string; content: ProductContent } }
+  | { status: 'error'; error: Error }
+
+function ProductPreview({ result }: { result: ProductResult }) {
+  return match(result)
+    .with({ status: 'loading' }, () => <Spinner label="Loading product" />)
+    .with({ status: 'error' }, ({ error }) => <ErrorMessage message={error.message} />)
+    .with({ status: 'success', product: { content: { type: 'text' } } }, ({ product }) => (
+      <article>
+        <h2>{product.title}</h2>
+        <p>{product.content.body}</p>
+      </article>
+    ))
+    .with(
+      { status: 'success', product: { content: { type: 'image', src: P.select('src'), alt: P.select('alt') } } },
+      ({ src, alt }) => <img src={src} alt={alt} />,
+    )
+    .exhaustive()
+}
+```
+
+`ts-match` is framework-agnostic; React is just a familiar way to show that handlers can return UI, objects, strings, promises, or any other type your branch needs.
+
 ## `match.promise`
 
 `match.promise(valueOrPromise)` has the same branch API as `match(value)`, but it resolves the input internally and terminal methods return promises:
