@@ -191,6 +191,7 @@ describe('matchBy', () => {
 
     expect(matchBy(result, 'ok').cases((group) => [group(true, false, () => 'done')])).toBe('done')
     expect(matchBy(result, 'ok').cases([group(true, false, () => 'reusable')])).toBe('reusable')
+    expect(() => group([], () => 'empty')).toThrow(TypeError)
   })
 
   it('supports typed dot paths and tuple paths', () => {

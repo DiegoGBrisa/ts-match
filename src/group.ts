@@ -23,6 +23,7 @@ function normalizeTags(values: readonly unknown[]): readonly Discriminant[] {
 
   const first = values[0]
   if (values.length === 1 && Array.isArray(first)) {
+    if (first.length === 0) throw new TypeError('group(...) requires at least one tag.')
     if (!isDiscriminantArray(first)) throw new TypeError('group(...) tags must be discriminants.')
     return first
   }
