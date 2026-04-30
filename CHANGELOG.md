@@ -4,6 +4,16 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.0.3](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.2...v1.0.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* **release:** align package provenance metadata ([1614f89](https://github.com/DiegoGBrisa/ts-match/commit/1614f89e913ad947f1e5da2f092e6de4daefa28c))
+* **release:** align package provenance metadata ([0d0a1e4](https://github.com/DiegoGBrisa/ts-match/commit/0d0a1e4b68a476b92b201c918cd55c3be69428ff))
+* **release:** use trusted publishing runtime ([1dac070](https://github.com/DiegoGBrisa/ts-match/commit/1dac070f09b89f56c3e1fea9719b1dec6d7df3e9))
+* **release:** use trusted publishing runtime ([96731e4](https://github.com/DiegoGBrisa/ts-match/commit/96731e4d5a2ed153cac7cd73014235757db62e09))
+
 ## [1.0.2](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.1...v1.0.2) (2026-04-30)
 
 
