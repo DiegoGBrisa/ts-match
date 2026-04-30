@@ -207,8 +207,21 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
+
+      - name: Verify Trusted Publishing runtime
+        run: |
+          node --version
+          npm_version=$(npm --version)
+          printf 'npm %s\n' "${npm_version}"
+          NPM_VERSION="${npm_version}" node --input-type=module <<'NODE'
+          const [major = 0, minor = 0, patch = 0] = (process.env.NPM_VERSION ?? '').split('.').map(Number)
+          const supported = major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)))
+          if (!supported) {
+            throw new Error(`Trusted Publishing requires npm >= 11.5.1, received ${major}.${minor}.${patch}.`)
+          }
+          NODE
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
