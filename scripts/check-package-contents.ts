@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { findSinglePackedTarball } from './script-utils.js'
+import { assertPackageRepositoryUrl, findSinglePackedTarball } from './script-utils.js'
 
 const DIST_MODULES = [
   'assertions',
@@ -74,8 +74,26 @@ function listTarballFiles(tarball: string): readonly string[] {
     .sort()
 }
 
+/**
+ * Reads package metadata from the packed npm tarball.
+ *
+ * npm validates `package/package.json` during publication, not the repository
+ * checkout's root `package.json`. Reading the archived file catches provenance
+ * metadata mismatches before `npm publish` reaches the registry.
+ *
+ * @param tarball - Path to the `.tgz` package archive produced by `pnpm pack`.
+ * @returns Parsed package metadata from `package/package.json`.
+ * @throws When the archive cannot be read or contains invalid JSON.
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
+ */
+function readTarballPackageJson(tarball: string): unknown {
+  return JSON.parse(execFileSync('tar', ['-xOf', tarball, 'package/package.json'], { encoding: 'utf8' }))
+}
+
 const expectedFiles = new Set<string>(expectedPackageFiles)
-const actualFiles = listTarballFiles(findSinglePackedTarball())
+const tarball = findSinglePackedTarball()
+const actualFiles = listTarballFiles(tarball)
+assertPackageRepositoryUrl(readTarballPackageJson(tarball), 'packed package.json')
 const actualFileSet = new Set(actualFiles)
 
 const missingFiles = expectedPackageFiles.filter((file) => !actualFileSet.has(file))
