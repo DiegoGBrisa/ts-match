@@ -5,7 +5,9 @@ import {
   matchBy,
   P,
   pArray,
+  pNonEmptyArray,
   pNumber,
+  pOptional,
   pSelect,
   pString,
   pUnion,
@@ -13,6 +15,8 @@ import {
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T
+type IsAny<T> = 0 extends 1 & T ? true : false
+type NotAny<T> = IsAny<T> extends true ? false : true
 
 type DeepReadonlyEvent =
   | { readonly type: 'open'; readonly payload: { readonly count: 1 }; readonly meta: { readonly phase: 'start' } }
@@ -66,6 +70,34 @@ const _selectionPayload = match(event)
 type _selectionPayloadReturn = Expect<Equal<typeof _selectionPayload, 'open' | 'close' | 'idle'>>
 
 const helperLiteralUnion = ((): 'a' | 'b' => 'a')()
+const _pWhenHandlerInference = match(unknownValue)
+  .with(
+    P.when(
+      (value: unknown): value is { readonly id: string; readonly role: 'admin' | 'member' } =>
+        typeof value === 'object',
+    ),
+    (value) => {
+      type _value = Expect<Equal<typeof value, { readonly id: string; readonly role: 'admin' | 'member' }>>
+      type _notAny = Expect<NotAny<typeof value>>
+      return value.role
+    },
+  )
+  .otherwise(() => 'guest')
+type _pWhenHandlerInferenceReturn = Expect<Equal<typeof _pWhenHandlerInference, 'admin' | 'member' | 'guest'>>
+
+const _pWhenPromiseHandlerInference = match
+  .promise(Promise.resolve(unknownValue))
+  .with(
+    P.when((value: unknown): value is { readonly name: string } => typeof value === 'object'),
+    (value) => {
+      type _value = Expect<Equal<typeof value, { readonly name: string }>>
+      type _notAny = Expect<NotAny<typeof value>>
+      return value.name
+    },
+  )
+  .otherwise(() => 'guest')
+type _pWhenPromiseHandlerInferenceReturn = Expect<Equal<typeof _pWhenPromiseHandlerInference, Promise<string>>>
+
 const _pHelperInference = match(helperLiteralUnion)
   .with(pUnion('a'), () => 'a')
   .with(pString, (value) => {
@@ -133,13 +165,38 @@ const _predicateNarrowing = match(event)
 type _predicateNarrowingReturn = Expect<Equal<typeof _predicateNarrowing, 1 | 'close' | 'idle'>>
 
 declare const unknownValue: unknown
+declare const boundaryValue: unknown
 if (isMatching({ type: 'user', id: P.string }, unknownValue)) {
   type _unknownNarrowed = Expect<Equal<typeof unknownValue, { type: 'user'; id: string }>>
+}
+
+if (isMatching({ type: 'user', nickname: P.optional(P.string) }, boundaryValue)) {
+  const nickname: string | undefined = boundaryValue.nickname
+  type _boundary = Expect<Equal<typeof boundaryValue, { type: 'user'; nickname?: string | undefined }>>
+  void nickname
+}
+
+if (isMatching(P.union(P.string, P.number), boundaryValue)) {
+  const value: string | number = boundaryValue
+  type _boundary = Expect<Equal<typeof boundaryValue, string | number>>
+  void value
+}
+
+const isNumberList = isMatching(pNonEmptyArray(pNumber))
+if (isNumberList(boundaryValue)) {
+  const first: number = boundaryValue[0]
+  type _boundary = Expect<Equal<typeof boundaryValue, [number, ...number[]]>>
+  void first
 }
 
 const unknownPayload: unknown = { type: 'user', id: '1' }
 assertMatching({ type: 'user', id: P.string }, unknownPayload)
 type _assertedUnknown = Expect<Equal<typeof unknownPayload, { type: 'user'; id: string }>>
+
+const unknownForm: unknown = { type: 'user', role: 'admin' }
+assertMatching({ type: 'user', role: pUnion('admin', 'member'), tags: pOptional(pNonEmptyArray(pString)) }, unknownForm)
+const _assertedRole: 'admin' | 'member' = unknownForm.role
+const _assertedFirstTag: string | undefined = unknownForm.tags?.[0]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional type regression for documented any-input refinement behavior
 declare const anyValue: any

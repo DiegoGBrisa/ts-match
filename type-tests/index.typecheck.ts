@@ -4,6 +4,8 @@ import type { MatchByPath, MatchPromiseResult } from '../src/index.js'
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
 type Expect<T extends true> = T
+type IsAny<T> = 0 extends 1 & T ? true : false
+type NotAny<T> = IsAny<T> extends true ? false : true
 
 type Result =
   | { readonly type: 'success'; readonly data: string; readonly count: number }
@@ -75,6 +77,8 @@ declare const action: Action
 const _byWithResult = matchBy(action, 'type')
   .with('clear', () => 0)
   .with('load-success', (value) => {
+    type _value = Expect<Equal<typeof value, Extract<Action, { type: 'load-success' }>>>
+    type _notAny = Expect<NotAny<typeof value>>
     const files: readonly string[] = value.fileDiffs
     // @ts-expect-error handler should be narrowed to the load-success variant
     const error = value.error
@@ -214,10 +218,98 @@ type _nestedResult = Expect<Equal<typeof _nestedResultValue, number>>
 const _tupleEntryPartialValue = matchBy(nested, 'meta.type')
   .partial([
     ['click', (value) => value.meta.x],
-    [['submit'] as const, (value) => value.meta.form.length],
+    [['submit'], (value) => value.meta.form.length],
   ])
-  .otherwise((value) => Number(value.empty))
+  .otherwise((value) => {
+    const empty: Extract<Nested, { readonly empty: true }> = value
+    return Number(empty.empty)
+  })
 type _tupleEntryPartial = Expect<Equal<typeof _tupleEntryPartialValue, number>>
+
+const _groupedTuplePartialValue = matchBy(action, 'type')
+  .partial([
+    [
+      ['load-success', 'load-failure'],
+      (value) => {
+        type _value = Expect<Equal<typeof value, Extract<Action, { readonly type: 'load-success' | 'load-failure' }>>>
+        type _notAny = Expect<NotAny<typeof value>>
+        return 'fileDiffs' in value ? value.fileDiffs.length : value.error.length
+      },
+    ],
+  ])
+  .otherwise((value) => {
+    const clear: Extract<Action, { readonly type: 'clear' }> = value
+    return clear.type.length
+  })
+type _groupedTuplePartial = Expect<Equal<typeof _groupedTuplePartialValue, number>>
+
+const _callbackGroupedPartialValue = matchBy(action, 'type')
+  .partial((group) => [
+    group(['load-success', 'load-failure'], (value) => {
+      type _value = Expect<Equal<typeof value, Extract<Action, { readonly type: 'load-success' | 'load-failure' }>>>
+      type _notAny = Expect<NotAny<typeof value>>
+      return 'fileDiffs' in value ? value.fileDiffs.length : value.error.length
+    }),
+  ])
+  .otherwise((value) => {
+    const clear: Extract<Action, { readonly type: 'clear' }> = value
+    return clear.type.length
+  })
+type _callbackGroupedPartial = Expect<Equal<typeof _callbackGroupedPartialValue, number>>
+
+const _exportedGroupPartialValue = matchBy(action, 'type')
+  .partial([
+    group(
+      ['load-success', 'load-failure'],
+      (value: Extract<Action, { readonly type: 'load-success' | 'load-failure' }>) => {
+        type _value = Expect<Equal<typeof value, Extract<Action, { readonly type: 'load-success' | 'load-failure' }>>>
+        type _notAny = Expect<NotAny<typeof value>>
+        return 'fileDiffs' in value ? value.fileDiffs.length : value.error.length
+      },
+    ),
+  ])
+  .otherwise((value) => {
+    const clear: Extract<Action, { readonly type: 'clear' }> = value
+    return clear.type.length
+  })
+type _exportedGroupPartial = Expect<Equal<typeof _exportedGroupPartialValue, number>>
+
+// @ts-expect-error tuple-entry partial tags must be possible for the selected path
+matchBy(action, 'type').partial([['missing', () => 0]])
+
+// @ts-expect-error tuple-entry partials cannot keep an empty completion placeholder as a handled tag
+matchBy(action, 'type').partial([['', () => 0]])
+
+// @ts-expect-error grouped tuple-entry partials cannot keep an empty completion placeholder as a handled tag
+matchBy(action, 'type').partial([[[''], () => 0]])
+
+// @ts-expect-error tuple-entry cases must be exhaustive
+matchBy(action, 'type').cases([['clear', () => 0]])
+
+// @ts-expect-error grouped tuple-entry cases must be exhaustive
+matchBy(action, 'type').cases([[['clear', 'load-success'], () => 0]])
+
+// @ts-expect-error grouped tuple-entry cases cannot keep an empty completion placeholder as a handled tag
+matchBy(action, 'type').cases([
+  [[''], () => 0],
+  ['clear', () => 0],
+  ['load-success', () => 0],
+])
+
+// @ts-expect-error grouped tuple-entry cases cannot include impossible tags
+matchBy(action, 'type').cases([
+  [['missing'], () => 0],
+  ['clear', () => 0],
+  ['load-success', () => 0],
+  ['load-failure', () => 0],
+])
+
+// @ts-expect-error exported grouped entries cannot include impossible tags
+matchBy(action, 'type').cases([
+  group(['clear', 'missing'], () => 0),
+  ['load-success', () => 0],
+  ['load-failure', () => 0],
+])
 
 type ScalableTupleState =
   | { readonly type: 's0'; readonly v0: number }
@@ -363,18 +455,81 @@ type _promiseMatchByGrouped = Expect<Equal<typeof _promiseMatchByGroupedValue, P
 const _promiseMatchByTupleEntriesValue = matchBy.promise(actionPromise, 'type').cases([
   ['clear', () => 0],
   ['load-success', (value) => value.fileDiffs.length],
-  [['load-failure'] as const, (value) => value.error.length],
+  [['load-failure'], (value) => value.error.length],
 ])
 type _promiseMatchByTupleEntries = Expect<Equal<typeof _promiseMatchByTupleEntriesValue, Promise<number>>>
+
+const _promiseMatchByGroupedTupleEntriesValue = matchBy.promise(actionPromise, 'type').cases([
+  ['clear', () => 0],
+  [['load-success', 'load-failure'], (value) => ('fileDiffs' in value ? value.fileDiffs.length : value.error.length)],
+])
+type _promiseMatchByGroupedTupleEntries = Expect<Equal<typeof _promiseMatchByGroupedTupleEntriesValue, Promise<number>>>
 
 const _promiseMatchByTuplePartialValue = matchBy
   .promise(actionPromise, 'type')
   .partial([
     ['clear', () => 0],
-    [['load-success'] as const, (value) => value.fileDiffs.length],
+    [['load-success'], (value) => value.fileDiffs.length],
   ])
   .otherwise((value) => value.error.length)
 type _promiseMatchByTuplePartial = Expect<Equal<typeof _promiseMatchByTuplePartialValue, Promise<number>>>
+
+const _promiseMatchByGroupedTuplePartialValue = matchBy
+  .promise(actionPromise, 'type')
+  .partial([
+    [
+      ['load-success', 'load-failure'],
+      (value) => {
+        type _value = Expect<Equal<typeof value, Extract<Action, { readonly type: 'load-success' | 'load-failure' }>>>
+        type _notAny = Expect<NotAny<typeof value>>
+        return 'fileDiffs' in value ? value.fileDiffs.length : value.error.length
+      },
+    ],
+  ])
+  .otherwise((value) => {
+    const clear: Extract<Action, { readonly type: 'clear' }> = value
+    return clear.type.length
+  })
+type _promiseMatchByGroupedTuplePartial = Expect<Equal<typeof _promiseMatchByGroupedTuplePartialValue, Promise<number>>>
+
+const _promiseMatchByCallbackGroupedPartialValue = matchBy
+  .promise(actionPromise, 'type')
+  .partial((group) => [
+    group(['load-success', 'load-failure'], (value) => {
+      type _value = Expect<Equal<typeof value, Extract<Action, { readonly type: 'load-success' | 'load-failure' }>>>
+      type _notAny = Expect<NotAny<typeof value>>
+      return 'fileDiffs' in value ? value.fileDiffs.length : value.error.length
+    }),
+  ])
+  .otherwise((value) => {
+    const clear: Extract<Action, { readonly type: 'clear' }> = value
+    return clear.type.length
+  })
+type _promiseMatchByCallbackGroupedPartial = Expect<
+  Equal<typeof _promiseMatchByCallbackGroupedPartialValue, Promise<number>>
+>
+
+// @ts-expect-error promise tuple-entry cases must be exhaustive
+matchBy.promise(actionPromise, 'type').cases([['clear', () => 0]])
+
+// @ts-expect-error promise grouped tuple-entry cases must be exhaustive
+matchBy.promise(actionPromise, 'type').cases([[['clear', 'load-success'], () => 0]])
+
+// @ts-expect-error promise grouped tuple-entry cases cannot keep an empty completion placeholder as a handled tag
+matchBy.promise(actionPromise, 'type').cases([
+  [[''], () => 0],
+  ['clear', () => 0],
+  ['load-success', () => 0],
+])
+
+// @ts-expect-error promise tuple-entry partial tags must be possible for the selected path
+matchBy.promise(actionPromise, 'type').partial([['missing', () => 0]])
+
+// @ts-expect-error promise tuple-entry partials cannot keep an empty completion placeholder as a handled tag
+matchBy.promise(actionPromise, 'type').partial([['', () => 0]])
+
+// @ts-expect-error promise grouped tuple-entry partials cannot keep an empty completion placeholder as a handled tag
+matchBy.promise(actionPromise, 'type').partial([[[''], () => 0]])
 
 const _promiseMatchBySafeValue = matchBy
   .promise(actionPromise, 'type')

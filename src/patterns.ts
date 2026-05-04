@@ -247,9 +247,13 @@ type PatternListArgument<TPatterns extends readonly unknown[]> = {
  * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#pattern-helpers
  */
+export function pUnion<const TPattern extends Primitive>(
+  ...patterns: readonly [TPattern, ...TPattern[]]
+): UnionPattern<readonly [TPattern, ...TPattern[]]>
 export function pUnion<const TPatterns extends readonly unknown[]>(
   ...patterns: PatternListArgument<TPatterns>
-): UnionPattern<TPatterns> {
+): UnionPattern<TPatterns>
+export function pUnion(...patterns: readonly unknown[]): UnionPattern<readonly unknown[]> {
   return freezePattern({ [PATTERN_TOKEN]: 'union', patterns })
 }
 
@@ -351,7 +355,7 @@ export function pNonEmptyArray<const TPattern>(
  * @returns A frozen tuple pattern helper.
  * @example
  * ```ts
- * match(value).with(P.tuple([P.string, P.number] as const), ([name, count]) => count)
+ * match(value).with(P.tuple([P.string, P.number]), ([name, count]) => count)
  * ```
  * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
@@ -373,7 +377,7 @@ export function pTuple<const TPatterns extends readonly unknown[]>(
  * @throws {TypeError} When used outside a tuple or before the final tuple item.
  * @example
  * ```ts
- * match(value).with(P.tuple([P.string, P.rest(P.number)] as const), ([head]) => head)
+ * match(value).with(P.tuple([P.string, P.rest(P.number)]), ([head]) => head)
  * ```
  * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics

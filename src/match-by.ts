@@ -50,6 +50,10 @@ type TupleCase<TValue, TPath extends PropertyPath> =
 
 type GroupedTupleCase<TValue, TPath extends PropertyPath> =
   | readonly [
+      readonly [PathTag<TValue, TPath>, ...PathTag<TValue, TPath>[]],
+      (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown,
+    ]
+  | readonly [
       readonly PathTag<TValue, TPath>[],
       (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown,
     ]
@@ -59,7 +63,22 @@ type GroupedTupleCase<TValue, TPath extends PropertyPath> =
 type AnyTupleCase<TValue, TPath extends PropertyPath> = TupleCase<TValue, TPath> | GroupedTupleCase<TValue, TPath>
 type AnyTupleCaseList<TValue, TPath extends PropertyPath> = readonly AnyTupleCase<TValue, TPath>[]
 
-type TupleEntryTag<TValue, TPath extends PropertyPath> = PathTag<TValue, TPath> | readonly PathTag<TValue, TPath>[]
+/** Keeps tag autocomplete active while a user is typing an inline string literal. */
+type CompletionTupleTag<TValue, TPath extends PropertyPath> = PathTag<TValue, TPath>
+type CompletionTupleCase<TValue, TPath extends PropertyPath> =
+  | readonly [
+      CompletionTupleTag<TValue, TPath>,
+      (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown,
+    ]
+  | readonly [
+      readonly [CompletionTupleTag<TValue, TPath>, ...CompletionTupleTag<TValue, TPath>[]],
+      (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => unknown,
+    ]
+type CompletionTupleCaseList<TValue, TPath extends PropertyPath> = readonly CompletionTupleCase<TValue, TPath>[]
+
+type TupleEntryTag<TValue, TPath extends PropertyPath> =
+  | PathTag<TValue, TPath>
+  | readonly [PathTag<TValue, TPath>, ...PathTag<TValue, TPath>[]]
 type TupleEntryArgument<
   TValue,
   TPath extends PropertyPath,
@@ -67,14 +86,11 @@ type TupleEntryArgument<
   TResult,
 > = TTagEntry extends readonly PathTag<TValue, TPath>[]
   ? readonly [
-      tags: TTagEntry | readonly PathTag<TValue, TPath>[],
+      tags: TTagEntry & readonly [PathTag<TValue, TPath>, ...PathTag<TValue, TPath>[]],
       handler: (value: ExtractByPath<TValue, TPath, TTagEntry[number]>) => TResult,
     ]
   : TTagEntry extends Discriminant
-    ? readonly [
-        tag: TTagEntry | PathTag<TValue, TPath>,
-        handler: (value: ExtractByPath<TValue, TPath, TTagEntry>) => TResult,
-      ]
+    ? readonly [tag: TTagEntry, handler: (value: ExtractByPath<TValue, TPath, TTagEntry>) => TResult]
     : never
 
 type TupleEntryArguments<
@@ -85,7 +101,17 @@ type TupleEntryArguments<
   readonly [K in keyof TTagEntries]: TupleEntryArgument<TValue, TPath, TTagEntries[K], unknown>
 }
 
-type DiagnosticTupleEntryTag = Discriminant | readonly Discriminant[]
+type StaticGroupedTupleEntry<
+  TValue,
+  TPath extends PropertyPath,
+  TTags extends PathTagTuple<TValue, TPath>,
+  TResult,
+> = readonly [
+  tags: TTags & readonly [PathTag<TValue, TPath>, ...PathTag<TValue, TPath>[]],
+  handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
+]
+
+type DiagnosticTupleEntryTag = Discriminant | readonly [Discriminant, ...Discriminant[]]
 type DiagnosticTupleEntryArgument<
   TValue,
   TPath extends PropertyPath,
@@ -93,11 +119,11 @@ type DiagnosticTupleEntryArgument<
   TResult,
 > = TTagEntry extends readonly Discriminant[]
   ? readonly [
-      tags: TTagEntry | readonly Discriminant[],
+      tags: TTagEntry & readonly [Discriminant, ...Discriminant[]],
       handler: (value: ExtractByPath<TValue, TPath, TTagEntry[number]>) => TResult,
     ]
   : TTagEntry extends Discriminant
-    ? readonly [tag: TTagEntry | Discriminant, handler: (value: ExtractByPath<TValue, TPath, TTagEntry>) => TResult]
+    ? readonly [tag: TTagEntry, handler: (value: ExtractByPath<TValue, TPath, TTagEntry>) => TResult]
     : never
 
 type DiagnosticTupleEntryArguments<
@@ -125,20 +151,8 @@ type CaseBuilder<TValue, TPath extends PropertyPath> = {
     ...args: [...tags: TTags, handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult]
   ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
 
-  <const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
-    ...args: [
-      ...tags: MatchByTagsArgument<TValue, TPath, TTags>,
-      handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
-    ]
-  ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
-
   <const TTags extends PathTagTuple<TValue, TPath>, const TResult>(
-    tags: TTags,
-    handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
-  ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
-
-  <const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
-    tags: TTags & MatchByTagsArgument<TValue, TPath, TTags>,
+    tags: TTags & readonly [PathTag<TValue, TPath>, ...PathTag<TValue, TPath>[]],
     handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
   ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
 
@@ -149,6 +163,18 @@ type CaseBuilder<TValue, TPath extends PropertyPath> = {
     readonly PathTag<TValue, TPath>[],
     (value: ExtractByPath<TValue, TPath, PathTag<TValue, TPath>>) => TResult
   >
+
+  <const TTags extends readonly [Discriminant, ...Discriminant[]], const TResult>(
+    ...args:
+      | [
+          ...tags: MatchByTagsArgument<TValue, TPath, TTags>,
+          handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
+        ]
+      | [
+          tags: TTags & MatchByTagsArgument<TValue, TPath, TTags>,
+          handler: (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult,
+        ]
+  ): GroupEntry<TTags, (value: ExtractByPath<TValue, TPath, TTags[number]>) => TResult>
 }
 
 /** Normalized runtime representation of one or more `matchBy` case handlers. */
@@ -293,6 +319,15 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
     ) => TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): TOutput | EntryReturn<TEntries>
 
+  cases<
+    const TTags extends PathTagTuple<TRemaining, TPath>,
+    const R0,
+    const TRest extends AnyTupleCaseList<TRemaining, TPath>,
+  >(
+    entries: readonly [StaticGroupedTupleEntry<TRemaining, TPath, TTags, R0>, ...TRest] &
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TTags[number] | EntryTags<TRest>>,
+  ): TOutput | R0 | EntryReturn<TRest>
+
   /**
    * Exhaustively handles tags with tuple entries.
    *
@@ -306,14 +341,16 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
    * @see https://github.com/DiegoGBrisa/ts-match#group
    */
   cases<const T0 extends TupleEntryTag<TRemaining, TPath>, const R0>(
-    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>] &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>,
+    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>],
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>
+    >
   ): TOutput | R0
 
   /**
    * Exhaustively handles an arbitrary-length inline tuple-entry array.
    *
-   * Each entry is written as `[tag, handler]` or `[[tag1, tag2] as const, handler]`.
+   * Each entry is written as `[tag, handler]` or `[[tag1, tag2], handler]`.
    * Handlers are contextually typed from their sibling tag entry, and every
    * statically known tag counts toward exhaustiveness.
    *
@@ -326,9 +363,10 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
     const TTagEntries extends readonly TupleEntryTag<TRemaining, TPath>[],
     const TEntries extends TupleEntryArguments<TRemaining, TPath, TTagEntries>,
   >(
-    entries: TEntries &
-      TupleEntryArguments<TRemaining, TPath, TTagEntries> &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>,
+    entries: TEntries & TupleEntryArguments<TRemaining, TPath, TTagEntries>,
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>
+    >
   ): TOutput | EntryReturn<TEntries>
 
   cases<
@@ -355,17 +393,33 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
     entries: TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): TOutput | EntryReturn<TEntries>
 
-  cases<const TEntries extends DiagnosticTupleCaseList<TRemaining, TPath>>(
-    entries: TEntries,
-    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
-  ): TOutput | EntryReturn<TEntries>
-
   cases<const THandlers extends Partial<CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>>>>(
     handlers: CaseMap<TRemaining, TPath, PathValue<TRemaining, TPath>> &
       THandlers &
       ObjectCaseMapArgument<PathValue<TRemaining, TPath>, THandlers> &
       NoExtraKeys<THandlers, ObjectCaseKeys<PathValue<TRemaining, TPath>>>,
   ): never
+
+  /**
+   * Adds non-exhaustive grouped entries with a typed callback-local group helper.
+   *
+   * Use this when several tags share one partial handler and you want handler
+   * parameters to infer from the selected `matchBy` path without annotations.
+   *
+   * @param builder - Function that returns partial grouped case entries.
+   * @returns A new builder with handled tags removed from the remaining union.
+   * @see https://github.com/DiegoGBrisa/ts-match#partialotherwise
+   */
+  partial<const TEntries extends readonly GroupEntry<readonly Discriminant[], unknown>[]>(
+    builder: (
+      group: CaseBuilder<TRemaining, TPath>,
+    ) => TEntries & PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
+  ): SyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
+    TOutput | EntryReturn<TEntries>
+  >
 
   /**
    * Adds a non-exhaustive object case map and keeps matching open.
@@ -410,10 +464,24 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
     TOutput | R0
   >
 
+  partial<
+    const TTags extends PathTagTuple<TRemaining, TPath>,
+    const R0,
+    const TRest extends AnyTupleCaseList<TRemaining, TPath>,
+  >(
+    entries: readonly [StaticGroupedTupleEntry<TRemaining, TPath, TTags, R0>, ...TRest] &
+      PartialEntriesArgument<PathValue<TRemaining, TPath>, TTags[number] | EntryTags<TRest>>,
+  ): SyncMatchByBuilder<
+    TValue,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, TTags[number] | EntryTags<TRest>>>,
+    TOutput | R0 | EntryReturn<TRest>
+  >
+
   /**
    * Adds an arbitrary-length inline tuple-entry partial list and keeps matching open.
    *
-   * Each entry is written as `[tag, handler]` or `[[tag1, tag2] as const, handler]`.
+   * Each entry is written as `[tag, handler]` or `[[tag1, tag2], handler]`.
    * Handlers are contextually typed from their sibling tag entry. Handled tags
    * are removed from the remaining union before `.otherwise(...)`.
    *
@@ -465,15 +533,7 @@ export interface SyncMatchByBuilder<TValue, TPath extends PropertyPath, TRemaini
     TOutput | EntryReturn<TEntries>
   >
 
-  partial<const TEntries extends DiagnosticTupleCaseList<TRemaining, TPath>>(
-    entries: TEntries,
-    ...diagnostic: DiagnosticArgs<PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
-  ): SyncMatchByBuilder<
-    TValue,
-    TPath,
-    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
-    TOutput | EntryReturn<TEntries>
-  >
+  partial(entries: CompletionTupleCaseList<TRemaining, TPath>): SyncMatchByBuilder<TValue, TPath, TRemaining, TOutput>
 
   /**
    * Finishes the matcher with a fallback for all remaining tags.
@@ -592,11 +652,6 @@ export interface PromiseMatchByBuilder<TInput, TPath extends PropertyPath, TRema
     ) => TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
 
-  cases<const TEntries extends readonly GroupEntry<readonly PathTag<TRemaining, TPath>[], unknown>[]>(
-    builder: (group: CaseBuilder<TRemaining, TPath>) => TEntries,
-    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
-  ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
-
   /**
    * Exhaustively handles tags with tuple entries after the input resolves.
    *
@@ -611,14 +666,16 @@ export interface PromiseMatchByBuilder<TInput, TPath extends PropertyPath, TRema
    * @see https://github.com/DiegoGBrisa/ts-match#matchbypromise
    */
   cases<const T0 extends TupleEntryTag<TRemaining, TPath>, const R0>(
-    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>] &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>,
+    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>],
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>
+    >
   ): Promise<AwaitedReturn<TOutput | R0>>
 
   /**
    * Exhaustively handles an arbitrary-length inline tuple-entry array after input resolution.
    *
-   * Each entry is written as `[tag, handler]` or `[[tag1, tag2] as const, handler]`.
+   * Each entry is written as `[tag, handler]` or `[[tag1, tag2], handler]`.
    * Handlers are contextually typed from their sibling tag entry, and every
    * statically known tag counts toward exhaustiveness.
    *
@@ -631,9 +688,10 @@ export interface PromiseMatchByBuilder<TInput, TPath extends PropertyPath, TRema
     const TTagEntries extends readonly TupleEntryTag<TRemaining, TPath>[],
     const TEntries extends TupleEntryArguments<TRemaining, TPath, TTagEntries>,
   >(
-    entries: TEntries &
-      TupleEntryArguments<TRemaining, TPath, TTagEntries> &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>,
+    entries: TEntries & TupleEntryArguments<TRemaining, TPath, TTagEntries>,
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>
+    >
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
 
   cases<
@@ -660,10 +718,26 @@ export interface PromiseMatchByBuilder<TInput, TPath extends PropertyPath, TRema
     entries: TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
 
-  cases<const TEntries extends DiagnosticTupleCaseList<TRemaining, TPath>>(
-    entries: TEntries,
-    ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
-  ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
+  /**
+   * Adds non-exhaustive grouped entries with a typed callback-local group helper after input resolution.
+   *
+   * Use this when several tags share one partial handler and you want handler
+   * parameters to infer from the selected `matchBy` path without annotations.
+   *
+   * @param builder - Function that returns partial grouped case entries.
+   * @returns A new promise builder with handled tags removed from the remaining union.
+   * @see https://github.com/DiegoGBrisa/ts-match#matchbypromise
+   */
+  partial<const TEntries extends readonly GroupEntry<readonly Discriminant[], unknown>[]>(
+    builder: (
+      group: CaseBuilder<TRemaining, TPath>,
+    ) => TEntries & PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
+  ): PromiseMatchByBuilder<
+    TInput,
+    TPath,
+    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
+    TOutput | EntryReturn<TEntries>
+  >
 
   /**
    * Adds a non-exhaustive object case map and keeps matching open.
@@ -711,7 +785,7 @@ export interface PromiseMatchByBuilder<TInput, TPath extends PropertyPath, TRema
   /**
    * Adds an arbitrary-length inline tuple-entry partial list and keeps matching open.
    *
-   * Each entry is written as `[tag, handler]` or `[[tag1, tag2] as const, handler]`.
+   * Each entry is written as `[tag, handler]` or `[[tag1, tag2], handler]`.
    * Handlers are contextually typed from their sibling tag entry. Handled tags
    * are removed from the remaining union before `.otherwise(...)`.
    *
@@ -766,15 +840,9 @@ export interface PromiseMatchByBuilder<TInput, TPath extends PropertyPath, TRema
     TOutput | EntryReturn<TEntries>
   >
 
-  partial<const TEntries extends DiagnosticTupleCaseList<TRemaining, TPath>>(
-    entries: TEntries,
-    ...diagnostic: DiagnosticArgs<PartialEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
-  ): PromiseMatchByBuilder<
-    TInput,
-    TPath,
-    Exclude<TRemaining, CoveredByPath<TRemaining, TPath, EntryTags<TEntries>>>,
-    TOutput | EntryReturn<TEntries>
-  >
+  partial(
+    entries: CompletionTupleCaseList<TRemaining, TPath>,
+  ): PromiseMatchByBuilder<TInput, TPath, TRemaining, TOutput>
 
   /**
    * Finishes the promise matcher with a fallback for all remaining tags.
@@ -945,17 +1013,20 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
     ) => TEntries & ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>,
   ): TOutput | EntryReturn<TEntries>
   cases<const T0 extends TupleEntryTag<TRemaining, TPath>, const R0>(
-    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>] &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>,
+    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>],
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>
+    >
   ): TOutput | R0
 
   cases<
     const TTagEntries extends readonly TupleEntryTag<TRemaining, TPath>[],
     const TEntries extends TupleEntryArguments<TRemaining, TPath, TTagEntries>,
   >(
-    entries: TEntries &
-      TupleEntryArguments<TRemaining, TPath, TTagEntries> &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>,
+    entries: TEntries & TupleEntryArguments<TRemaining, TPath, TTagEntries>,
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>
+    >
   ): TOutput | EntryReturn<TEntries>
 
   cases<
@@ -1053,9 +1124,7 @@ class SyncMatchByBuilderImpl<TValue, TPath extends PropertyPath, TRemaining, TOu
     TOutput | EntryReturn<TEntries>
   >
   partial(handlersOrEntries: unknown, ..._diagnostic: readonly unknown[]): unknown {
-    const cases = Array.isArray(handlersOrEntries)
-      ? normalizeEntries(handlersOrEntries)
-      : normalizeCaseMap(handlersOrEntries)
+    const cases = normalizeCaseInput(handlersOrEntries)
 
     return new SyncMatchByBuilderImpl<TValue, TPath, unknown, TOutput | unknown>(
       this.value,
@@ -1128,17 +1197,20 @@ class PromiseMatchByBuilderImpl<TInput, TPath extends PropertyPath, TRemaining, 
     ...diagnostic: DiagnosticArgs<ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, EntryTags<TEntries>>>
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
   cases<const T0 extends TupleEntryTag<TRemaining, TPath>, const R0>(
-    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>] &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>,
+    entries: readonly [TupleEntryArgument<TRemaining, TPath, T0, R0>],
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<readonly [T0]>>
+    >
   ): Promise<AwaitedReturn<TOutput | R0>>
 
   cases<
     const TTagEntries extends readonly TupleEntryTag<TRemaining, TPath>[],
     const TEntries extends TupleEntryArguments<TRemaining, TPath, TTagEntries>,
   >(
-    entries: TEntries &
-      TupleEntryArguments<TRemaining, TPath, TTagEntries> &
-      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>,
+    entries: TEntries & TupleEntryArguments<TRemaining, TPath, TTagEntries>,
+    ...diagnostic: DiagnosticArgs<
+      ExhaustiveEntriesArgument<PathValue<TRemaining, TPath>, TupleEntryListTags<TTagEntries>>
+    >
   ): Promise<AwaitedReturn<TOutput | EntryReturn<TEntries>>>
 
   cases<
@@ -1238,9 +1310,7 @@ class PromiseMatchByBuilderImpl<TInput, TPath extends PropertyPath, TRemaining, 
     TOutput | EntryReturn<TEntries>
   >
   partial(handlersOrEntries: unknown, ..._diagnostic: readonly unknown[]): unknown {
-    const cases = Array.isArray(handlersOrEntries)
-      ? normalizeEntries(handlersOrEntries)
-      : normalizeCaseMap(handlersOrEntries)
+    const cases = normalizeCaseInput(handlersOrEntries)
 
     return new PromiseMatchByBuilderImpl<TInput, TPath, unknown, TOutput | unknown>(
       this.input,
@@ -1633,7 +1703,7 @@ function buildGroupEntry(...args: readonly unknown[]): GroupEntry<readonly Discr
 }
 
 /**
- * Normalizes any `.cases(...)` input form into runtime cases.
+ * Normalizes any `.cases(...)` or `.partial(...)` input form into runtime cases.
  *
  * Accepts object maps, tuple/grouped entry arrays, or a builder callback that
  * returns an entry array.
@@ -1699,7 +1769,7 @@ function readGroupEntry(value: unknown): RuntimeTagCase | undefined {
  * Starts a synchronous discriminant match by reading `path` from `value`.
  *
  * The path can be a direct key (`'type'`), a dot path (`'payload.kind'`), or a
- * tuple path (`['payload', 'kind'] as const`). Prefer `.with(...).exhaustive()`
+ * tuple path (`['payload', 'kind']`). Prefer `.with(...).exhaustive()`
  * for the default documented style on closed discriminated unions.
  *
  * @param value - Runtime value to match while preserving its TypeScript type.

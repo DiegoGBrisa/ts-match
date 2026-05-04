@@ -175,17 +175,6 @@ describe('editor DX', () => {
       matchBy.promise(fetchEvent(), 'meta.type').partial({ ${COMPLETION_MARKER} }).otherwise((value) => value)
     `)
 
-    const tupleEntry = getCompletionsAtMarker(`
-      import { matchBy } from '../src/index.ts'
-
-      type UiEvent =
-        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
-        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
-
-      declare function fetchEvent(): Promise<UiEvent>
-      matchBy.promise(fetchEvent(), 'meta.type').cases([['${COMPLETION_MARKER}', (value) => value]])
-    `)
-
     const partialTupleEntry = getCompletionsAtMarker(`
       import { matchBy } from '../src/index.ts'
 
@@ -195,6 +184,17 @@ describe('editor DX', () => {
 
       declare function fetchEvent(): Promise<UiEvent>
       matchBy.promise(fetchEvent(), 'meta.type').partial([['${COMPLETION_MARKER}', (value) => value]]).otherwise((value) => value)
+    `)
+
+    const groupedPartialTupleEntry = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare function fetchEvent(): Promise<UiEvent>
+      matchBy.promise(fetchEvent(), 'meta.type').partial([[['${COMPLETION_MARKER}'], (value) => value]]).otherwise((value) => value)
     `)
 
     const groupedCallback = getCompletionsAtMarker(`
@@ -224,8 +224,8 @@ describe('editor DX', () => {
     expect(remainingTag.names).not.toEqual(expect.arrayContaining(['click']))
     expect(casesMap.names).toEqual(expect.arrayContaining(['click', 'submit']))
     expect(partialMap.names).toEqual(expect.arrayContaining(['click', 'submit']))
-    expect(tupleEntry.names).toEqual(expect.arrayContaining(['click', 'submit']))
     expect(partialTupleEntry.names).toEqual(expect.arrayContaining(['click', 'submit']))
+    expect(groupedPartialTupleEntry.names).toEqual(expect.arrayContaining(['click', 'submit']))
     expect(groupedCallback.names).toEqual(expect.arrayContaining(['click', 'submit']))
     expect(variadicGroupedCallback.names).toEqual(expect.arrayContaining(['click', 'submit']))
   })
@@ -293,6 +293,167 @@ describe('editor DX', () => {
     expect(remainingTag.names).not.toEqual(expect.arrayContaining(['click']))
     expect(symbolTag.names).toEqual(expect.arrayContaining(['user', 'system']))
   })
+
+  it('suggests matchBy tags inside partial array-form grouped entries', () => {
+    const tuplePartialGroupArray = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type UiEvent =
+        | { readonly meta: { readonly type: 'click' }; readonly value: { readonly x: number } }
+        | { readonly meta: { readonly type: 'submit' }; readonly value: { readonly form: string } }
+
+      declare const event: UiEvent
+      matchBy(event, 'meta.type').partial([[['${COMPLETION_MARKER}'], (value) => value]]).otherwise((value) => value)
+    `)
+
+    expect(tuplePartialGroupArray.names).toEqual(expect.arrayContaining(['click', 'submit']))
+  })
+
+  it('suggests narrowed handler fields across matchBy chains, partial entries, and callback groups', () => {
+    const partialGroupedTupleHandler = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type CartAction =
+        | { readonly type: 'addItem'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+        | { readonly type: 'updateQuantity'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+        | { readonly type: 'applyCoupon'; readonly cartId: string; readonly code: string }
+        | { readonly type: 'checkout'; readonly cartId: string; readonly total: number }
+
+      declare const action: CartAction
+      matchBy(action, 'type').partial([
+        [['addItem', 'updateQuantity'], (value) => value.${COMPLETION_MARKER}],
+        ['applyCoupon', (value) => value.code],
+      ]).otherwise((value) => value)
+    `)
+
+    const callbackGroupedPartialHandler = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type CartAction =
+        | { readonly type: 'addItem'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+        | { readonly type: 'updateQuantity'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+        | { readonly type: 'applyCoupon'; readonly cartId: string; readonly code: string }
+        | { readonly type: 'checkout'; readonly cartId: string; readonly total: number }
+
+      declare const action: CartAction
+      matchBy(action, 'type').partial((group) => [
+        group(['addItem', 'updateQuantity'], (value) => value.${COMPLETION_MARKER}),
+      ]).otherwise((value) => value)
+    `)
+
+    const withHandler = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type AppMessage =
+        | { readonly channel: 'analytics'; readonly event: { readonly name: string } }
+        | { readonly channel: 'health'; readonly status: 'ok' | 'degraded' }
+
+      declare const message: AppMessage
+      matchBy(message, 'channel')
+        .with('analytics', (value) => value.event.name)
+        .with('health', (value) => value.${COMPLETION_MARKER})
+        .exhaustive()
+    `)
+
+    const promisePartialGroupedTupleHandler = getCompletionsAtMarker(`
+      import { matchBy } from '../src/index.ts'
+
+      type CartAction =
+        | { readonly type: 'addItem'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+        | { readonly type: 'updateQuantity'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+        | { readonly type: 'applyCoupon'; readonly cartId: string; readonly code: string }
+        | { readonly type: 'checkout'; readonly cartId: string; readonly total: number }
+
+      declare function fetchAction(): Promise<CartAction>
+      matchBy.promise(fetchAction(), 'type').partial([
+        [['addItem', 'updateQuantity'], (value) => value.${COMPLETION_MARKER}],
+      ]).otherwise((value) => value)
+    `)
+
+    expect(partialGroupedTupleHandler.names).toEqual(expect.arrayContaining(['cartId', 'quantity', 'sku', 'type']))
+    expect(partialGroupedTupleHandler.names).not.toEqual(expect.arrayContaining(['code', 'total']))
+    expect(callbackGroupedPartialHandler.names).toEqual(expect.arrayContaining(['cartId', 'quantity', 'sku', 'type']))
+    expect(callbackGroupedPartialHandler.names).not.toEqual(expect.arrayContaining(['code', 'total']))
+    expect(withHandler.names).toEqual(expect.arrayContaining(['channel', 'status']))
+    expect(withHandler.names).not.toEqual(expect.arrayContaining(['event']))
+    expect(promisePartialGroupedTupleHandler.names).toEqual(
+      expect.arrayContaining(['cartId', 'quantity', 'sku', 'type']),
+    )
+    expect(promisePartialGroupedTupleHandler.names).not.toEqual(expect.arrayContaining(['code', 'total']))
+  })
+
+  it(
+    'suggests match and assertion helper completions in nested configuration and selected handlers',
+    () => {
+      const selectedHandler = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      type Product =
+        | { readonly type: 'book'; readonly title: string; readonly rating: number }
+        | { readonly type: 'course'; readonly title: string; readonly rating: number }
+
+      declare const product: Product
+      match(product).with(
+        { type: P.union('book', 'course'), title: P.select('title', P.string), rating: P.select('rating', P.number) },
+        (value) => value.${COMPLETION_MARKER},
+      )
+    `)
+
+      const promiseSelectedHandler = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      type Product =
+        | { readonly type: 'book'; readonly title: string; readonly rating: number }
+        | { readonly type: 'course'; readonly title: string; readonly rating: number }
+
+      declare function fetchProduct(): Promise<Product>
+      match.promise(fetchProduct()).with(
+        { type: P.union('book', 'course'), title: P.select('title', P.string), rating: P.select('rating', P.number) },
+        (value) => value.${COMPLETION_MARKER},
+      )
+    `)
+
+      const whenHandler = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      declare const value: unknown
+      match(value).with(
+        P.when((candidate: unknown): candidate is { readonly id: string; readonly role: 'admin' | 'member' } => true),
+        (candidate) => candidate.${COMPLETION_MARKER},
+      )
+    `)
+
+      const unionLiteralArgument = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      type User = { readonly role: 'admin' | 'member' | 'owner' }
+      declare const user: User
+      match(user).with({ role: P.union('admin', '${COMPLETION_MARKER}') }, (value) => value)
+    `)
+
+      const assertionUnionLiteralArgument = getCompletionsAtMarker(`
+      import { assertMatching, P } from '../src/index.ts'
+
+      declare const form: unknown
+      assertMatching({ type: 'user', role: P.union('admin', '${COMPLETION_MARKER}') }, form)
+    `)
+
+      const optionalHelperArgument = getCompletionsAtMarker(`
+      import { match, P } from '../src/index.ts'
+
+      declare const value: unknown
+      match(value).with({ role: P.optional(P.${COMPLETION_MARKER}) }, (matched) => matched)
+    `)
+
+      expect(selectedHandler.names).toEqual(expect.arrayContaining(['rating', 'title']))
+      expect(promiseSelectedHandler.names).toEqual(expect.arrayContaining(['rating', 'title']))
+      expect(whenHandler.names).toEqual(expect.arrayContaining(['id', 'role']))
+      expect(unionLiteralArgument.names).toEqual(expect.arrayContaining(['admin']))
+      expect(assertionUnionLiteralArgument.names).toEqual(expect.arrayContaining(['admin']))
+      expect(optionalHelperArgument.names).toEqual(expect.arrayContaining(['string', 'number', 'union']))
+    },
+    EDITOR_DX_TEST_TIMEOUT_MS,
+  )
 
   it('suggests matchBy case keys for object maps, partial maps, and grouped callbacks', () => {
     const casesMap = getCompletionsAtMarker(`

@@ -1544,7 +1544,7 @@ type SelectPayload<TValue, TPattern> =
                       : never
 
 type ObjectSelectPayloadUnion<TValue, TPattern extends object> = {
-  [K in keyof TPattern]: K extends keyof TValue ? SelectPayload<TValue[K], TPattern[K]> : never
+  [K in keyof TPattern]-?: K extends keyof TValue ? SelectPayload<TValue[K], TPattern[K]> : never
 }[keyof TPattern]
 
 type SelectPayloadFromObject<TValue, TPattern extends object> = UnionToIntersection<

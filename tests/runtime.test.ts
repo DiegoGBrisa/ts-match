@@ -205,6 +205,28 @@ describe('matchBy', () => {
     expect(Object.isFrozen(entry.tags)).toBe(true)
   })
 
+  it('supports partial grouped callback entries', async () => {
+    type Action =
+      | { type: 'add'; sku: string; quantity: number }
+      | { type: 'update'; sku: string; quantity: number }
+      | { type: 'checkout'; total: number }
+
+    const action = ((): Action => ({ type: 'add', sku: 'SKU-1', quantity: 2 }))()
+
+    expect(
+      matchBy(action, 'type')
+        .partial((group) => [group(['add', 'update'], (value) => `${value.sku}:${String(value.quantity)}`)])
+        .otherwise((value) => String(value.total)),
+    ).toBe('SKU-1:2')
+
+    await expect(
+      matchBy
+        .promise(Promise.resolve<Action>({ type: 'checkout', total: 42 }), 'type')
+        .partial((group) => [group(['add', 'update'], (value) => `${value.sku}:${String(value.quantity)}`)])
+        .otherwise((value) => String(value.total)),
+    ).resolves.toBe('42')
+  })
+
   it('supports typed dot paths and tuple paths', () => {
     const event = { meta: { type: 'click' as const, x: 1 } }
     expect(matchBy(event, 'meta.type').cases({ click: (value) => value.meta.x })).toBe(1)

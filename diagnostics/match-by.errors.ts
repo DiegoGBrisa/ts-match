@@ -1,4 +1,5 @@
 import { group, matchBy } from '../src/index.js'
+import type { PartialEntriesArgument } from '../src/types.js'
 
 type Event =
   | { readonly type: 'open'; readonly payload: { readonly code: 200; readonly id: string } }
@@ -14,7 +15,7 @@ matchBy(event, 'missing')
 matchBy(event, 'payload.missing')
 
 // Intended diagnostic: ts-match says the tuple path is invalid.
-matchBy(event, ['payload', 'missing'] as const)
+matchBy(event, ['payload', 'missing'])
 
 // Intended diagnostic: ts-match says the selected path cannot be used as a tag.
 matchBy(event, 'payload')
@@ -66,12 +67,15 @@ matchBy(event, 'type').cases((group) => [
   group(['close', 'idle'], () => 'done'),
 ])
 
+// Intended diagnostic: ts-match says grouped cases contain impossible tags.
+const _groupedTagDiagnostic: PartialEntriesArgument<Event['type'], 'missing'> = {}
+
 // Intended diagnostic: ts-match says tuple-entry cases contain impossible tags.
 matchBy(event, 'type').partial([['missing', () => 'missing']])
 
 // Intended diagnostic: ts-match says exported group entries with impossible tags cannot satisfy cases.
 matchBy(event, 'type').cases([
-  group(['open', 'missing'] as const, () => 'bad-group'),
+  group(['open', 'missing'], () => 'bad-group'),
   ['close', (value) => value.payload.reason],
   ['idle', () => 'idle'],
 ])

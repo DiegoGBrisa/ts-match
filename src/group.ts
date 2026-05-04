@@ -63,9 +63,9 @@ export function group<
 /**
  * Creates a reusable grouped case entry from a readonly array of tags.
  *
- * Prefer the variadic form inside grouped-case callbacks when you want
- * segment-by-segment tag autocomplete. The array form remains useful for
- * reusable tag lists that already exist as readonly arrays.
+ * Use the array form when tags read better together or already exist as a
+ * reusable readonly list. For callback-local editor tag suggestions, prefer
+ * the variadic form.
  *
  * @param tags - Readonly list of discriminant tags to handle together.
  * @param handler - Function invoked when the value at the `matchBy` path equals one of the tags.

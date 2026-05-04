@@ -100,8 +100,9 @@ const _promiseMultiPatternValue = match
   .exhaustive()
 type _promiseMultiPattern = Expect<Equal<typeof _promiseMultiPatternValue, Promise<string | number>>>
 
+type UserProfileResponse = { readonly type: 'user'; readonly profile: { readonly name: string; readonly age: number } }
 const _promiseSelectValue = match
-  .promise(Promise.resolve({ type: 'user' as const, profile: { name: 'Ada', age: 36 } }))
+  .promise(Promise.resolve<UserProfileResponse>({ type: 'user', profile: { name: 'Ada', age: 36 } }))
   .with(
     { type: 'user', profile: { name: P.select('name', pString), age: P.select('age', pNumber) } },
     ({ age, name }) => `${name}:${String(age)}`,
@@ -119,7 +120,7 @@ type _matchByPromiseMultiTag = Expect<Equal<typeof _matchByPromiseMultiTagValue,
 const _matchByPromiseGroupedArrayValue = matchBy
   .promise(paymentPromise, 'kind')
   .cases((group) => [
-    group(['card', 'coupon'] as const, (value) => (value.kind === 'card' ? value.last4 : value.code)),
+    group(['card', 'coupon'], (value) => (value.kind === 'card' ? value.last4 : value.code)),
     group('cash', (value) => value.receivedCents),
   ])
 type _matchByPromiseGroupedArray = Expect<Equal<typeof _matchByPromiseGroupedArrayValue, Promise<string | number>>>
