@@ -1,8 +1,13 @@
 # ts-match
 
-A lightweight, type-safe pattern matching library for TypeScript with exhaustive checks and strong inference.
+**Exhaustive matching for TypeScript discriminated unions** — with ergonomic `matchBy(...)`, strong inference, structural patterns when you need them, and zero runtime dependencies.
 
-Use `match` for structural patterns, `matchBy` for discriminated unions, and `P` for reusable runtime patterns.
+`ts-match` is built for the kind of TypeScript branching that gets ugly fast:
+
+- reducers and event routers
+- UI state handling
+- API result unions
+- nested object/tuple matching when `switch` stops being enough
 
 ```ts
 import { matchBy } from '@diegogbrisa/ts-match'
@@ -25,15 +30,79 @@ function planCartOperation(action: CartAction) {
 }
 ```
 
-## Features
+## Why developers reach for `ts-match`
 
-- Exhaustive handling for closed unions.
-- Narrowed handler parameters without casts.
-- Structural patterns for objects, tuples, arrays, and records.
-- `matchBy` for ergonomic discriminant dispatch.
-- `match.promise` and `matchBy.promise` for promise-backed inputs and promise-returning branches.
-- `isMatching` and `assertMatching` for runtime validation.
-- ESM-only package for Node 20+ with no runtime dependencies.
+- **Exhaustive discriminated-union handling** without hand-rolled `assertNever` helpers.
+- **Narrowed handler parameters** without manual casts.
+- **`matchBy(value, 'type')` ergonomics** for the most common TypeScript branching style.
+- **Structural patterns** for objects, tuples, arrays, and records when plain `switch` is not expressive enough.
+- **Promise-aware matching** through `match.promise` and `matchBy.promise`.
+- **Runtime validation helpers** with `isMatching` and `assertMatching`.
+- **Zero runtime dependencies** and a small surface for production use.
+
+## Why not just use `switch`?
+
+`switch` is still great for simple branching. `ts-match` becomes useful when your code also needs:
+
+- exhaustiveness over closed unions;
+- narrowed branch-local payload types;
+- nested object or tuple matching;
+- reusable runtime pattern helpers;
+- cleaner reducer / event-dispatch ergonomics.
+
+If a normal `if` or `switch` is already the clearest tool, use it. The point of `ts-match` is to make the harder branching cases cleaner, not to replace every conditional.
+
+## Before / after
+
+### Plain `switch`
+
+```ts
+function planCartOperation(action: CartAction) {
+  switch (action.type) {
+    case 'addItem':
+      return { type: 'lineItemAdded', sku: action.sku, quantity: action.quantity }
+    case 'applyCoupon':
+      return {
+        type: 'discountApplied',
+        code: action.code,
+        multiplier: 1 - action.percentOff / 100,
+      }
+    case 'clearCart':
+      return { type: 'cartCleared', reason: action.reason }
+    default: {
+      const _never: never = action
+      return _never
+    }
+  }
+}
+```
+
+### `ts-match`
+
+```ts
+function planCartOperation(action: CartAction) {
+  return matchBy(action, 'type')
+    .with('addItem', (action) => ({ type: 'lineItemAdded', sku: action.sku, quantity: action.quantity }))
+    .with('applyCoupon', (action) => ({
+      type: 'discountApplied',
+      code: action.code,
+      multiplier: 1 - action.percentOff / 100,
+    }))
+    .with('clearCart', (action) => ({ type: 'cartCleared', reason: action.reason }))
+    .exhaustive()
+}
+```
+
+## When to use it
+
+Reach for `ts-match` when you want:
+
+- a clean exhaustive reducer or event router;
+- safer handling of discriminated unions;
+- structural matching beyond one-key dispatch;
+- typed runtime validation helpers in the same toolkit.
+
+You may not need it when your branch is already trivial and a normal condition reads better.
 
 ## Installation
 
@@ -43,6 +112,12 @@ pnpm add @diegogbrisa/ts-match
 yarn add @diegogbrisa/ts-match
 bun add @diegogbrisa/ts-match
 ```
+
+## Quick reasons to evaluate it over alternatives
+
+- Strong focus on **TypeScript-first discriminant dispatch** via `matchBy(...)`.
+- Includes both **ergonomic application-style branching** and **deeper structural matching**.
+- Designed to stay honest about tradeoffs: simple branches should stay simple.
 
 ## Documentation
 
