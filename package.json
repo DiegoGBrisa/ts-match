@@ -1,6 +1,6 @@
 {
   "name": "@diegogbrisa/ts-match",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "TypeScript-first pattern matching with matchBy ergonomics, exhaustive checks, and zero runtime dependencies.",
   "type": "module",
   "license": "MIT",

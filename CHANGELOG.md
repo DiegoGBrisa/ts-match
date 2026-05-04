@@ -4,6 +4,20 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.2.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.1.0...v1.2.0) (2026-05-04)
+
+
+### Features
+
+* **match:** add promise-aware builders ([737ab73](https://github.com/DiegoGBrisa/ts-match/commit/737ab73750af37057f2d8da0645564d7bb3f0a7b))
+
+
+### Bug Fixes
+
+* **match:** harden promise runtime validation ([c1643b6](https://github.com/DiegoGBrisa/ts-match/commit/c1643b687434293f4a719cff3cb000521f64eef1))
+* **runtime:** validate tags and union patterns ([05d788b](https://github.com/DiegoGBrisa/ts-match/commit/05d788bf0006674820f432830625995db0121579))
+* **types:** strengthen inference and matchBy grouped entries ([42990ec](https://github.com/DiegoGBrisa/ts-match/commit/42990ecc0c5f3e58f1ebd540dc734928e9a8bf91))
+
 ## [1.1.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.0.3...v1.1.0) (2026-04-30)
 
 
