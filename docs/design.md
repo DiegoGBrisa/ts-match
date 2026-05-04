@@ -101,14 +101,14 @@ Out of scope for v1:
 - Runtime path reads use explicit property access after an `in` check, so prototype getters on class instances are supported for `matchBy(...)` paths.
 - `matchBy(...).with(...).exhaustive()` is the default documentation shape for closed discriminated unions because it keeps contextual handler inference and avoids fresh object-map allocation in examples.
 - `matchBy(...).cases({...})` is exhaustive/exact and returns immediately. Inline maps are compact DX, not hot-loop guidance. Hoisted object maps are the measured fast path for discriminant dispatch but often require explicit handler parameter types, so they should not be the default user-facing style.
-- `matchBy(...).partial({...}).otherwise(...)` is partial and fallback-based.
+- `matchBy(...).partial({...}).otherwise(...)`, `matchBy(...).partial([...]).otherwise(...)`, and `matchBy(...).partial((group) => [...]).otherwise(...)` are partial and fallback-based.
 - `matchBy(...).with(...)` supports multiple tags before the handler.
 - Object-map `.cases({...})` supports string, number, symbol, and boolean tags when representable without collision.
 - Tuple/grouped `.cases([...])` is the universal exact form and supports string, number, symbol, boolean, null, and undefined. Exhaustive coverage only counts statically known tags; broad runtime tag arrays do not prove that every tag is present.
-- Callback `.cases((group) => [...])` is the preferred grouped form when handlers need inferred values; the local `group` callback has full `matchBy` context and requires no TypeScript annotations.
-- Callback `group(tag, handler)` handles one tag. Callback `group(tag1, tag2, ...moreTags, handler)` handles two or more tags and is the best inline autocomplete shape because TypeScript completes direct variadic argument positions reliably.
-- Callback `group([tag, tag], handler)` remains supported and is often more visually tidy because `group` has only two arguments. Inline arrays and reusable `as const` tuples count toward exhaustiveness. Broad runtime arrays are accepted by runtime normalization but intentionally do not count as exhaustive coverage because TypeScript cannot know which tags they contain.
-- Exported group helper: `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, and `group(tags, handler)` remain available for reusable prebuilt groups, but standalone helpers cannot receive callback-contextual handler types from a later `cases(...)` call.
+- Callback `.cases((group) => [...])` and `.partial((group) => [...])` are the preferred grouped forms when handlers need inferred values; the local `group` callback has full `matchBy` context and requires no TypeScript annotations.
+- Callback `group(tag, handler)` handles one tag. Callback `group(tag1, tag2, ...moreTags, handler)` handles two or more tags and is the best editor-autocomplete shape while typing tags.
+- Callback `group([tag, tag], handler)` remains supported without `as const` and is often more visually tidy because `group` has only two arguments. Inline static arrays count toward exhaustiveness, but editors may not provide the same literal completions inside the nested array. Broad runtime arrays are accepted by runtime normalization but intentionally do not count as exhaustive coverage because TypeScript cannot know which tags they contain.
+- Exported group helper: `group(tag, handler)`, `group(tag1, tag2, ...moreTags, handler)`, and `group(tags, handler)` remain available for reusable prebuilt groups, but standalone helpers cannot receive callback-contextual handler types from a later `cases(...)` or `partial(...)` call.
 
 ## Assertion helpers
 
@@ -123,7 +123,8 @@ Favor the simplest behavior that is predictable at runtime, strongly typed in Ty
 Known TypeScript/editor limitations:
 
 - Standalone exported `group(...)` cannot receive contextual handler types from a later `.cases(...)` call due to TypeScript inference limits. Prefer `.cases((group) => [...])` when grouped handlers should infer without annotations.
-- Array-form callback groups (`group(['a', 'b'], handler)`) are valid runtime and type-level inputs when the array is a literal tuple, but inline autocomplete inside the nested array is less reliable than variadic callback groups (`group('a', 'b', handler)`). Prefer the variadic form when editor completion is the priority; keep array form when readability or reusable `as const` tag arrays matter more.
+- Variadic callback groups provide the best grouped-tag autocomplete. Array-form callback groups are supported without const assertions, but in-array completions can be weaker.
+- Inline tuple/grouped entry arrays preserve tag inference without const assertions. Partial grouped arrays preserve tag autocomplete; exhaustive grouped `.cases([...])` prioritizes missing-case diagnostics while the list is incomplete. Broad runtime arrays are accepted at runtime but cannot prove exhaustive coverage.
 
 Current verification includes runtime tests, deterministic property-style tests, suite-inspired adversarial tests, adversarial type tests, diagnostic fixtures (`pnpm test:diagnostics`), checked examples, README local-link validation, package export smoke tests, coverage reporting, a native runtime benchmark, a dispatch-strategy benchmark (`pnpm bench:dispatch`), and a type-performance benchmark (`pnpm bench:types`). Object-map `.cases({...})` rejects broad discriminants, `null`/`undefined` tags, and normalized key collisions such as `true` vs `'true'` or `1` vs `'1'`; tuple/grouped entries remain the universal exact form. Runtime benchmarks measure both inline and hoisted object case maps because hoisting handlers is the realistic hot-path shape for allocation-sensitive code.
 

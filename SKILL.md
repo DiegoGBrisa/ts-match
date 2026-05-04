@@ -23,7 +23,7 @@ Keep simple `if` conditions when a normal condition is clearer.
 ## Primary public APIs
 
 - `match(value)` — synchronous structural/value pattern matching.
-- `match.promise(valueOrPromise)` — promise-aware structural/value matching. Resolves values, promises, thenables, and maybe-promise sources internally; handlers receive `Awaited<TInput>`.
+- `match.promise(valueOrPromise)` — promise-aware structural/value matching. Resolves values, promises, thenables, and `PromiseLike` inputs internally; handlers receive `Awaited<TInput>`.
 - `matchBy(value, path)` — synchronous discriminant/path matching. Handlers receive the full narrowed input value.
 - `matchBy.promise(valueOrPromise, path)` — promise-aware discriminant/path matching. Paths, tags, maps, groups, and handlers infer from `Awaited<TInput>`.
 - `P` — namespace of reusable pattern helpers.
@@ -42,8 +42,10 @@ Keep simple `if` conditions when a normal condition is clearer.
 - Prefer `.with(...).exhaustive()` for closed unions.
 - Use `.otherwise(...)` only when fallback behavior is intentional.
 - Use `match.promise(...)` or `matchBy.promise(...)` when the source may be promise-backed, handlers may return promises, or callers need one normalized promise.
-- Do not use unsafe TypeScript casts. Only `as const` is acceptable for literal preservation, such as reusable grouped tag arrays.
+- Do not use unsafe TypeScript casts. Do not add const assertions to inline ts-match arrays just to make inference work.
 - Do not use broad `any` in examples or generated code.
+- Keep examples real and inference-first: no fake `const input: unknown = ...`, no direct `JSON.parse(...)` typed as trusted data, no assertion-style endings, and no return/result annotations unless they are genuinely needed.
+- Do not add wrapper functions just to prove an API; use a small app case where the function would naturally exist.
 - Do not use `switch` in generated examples unless explicitly writing a short before/after comparison requested by the user.
 - Avoid inline object-map `.cases({...})` in hot loops. Prefer `.with(...).exhaustive()` unless the user explicitly accepts the manual-typing tradeoff of hoisted case maps.
 - When TypeScript reports a `ts-match:` diagnostic, read that payload first and fix the modeled issue. Do not silence it with casts, `any`, or a rewrite to `switch`.
@@ -96,17 +98,17 @@ const next = matchBy(action, 'type')
 Use `match` when matching structure, tuples, arrays, predicates, selections, records, exact objects, or non-discriminant values:
 
 ```ts
-const label = match(input)
+const displayName = match(profile)
   .with({ type: 'user', profile: { name: P.select('name', P.string) } }, ({ name }) => name)
   .with({ type: 'team', name: P.select('name', P.string) }, ({ name }) => name)
-  .otherwise(() => 'unknown')
+  .otherwise(() => 'Guest')
 ```
 
 Use promise builders when the input may be async or when terminals should return promises:
 
 ```ts
 const status = await matchBy
-  .promise(fetchOrder(), 'state')
+  .promise(fetchOrder('order-1'), 'state')
   .with('paid', (order) => ({ type: 'readyToShip', orderId: order.id }))
   .otherwise(() => ({ type: 'needsReview' }))
 ```
@@ -118,11 +120,11 @@ Use sync `match(promise)` only if you intentionally want to match the `Promise` 
 ### Literal and structural branches
 
 ```ts
-const label = match(value)
-  .with('ready', () => 'ready')
-  .with(0, () => 'zero')
+const label = match(status)
+  .with('ready', () => 'Ready')
+  .with(0, () => 'No items')
   .with({ ok: true }, (value) => value.body)
-  .otherwise(() => 'unknown')
+  .otherwise(() => 'Needs attention')
 ```
 
 Plain literals, object patterns, bare tuple arrays, and every `P.*` helper are valid patterns. Literal equality uses `Object.is`.
@@ -141,12 +143,14 @@ const status = match(state)
 Use `.when(...)` for value-level predicates that are easier to express as functions:
 
 ```ts
-const label = match(value)
-  .when(
-    (value): value is number => typeof value === 'number' && value > 0,
-    (value) => `positive:${value}`,
-  )
-  .otherwise(() => 'other')
+function discountLabel(percent: number) {
+  return match(percent)
+    .when(
+      (value) => value > 0,
+      (value) => `${String(value)}% off`,
+    )
+    .otherwise(() => 'No discount')
+}
 ```
 
 Use `P.when(predicate)` when the predicate should be nested inside another pattern.
@@ -216,8 +220,8 @@ type ProductResult =
 
 function ProductPreview({ result }: { result: ProductResult }) {
   return match(result)
-    .with({ status: 'loading' }, () => <Spinner label="Loading product" />)
-    .with({ status: 'error' }, ({ error }) => <ErrorMessage message={error.message} />)
+    .with({ status: 'loading' }, () => <p>Loading product…</p>)
+    .with({ status: 'error' }, ({ error }) => <p role="alert">{error.message}</p>)
     .with({ status: 'success', product: { content: { type: 'text' } } }, ({ product }) => (
       <article>
         <h2>{product.title}</h2>
@@ -236,16 +240,21 @@ React is only an example consumer; do not imply `ts-match` depends on React. Pre
 
 ## `match.promise(valueOrPromise)` use cases
 
-Promise builders accept `T | PromiseLike<T>`, including thenables and maybe-promise sources. Handlers receive `Awaited<TInput>`.
+Promise builders accept `T | PromiseLike<T>`, including thenables. Handlers receive `Awaited<TInput>`.
 
 ```ts
-type ApiResponse = { ok: true; body: string } | { ok: false; status: number; message: string }
+type ProfileResponse =
+  | { ok: true; profile: { id: string; name: string } }
+  | { ok: false; status: number; message: string }
 
-declare function fetchResponse(): Promise<ApiResponse>
+const profileResponse: ProfileResponse = { ok: true, profile: { id: 'user-1', name: 'Ada' } }
+const missingProfile: ProfileResponse = { ok: false, status: 404, message: 'missing' }
+const responses: readonly ProfileResponse[] = [profileResponse, missingProfile]
+const profilePromise = Promise.resolve(responses[0] ?? missingProfile)
 
-const body = await match
-  .promise(fetchResponse())
-  .with({ ok: true, body: P.select('body', P.string) }, async ({ body }) => body.trim())
+const name = await match
+  .promise(profilePromise)
+  .with({ ok: true, profile: { name: P.select('name', P.string) } }, ({ name }) => name)
   .with({ ok: false }, ({ message }) => message)
   .exhaustive()
 ```
@@ -255,25 +264,28 @@ Normal terminals reject for input rejection, pattern/predicate errors, handler t
 ### Promise normal terminals
 
 ```ts
-const result: Promise<string> = match
-  .promise(loadResult())
-  .with({ type: 'success' }, (value) => value.data)
-  .with({ type: 'error' }, async (value) => value.message)
-  .with({ type: 'idle' }, () => 'idle')
+const result = match
+  .promise(profilePromise)
+  .with({ ok: true }, (value) => value.profile.name)
+  .with({ ok: false }, async (value) => value.message)
   .exhaustive()
 ```
 
-Handler return values are awaited and unwrapped, so `Promise<string>` and `string` branches produce `Promise<string>`.
+Handler return values are awaited and unwrapped, so promise-returning and plain branches produce one terminal promise.
 
 ### Promise safe terminals
 
 Safe terminals exist only on promise builders.
 
 ```ts
+const missingProfile: ProfileResponse = { ok: false, status: 404, message: 'missing' }
+const missingResponses: readonly ProfileResponse[] = [missingProfile]
+const missingProfilePromise = Promise.resolve(missingResponses[0] ?? missingProfile)
+
 const result = await match
-  .promise(fetchResponse())
-  .with({ ok: true, body: P.select('body', P.string) }, ({ body }) => body.trim())
-  .safeOtherwise(() => '')
+  .promise(missingProfilePromise)
+  .with({ ok: true, profile: { name: P.select('name', P.string) } }, ({ name }) => name)
+  .safeOtherwise(() => 'Guest')
 
 if (result.ok) {
   result.value
@@ -292,10 +304,9 @@ Use `safeExhaustive()` for closed unions where operational failures should be re
 
 ```ts
 const result = await match
-  .promise(fetchResult())
-  .with({ type: 'success' }, (value) => value.data)
-  .with({ type: 'error' }, (value) => value.message)
-  .with({ type: 'idle' }, () => 'idle')
+  .promise(profilePromise)
+  .with({ ok: true }, (value) => value.profile.name)
+  .with({ ok: false }, (value) => value.message)
   .safeExhaustive()
 ```
 
@@ -370,7 +381,7 @@ const status = matchBy(event, 'type').cases((group) => [
 ])
 ```
 
-This form supports single-tag groups, variadic multi-tag groups, and array-form groups. Prefer variadic tags for editor autocomplete.
+This form supports single-tag groups, variadic multi-tag groups, and array-form groups.
 
 ### `.cases([...])` tuple/grouped entry arrays
 
@@ -387,7 +398,7 @@ declare const state: State
 
 const label = matchBy(state, 'kind').cases([
   ['ready', (state) => state.data],
-  [[null, undefined] as const, () => 'empty'],
+  [[null, undefined], () => 'empty'],
   ['failed', (state) => state.reason],
 ])
 ```
@@ -395,12 +406,12 @@ const label = matchBy(state, 'kind').cases([
 Valid entries:
 
 - `[tag, handler]`;
-- `[[tag1, tag2] as const, handler]`;
+- `[[tag1, tag2], handler]`;
 - `group(tag, handler)`;
 - `group(tag1, tag2, ...moreTags, handler)`;
 - `group(tags, handler)`.
 
-Only statically known array tags prove exhaustiveness. Broad runtime arrays are runtime-valid but do not prove coverage. Inline tuple-entry arrays contextually infer handlers from their sibling tags. Exported `group(...)` entries are useful for reusable structures but can need explicit handler parameter annotations; use callback `.cases((group) => [...])` when you want grouped entries with the strongest annotation-free handler inference.
+Inline tuple-entry arrays contextually infer handlers from sibling tags. Partial grouped arrays preserve tag autocomplete while editing grouped tags. Exhaustive grouped `.cases([...])` keeps missing-case diagnostics active while the list is incomplete, so callback `.cases((group) => [group('a', 'b', handler)])` is the best autocomplete shape for exhaustive grouped cases. Broad runtime arrays are runtime-valid but do not prove exhaustive coverage. Exported `group(...)` entries are useful for reusable structures but can need explicit handler parameter annotations; use callback `.cases((group) => [...])` or `.partial((group) => [...])` when you want grouped entries with the strongest annotation-free handler inference.
 
 ### `.partial(...).otherwise(...)`
 
@@ -418,14 +429,14 @@ const response = matchBy(cartAction, 'type')
   )
 ```
 
-`.partial(...)` accepts object maps and tuple/grouped entry arrays:
+`.partial(...)` accepts object maps, tuple/grouped entry arrays, and callback-local grouped entries:
 
 ```ts
 const review = matchBy(cartAction, 'type')
   .partial([
     ['addItem', (action) => ({ type: 'inventoryCheck', sku: action.sku, quantity: action.quantity })],
     [
-      ['updateQuantity', 'applyCoupon'] as const,
+      ['updateQuantity', 'applyCoupon'],
       (action) => ({
         type: 'pricePreview',
         cartId: action.cartId,
@@ -440,41 +451,35 @@ const review = matchBy(cartAction, 'type')
   )
 ```
 
-Callback grouped cases are for exhaustive `.cases(...)`; use `.partial([...])` with tuple entries or exported `group(...)` for partial grouped behavior.
+Use `.partial((group) => [...])` when multiple partial tags share one handler and you want annotation-free narrowed parameters. Prefer variadic callback groups like `group('addItem', 'updateQuantity', handler)` while typing because they provide the best tag autocomplete; array groups like `group(['addItem', 'updateQuantity'], handler)` remain valid without `as const` when the grouped tag list reads better.
 
 ## `matchBy.promise(valueOrPromise, path)` use cases
 
-`matchBy.promise(...)` mirrors `matchBy(...)`, but resolves the input internally and returns promises from terminal methods. Path, tag, case-map, partial-map, and grouped-case inference all use `Awaited<TInput>`.
+`matchBy.promise(...)` mirrors `matchBy(...)`, but resolves the input internally and returns promises from terminal methods. Pass the promise directly; path, tag, case-map, partial-map, and grouped-case inference all use `Awaited<TInput>`.
 
 ```ts
-const summary = await matchBy
-  .promise(fetchJob(), 'type')
-  .with('queued', async (job) => ({ state: 'waiting', id: job.id }))
-  .with('finished', (job) => ({ state: 'complete', id: job.id, durationMs: job.durationMs }))
-  .with('failed', (job) => ({ state: 'retryable', id: job.id, reason: job.reason }))
+type Order =
+  | { state: 'pending'; id: string; total: number }
+  | { state: 'paid'; id: string; total: number; receiptUrl: string }
+  | { state: 'shipped'; id: string; trackingNumber: string }
+  | { state: 'cancelled'; id: string; reason: string }
+
+const orders: readonly Order[] = [{ state: 'paid', id: 'order-1', total: 49, receiptUrl: '/receipts/order-1' }]
+const fallbackOrder: Order = { state: 'cancelled', id: 'missing', reason: 'not found' }
+
+async function fetchOrder(id: string) {
+  return orders.find((order) => order.id === id) ?? fallbackOrder
+}
+
+const orderView = await matchBy
+  .promise(fetchOrder('order-1'), 'state')
+  .with('pending', (order) => ({ screen: 'checkout', orderId: order.id, total: order.total }))
+  .with('paid', (order) => ({ screen: 'receipt', orderId: order.id, receiptUrl: order.receiptUrl }))
+  .with('shipped', (order) => ({ screen: 'tracking', orderId: order.id, trackingNumber: order.trackingNumber }))
+  .with('cancelled', (order) => {
+    throw new Error(`Order was cancelled: ${order.reason}`)
+  })
   .exhaustive()
-```
-
-All synchronous `matchBy` case shapes are available:
-
-```ts
-const compact = await matchBy.promise(fetchJob(), 'type').cases({
-  queued: async (job) => ({ state: 'waiting', id: job.id }),
-  finished: (job) => ({ state: 'complete', id: job.id, durationMs: job.durationMs }),
-  failed: (job) => ({ state: 'retryable', id: job.id, reason: job.reason }),
-})
-
-const partial = await matchBy
-  .promise(fetchJob(), 'type')
-  .partial({ queued: (job) => ({ action: 'monitor', id: job.id }) })
-  .otherwise((job) => ({ action: 'archive', id: job.id }))
-
-const grouped = await matchBy
-  .promise(fetchJob(), 'type')
-  .cases((group) => [
-    group('queued', 'finished', (job) => ({ bucket: 'resolvedOrWaiting', id: job.id })),
-    group('failed', (job) => ({ bucket: 'needsAttention', reason: job.reason })),
-  ])
 ```
 
 Normal terminals reject for input rejection, path-read errors, handler throws/rejections, fallback throws/rejections, and defensive non-exhaustiveness. `.otherwise(...)` is only a tag fallback; it does not catch input rejection.
@@ -483,17 +488,12 @@ Promise-safe terminals mirror `match.promise`:
 
 ```ts
 const result = await matchBy
-  .promise(fetchJob(), 'type')
-  .with('queued', (job) => ({ status: 'waiting', id: job.id }))
-  .safeOtherwise(() => ({ status: 'unknown' }))
-
-const exhaustive = await matchBy
-  .promise(fetchJob(), 'type')
-  .with('queued', (job) => ({ status: 'waiting', id: job.id }))
-  .with('finished', (job) => ({ status: 'complete', id: job.id }))
-  .with('failed', (job) => ({ status: 'failed', reason: job.reason }))
-  .safeExhaustive()
+  .promise(fetchOrder('order-1'), 'state')
+  .with('cancelled', (order) => ({ screen: 'cancelled', reason: order.reason }))
+  .safeOtherwise((order) => ({ screen: 'order', orderId: order.id }))
 ```
+
+All synchronous `matchBy` case shapes are available on promise builders; show only the shape needed for the example instead of stacking every feature into one snippet.
 
 ## `group(...)` use cases
 
@@ -509,16 +509,16 @@ const status = matchBy(event, 'type').cases((group) => [
 Use exported `group(...)` for reusable prebuilt groups, especially when handlers do not need narrowed parameters or are explicitly annotated:
 
 ```ts
-const statusCases = [group(['start', 'resume'] as const, () => 'active'), group('stop', () => 'inactive')]
+const statusCases = [group(['start', 'resume'], () => 'active'), group('stop', () => 'inactive')]
 ```
 
 Supported forms:
 
 - `group(tag, handler)` — one tag.
-- `group(tag1, tag2, ...moreTags, handler)` — two or more tags; best inline autocomplete.
-- `group(tags, handler)` — array/tuple tags; best when tags are reusable.
+- `group(tag1, tag2, ...moreTags, handler)` — two or more tags.
+- `group(tags, handler)` — array/tuple tags; useful when tags read better together.
 
-Array-form groups remain supported and are often more readable because `group` keeps two arguments. TypeScript gives better editor completions in variadic tag positions than inside `group(['...'], handler)`, so prefer variadic form when inline autocomplete matters. For exhaustiveness, array-form tags must be statically known: inline arrays and reusable `as const` arrays count as covered tags; broad runtime arrays do not prove coverage.
+Array-form groups remain supported and are often more readable because `group` keeps two arguments. For exhaustiveness, array-form tags must be statically known: inline arrays count as covered tags; broad runtime arrays do not prove coverage.
 
 ## Pattern helpers
 
@@ -571,12 +571,12 @@ Use `isMatching` for filters, conditional branches, and non-throwing runtime val
 ### `assertMatching`
 
 ```ts
-const payload: unknown = JSON.parse(raw)
-assertMatching({ type: 'user', id: P.string }, payload)
-payload.id
+const form = Object.fromEntries(new URLSearchParams('type=user&id=u1&role=admin'))
+assertMatching({ type: 'user', id: P.string, role: P.union('admin', 'member') }, form)
+form.id
 ```
 
-Use `assertMatching` at boundaries where mismatch should throw: parsed JSON, API payloads, webhook events, storage reads, test fixtures, and CLI arguments. A mismatch throws `PatternMismatchError`.
+Use `assertMatching` at boundaries where mismatch should throw: request bodies, form data, API payloads, webhook events, storage reads, test fixtures, and CLI arguments. A mismatch throws `PatternMismatchError`.
 
 ## Error and diagnostic APIs
 
@@ -607,7 +607,7 @@ Common diagnostic fixes:
 - `ts-match: P.exclude(pattern) cannot contain P.select(...)` — remove the selection or move it outside the excluded pattern.
 - `ts-match: invalid P.rest(...) usage` — use `P.rest(...)` only as the final tuple pattern item.
 
-If grouped-case inference is weak, prefer `.cases((group) => [...])` and the variadic local form `group('a', 'b', handler)`. Do not treat `group(['a', 'b'], handler)` as invalid; it is supported, just less reliable for inline autocomplete. Use exported `group(...)` for reusable groups whose handlers do not need contextual variant inference.
+If grouped-case handler inference is weak, prefer callback-local `.cases((group) => [...])` or `.partial((group) => [...])` so the handler is typed from the active `matchBy` path. Use variadic callback groups (`group('a', 'b', handler)`) when editor tag suggestions matter; array-form groups (`group(['a', 'b'], handler)`) are supported without `as const` but may not get the same in-array literal completions. Use exported `group(...)` for reusable groups whose handlers do not need contextual variant inference.
 
 ## Important limitations
 
@@ -619,7 +619,7 @@ If grouped-case inference is weak, prefer `.cases((group) => [...])` and the var
 - Object patterns use normal JavaScript property lookup, so getters can run or throw and inherited properties can match.
 - `P.exact(...)` rejects enumerable own extra keys on values, but it is not a cyclic graph matcher.
 - Object-map `.cases({...})` cannot represent `null`, `undefined`, or normalized key collisions. Avoid bare `__proto__:` object-literal syntax; use computed `['__proto__']`, tuple/grouped entries, or callback grouped cases.
-- Standalone exported `group(...)` cannot always infer handler parameter types from a later `.cases(...)` call. Use callback-local `group` for annotation-free grouped handlers.
+- Standalone exported `group(...)` cannot always infer handler parameter types from a later `.cases(...)` or `.partial(...)` call. Use callback-local `group` for annotation-free grouped handlers.
 - No structural `Map`/`Set` helper exists. Use `P.instanceOf(Map)` / `P.instanceOf(Set)` plus `P.when(...)` for custom checks.
 - No RegExp string helper exists. Use `P.when(...)`.
 

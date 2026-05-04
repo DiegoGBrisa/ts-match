@@ -1,46 +1,22 @@
 import { match, P } from '@diegogbrisa/ts-match'
 
-type ApiResponse =
-  | { readonly ok: true; readonly body: string }
+type ProfileResponse =
+  | { readonly ok: true; readonly profile: { readonly id: string; readonly name: string } }
   | { readonly ok: false; readonly status: number; readonly message: string }
 
-async function fetchResponse(): Promise<ApiResponse> {
-  return { ok: true, body: '  user-1  ' }
-}
+const profileResponse: ProfileResponse = { ok: true, profile: { id: 'user-1', name: 'Ada' } }
+const missingProfile: ProfileResponse = { ok: false, status: 404, message: 'missing' }
+const responses: readonly ProfileResponse[] = [profileResponse, missingProfile]
+const profilePromise = Promise.resolve(responses[0] ?? missingProfile)
+const missingProfilePromise = Promise.resolve(responses[1] ?? missingProfile)
 
-async function fetchRejectedResponse(): Promise<ApiResponse> {
-  throw new Error('network unavailable')
-}
+export const profileName = await match
+  .promise(profilePromise)
+  .with({ ok: true, profile: { name: P.select('name', P.string) } }, ({ name }) => name)
+  .with({ ok: false }, ({ status, message }) => `Request failed (${String(status)}): ${message}`)
+  .exhaustive()
 
-async function readBody(response: ApiResponse | PromiseLike<ApiResponse>): Promise<string> {
-  return match
-    .promise(response)
-    .with({ ok: true, body: P.select('body', P.string) }, async ({ body }) => body.trim())
-    .with({ ok: false }, ({ status, message }) => `error:${String(status)}:${message}`)
-    .exhaustive()
-}
-
-async function readBodySafely(response: ApiResponse | PromiseLike<ApiResponse>) {
-  return match
-    .promise(response)
-    .with({ ok: true, body: P.select('body', P.string) }, ({ body }) => body.trim())
-    .with({ ok: false }, ({ status, message }) => `error:${String(status)}:${message}`)
-    .safeExhaustive()
-}
-
-async function readOptionalBody(response: ApiResponse | PromiseLike<ApiResponse>) {
-  return match
-    .promise(response)
-    .with({ ok: true, body: P.select('body', P.string) }, ({ body }) => body.trim())
-    .safeOtherwise(() => 'empty')
-}
-
-const body = await readBody(fetchResponse())
-const safeBody = await readBodySafely(fetchResponse())
-const safeMissing = await readOptionalBody({ ok: false, status: 404, message: 'missing' })
-const safeNetworkFailure = await readBodySafely(fetchRejectedResponse())
-
-if (body !== 'user-1') throw new Error(`Expected user-1, got ${body}`)
-if (!safeBody.ok || safeBody.value !== 'user-1') throw new Error('Expected safeExhaustive success')
-if (!safeMissing.ok || safeMissing.value !== 'empty') throw new Error('Expected safeOtherwise fallback success')
-if (safeNetworkFailure.ok) throw new Error('Expected rejected input to become a safe error result')
+export const safeProfileName = await match
+  .promise(missingProfilePromise)
+  .with({ ok: true, profile: { name: P.select('name', P.string) } }, ({ name }) => name)
+  .safeOtherwise(() => 'Guest')

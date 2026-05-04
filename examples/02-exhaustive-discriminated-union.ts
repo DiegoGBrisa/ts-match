@@ -1,9 +1,9 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
 type State =
-  | { readonly status: 'idle'; readonly data: readonly string[] }
-  | { readonly status: 'loading'; readonly data: readonly string[] }
-  | { readonly status: 'ready'; readonly data: readonly string[] }
+  | { readonly status: 'idle'; readonly rows: readonly string[] }
+  | { readonly status: 'loading'; readonly rows: readonly string[] }
+  | { readonly status: 'ready'; readonly rows: readonly string[] }
   | { readonly status: 'failed'; readonly message: string }
 
 type Action =
@@ -12,26 +12,15 @@ type Action =
   | { readonly type: 'load-failure'; readonly message: string }
   | { readonly type: 'clear' }
 
-const idleState: State = { status: 'idle', data: [] }
-const loadingState: State = { status: 'loading', data: [] }
+function reduce(state: State, action: Action) {
+  const rows = 'rows' in state ? state.rows : []
 
-function readyState(data: readonly string[]): State {
-  return { status: 'ready', data }
-}
-
-function failedState(message: string): State {
-  return { status: 'failed', message }
-}
-
-function reduce(_state: State, action: Action): State {
   return matchBy(action, 'type')
-    .with('start-loading', () => loadingState)
-    .with('load-success', (value) => readyState(value.rows))
-    .with('load-failure', (value) => failedState(value.message))
-    .with('clear', () => idleState)
+    .with('start-loading', () => ({ status: 'loading', rows }))
+    .with('load-success', (event) => ({ status: 'ready', rows: event.rows }))
+    .with('load-failure', (event) => ({ status: 'failed', message: event.message }))
+    .with('clear', () => ({ status: 'idle', rows: [] }))
     .exhaustive()
 }
 
-const next = reduce({ status: 'idle', data: [] }, { type: 'load-success', rows: ['a', 'b'] })
-
-if (next.status !== 'ready' || next.data.length !== 2) throw new Error('Expected ready state with two rows')
+export const nextState = reduce({ status: 'idle', rows: [] }, { type: 'load-success', rows: ['Ada', 'Grace'] })
