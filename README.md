@@ -323,7 +323,7 @@ Use sync `match(promise)` only if you intentionally want to pattern-match the `P
 
 ```ts
 function planCartOperation(action: CartAction) {
-  return matchBy(action, 'kind')
+  return matchBy(action, 'type')
     .with('addItem', (value) => ({ type: 'lineItemAdded', sku: value.sku, quantity: value.quantity }))
     .with('applyCoupon', (value) => ({
       type: 'discountApplied',
@@ -379,7 +379,7 @@ Object-map cases are exhaustive and exact for finite discriminants representable
 
 ```ts
 function auditCartAction(action: CartAction) {
-  return matchBy(action, 'kind').cases({
+  return matchBy(action, 'type').cases({
     addItem: (value) => ({ category: 'inventory', sku: value.sku, quantity: value.quantity }),
     applyCoupon: (value) => ({ category: 'pricing', code: value.code, percentOff: value.percentOff }),
     clearCart: (value) => ({ category: 'lifecycle', reason: value.reason }),
@@ -646,7 +646,7 @@ Checked example using common helpers: [`examples/08-pattern-helpers.ts`](example
 | `P.nan`                                      | `NaN`                                            | Uses `Number.isNaN`.                                                                              |
 | `P.finite`                                   | finite numbers                                   | Uses `Number.isFinite`.                                                                           |
 | `P.integer`                                  | integers                                         | Uses `Number.isInteger`.                                                                          |
-| `P.union(...patterns)`                       | any listed pattern                               | Commits selections from the successful branch only.                                               |
+| `P.union(...patterns)`                       | any listed pattern                               | Requires at least one pattern. Commits selections from the successful branch only.                |
 | `P.exclude(pattern)`                         | values that do not match `pattern`               | Cannot contain `P.select(...)`.                                                                   |
 | `P.optional(pattern)`                        | absent object field, `undefined`, or `pattern`   | Selections inside an absent optional capture `undefined`.                                         |
 | `P.array(pattern)`                           | arrays where every item matches                  | Variable length. `P.select(...)` inside is rejected because captures may repeat.                  |

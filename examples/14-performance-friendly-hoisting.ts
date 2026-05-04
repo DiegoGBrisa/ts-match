@@ -6,7 +6,7 @@ type CounterAction =
   | { readonly type: 'reset' }
 
 const telemetryPattern = P.exact({ event: P.string, count: P.number })
-isMatching(telemetryPattern)
+export const isTelemetry = isMatching(telemetryPattern)
 
 export function applyCounter(count: number, action: CounterAction) {
   return matchBy(action, 'type')

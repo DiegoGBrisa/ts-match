@@ -317,7 +317,7 @@ const result = await match
 ### Direct keys
 
 ```ts
-const operation = matchBy(cartAction, 'kind')
+const operation = matchBy(cartAction, 'type')
   .with('addItem', (action) => ({ type: 'lineItemAdded', sku: action.sku, quantity: action.quantity }))
   .with('applyCoupon', (action) => ({ type: 'discountApplied', code: action.code, multiplier: 0.9 }))
   .with('clearCart', (action) => ({ type: 'cartCleared', reason: action.reason }))
@@ -360,7 +360,7 @@ const status = matchBy(event, 'type')
 Use object maps for compact exhaustive maps when tags are representable as object keys and there are no normalized key collisions.
 
 ```ts
-const auditEvent = matchBy(cartAction, 'kind').cases({
+const auditEvent = matchBy(cartAction, 'type').cases({
   addItem: (action) => ({ category: 'inventory', sku: action.sku, quantity: action.quantity }),
   applyCoupon: (action) => ({ category: 'pricing', code: action.code, percentOff: action.percentOff }),
   clearCart: (action) => ({ category: 'lifecycle', reason: action.reason }),
@@ -527,7 +527,7 @@ Array-form groups remain supported and are often more readable because `group` k
 - `P._`, `P.any` — wildcard helpers that match anything.
 - `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined` — primitive helpers.
 - `P.nan`, `P.finite`, `P.integer` — numeric helpers.
-- `P.union(...patterns)` — matches any listed pattern.
+- `P.union(...patterns)` — matches any listed pattern; requires at least one pattern.
 - `P.exclude(pattern)` — matches values that do not match the nested pattern; cannot contain selections.
 - `P.optional(pattern)` — matches an absent object property, `undefined`, or the nested pattern.
 - `P.array(pattern)` — variable-length arrays where every item matches; selections inside are rejected.

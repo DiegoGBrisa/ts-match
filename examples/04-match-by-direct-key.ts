@@ -1,12 +1,12 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
 type CartAction =
-  | { readonly kind: 'addItem'; readonly sku: string; readonly quantity: number }
-  | { readonly kind: 'applyCoupon'; readonly code: string; readonly percentOff: number }
-  | { readonly kind: 'clearCart'; readonly reason: 'user' | 'timeout' }
+  | { readonly type: 'addItem'; readonly sku: string; readonly quantity: number }
+  | { readonly type: 'applyCoupon'; readonly code: string; readonly percentOff: number }
+  | { readonly type: 'clearCart'; readonly reason: 'user' | 'timeout' }
 
 export function planCartOperation(action: CartAction) {
-  return matchBy(action, 'kind')
+  return matchBy(action, 'type')
     .with('addItem', (value) => ({ type: 'lineItemAdded', sku: value.sku, quantity: value.quantity }))
     .with('applyCoupon', (value) => ({
       type: 'discountApplied',
@@ -18,12 +18,12 @@ export function planCartOperation(action: CartAction) {
 }
 
 export function auditCartAction(action: CartAction) {
-  return matchBy(action, 'kind').cases({
+  return matchBy(action, 'type').cases({
     addItem: (value) => ({ category: 'inventory', sku: value.sku, quantity: value.quantity }),
     applyCoupon: (value) => ({ category: 'pricing', code: value.code, percentOff: value.percentOff }),
     clearCart: (value) => ({ category: 'lifecycle', reason: value.reason }),
   })
 }
 
-export const operation = planCartOperation({ kind: 'applyCoupon', code: 'SPRING', percentOff: 15 })
-export const auditEvent = auditCartAction({ kind: 'addItem', sku: 'sku-123', quantity: 2 })
+export const operation = planCartOperation({ type: 'applyCoupon', code: 'SPRING', percentOff: 15 })
+export const auditEvent = auditCartAction({ type: 'addItem', sku: 'sku-123', quantity: 2 })
