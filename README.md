@@ -1,6 +1,8 @@
 # ts-match
 
-Pattern matching for TypeScript. Use `match` for structural patterns, `matchBy` for discriminated unions, and `P` for reusable runtime patterns.
+A lightweight, type-safe pattern matching library for TypeScript with exhaustive checks and strong inference.
+
+Use `match` for structural patterns, `matchBy` for discriminated unions, and `P` for reusable runtime patterns.
 
 ```ts
 import { matchBy } from '@diegogbrisa/ts-match'
@@ -373,6 +375,14 @@ Dot-path limitation: a dot string always means nesting. Use tuple paths for lite
 
 `.cases(...)` is an exhaustive terminal for `matchBy`. It supports three input shapes.
 
+Quick choice guide:
+
+- Use chained `.with(...).exhaustive()` as the default for application code. It has the clearest control flow, strong local inference, and no inline case-map allocation.
+- Use inline `.cases({...})` when a compact object-map style reads best and the code is not in a hot loop.
+- Use hoisted `.cases(caseMap)` for hot discriminant-dispatch paths where throughput matters more than annotation-free handler inference.
+- Use callback grouped cases when several tags share a handler and you want the best local inference.
+- Use tuple/grouped entry arrays for generated cases, non-object-key tags, `null`/`undefined`, or normalized key collisions such as `1` and `'1'`.
+
 #### Object case maps
 
 Object-map cases are exhaustive and exact for finite discriminants representable as object keys. They support string, number, symbol, and boolean tags when the normalized object keys do not collide.
@@ -387,7 +397,31 @@ function auditCartAction(action: CartAction) {
 }
 ```
 
-Use object-map cases when you want compact map-style DX in ordinary non-hot code. Avoid recreating inline case maps inside tight loops: fresh maps allocate handlers/maps and go through validation each time. The benchmark suite currently shows hoisted object maps as the fastest measured `ts-match` discriminant-dispatch shape, but hoisting removes contextual handler inference and can require manual handler parameter types. For JavaScript-feeling TypeScript, prefer `.with(...).exhaustive()` unless you deliberately choose that tradeoff.
+Use object-map cases when you want compact map-style DX in ordinary non-hot code. Avoid recreating inline case maps inside tight loops: fresh maps allocate handlers/maps and go through validation each time. In local benchmark runs, hoisted object maps are roughly 15x faster than inline object maps for discriminant dispatch, and about 4x faster than chained `.with(...).exhaustive()` dispatch. The exact ratio depends on runtime and workload, but the direction is consistent: hoist maps in hot paths, keep inline maps for ordinary readability.
+
+```ts
+// Inline: concise, but recreates the map and handlers on every call.
+function auditCartAction(action: CartAction) {
+  return matchBy(action, 'type').cases({
+    addItem: (value) => value.sku,
+    applyCoupon: (value) => value.code,
+    clearCart: (value) => value.reason,
+  })
+}
+
+// Hoisted: fastest measured discriminant-dispatch shape, but handlers may need annotations.
+const cartAuditCases = {
+  addItem: (value: Extract<CartAction, { type: 'addItem' }>) => value.sku,
+  applyCoupon: (value: Extract<CartAction, { type: 'applyCoupon' }>) => value.code,
+  clearCart: (value: Extract<CartAction, { type: 'clearCart' }>) => value.reason,
+}
+
+function auditCartActionHot(action: CartAction) {
+  return matchBy(action, 'type').cases(cartAuditCases)
+}
+```
+
+The benchmark suite currently shows hoisted object maps as the fastest measured `ts-match` discriminant-dispatch shape, but hoisting removes contextual handler inference and can require manual handler parameter types. For JavaScript-feeling TypeScript, prefer `.with(...).exhaustive()` unless you deliberately choose that tradeoff.
 
 Use grouped/callback cases for `null`, `undefined`, or collisions such as `1` and `'1'`. Avoid bare `__proto__:` object-literal syntax because JavaScript treats it specially; use computed `['__proto__']`, tuple entries, or grouped cases when that tag matters.
 
@@ -981,7 +1015,7 @@ Performance guidance is intentionally practical, not absolute:
 - Use `.with(...).exhaustive()` as the default guide/example shape for closed discriminated unions: it keeps strong inference, avoids inline object-map allocation, and reads in execution order.
 - Use inline `.cases({...})` for compact map-style DX in ordinary non-hot code.
 - Avoid inline `.cases({...})` in hot loops because it recreates maps/handlers and validates fresh objects.
-- Hoisted `matchBy(...).cases(caseMap)` is currently the fastest measured `ts-match` discriminant-dispatch shape in `benchmarks/native.ts`, but it is a deliberate performance/DX tradeoff because reusable handler maps can lose contextual inference. Do not use it as the default user-facing style.
+- Hoisted `matchBy(...).cases(caseMap)` is currently the fastest measured `ts-match` discriminant-dispatch shape in `benchmarks/native.ts`. In local runs it is roughly 15x faster than inline `.cases({...})` and about 4x faster than chained `.with(...).exhaustive()` dispatch for simple discriminants. Treat those ratios as directional, not guaranteed; benchmark on your workload. Hoisting is a deliberate performance/DX tradeoff because reusable handler maps can lose contextual inference. Do not use it as the default user-facing style.
 - Hoist reusable patterns and validators when that preserves inference, for example `const isTelemetry = isMatching(P.exact(...))`.
 - Measure locally with `pnpm bench:native`. The benchmark includes inline object maps, hoisted object maps, grouped callback cases, structural patterns, predicate patterns, `isMatching`, and promise terminals.
 
