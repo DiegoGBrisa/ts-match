@@ -70,6 +70,10 @@ const _selectionPayload = match(event)
 type _selectionPayloadReturn = Expect<Equal<typeof _selectionPayload, 'open' | 'close' | 'idle'>>
 
 const helperLiteralUnion = ((): 'a' | 'b' => 'a')()
+// @ts-expect-error union helpers require at least one pattern
+pUnion()
+// @ts-expect-error namespace union helpers require at least one pattern
+P.union()
 const _pWhenHandlerInference = match(unknownValue)
   .with(
     P.when(

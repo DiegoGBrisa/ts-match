@@ -192,11 +192,23 @@ describe('matchBy', () => {
     expect(matchBy(result, 'ok').cases((group) => [group(true, false, () => 'done')])).toBe('done')
     expect(matchBy(result, 'ok').cases([group(true, false, () => 'reusable')])).toBe('reusable')
     expect(() => group([], () => 'empty')).toThrow(TypeError)
+    expect(() => {
+      // @ts-expect-error runtime validation rejects empty union helpers for JavaScript callers
+      P.union()
+    }).toThrow(TypeError)
 
     const emptyTags: readonly boolean[] = []
     expect(() =>
       matchBy(result, 'ok').cases((group) => [group(emptyTags, () => 'empty'), group(true, false, () => 'done')]),
     ).toThrow(TypeError)
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-discriminant tags for JavaScript callers
+      matchBy(result, 'ok').with({}, () => 'invalid')
+    }).toThrow(TypeError)
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-discriminant tags for JavaScript callers
+      matchBy.promise(Promise.resolve(result), 'ok').with([], () => 'invalid')
+    }).toThrow(TypeError)
 
     const mutableTags = ['start']
     const entry = group(mutableTags, () => 'active')

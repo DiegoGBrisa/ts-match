@@ -1357,7 +1357,7 @@ class PromiseMatchByBuilderImpl<TInput, TPath extends PropertyPath, TRemaining, 
  *
  * @param args - Raw `.with(...)` arguments with one or more tags and a handler.
  * @returns Normalized tag case for runtime dispatch.
- * @throws {TypeError} When the call is missing tags or a callable handler.
+ * @throws {TypeError} When the call is missing tags, has invalid tags, or lacks a callable handler.
  * @see https://github.com/DiegoGBrisa/ts-match#withtags-handler
  */
 function normalizeWithArgs(
@@ -1368,7 +1368,11 @@ function normalizeWithArgs(
 
   const handler = args[args.length - 1]
   assertFunction(handler, `${apiLabel} handler`)
-  return { tags: args.slice(0, -1), handler }
+
+  const tags = args.slice(0, -1)
+  if (!isDiscriminantArray(tags)) throw new TypeError(`${apiLabel} tags must be discriminants.`)
+
+  return { tags, handler }
 }
 
 /**

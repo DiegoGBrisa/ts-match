@@ -234,11 +234,12 @@ type PatternListArgument<TPatterns extends readonly unknown[]> = {
 /**
  * Matches when any supplied pattern matches.
  *
- * Use `P.union(...)` to express alternatives inside a single structural pattern
- * rather than adding separate branches. Each argument must be a valid public
- * pattern, literal pattern, object pattern, array pattern, or tuple pattern.
+ * Use `P.union(...)` to express one or more alternatives inside a single
+ * structural pattern rather than adding separate branches. Each argument must be
+ * a valid public pattern, literal pattern, object pattern, array pattern, or
+ * tuple pattern.
  *
- * @param patterns - Alternative patterns tested from left to right.
+ * @param patterns - One or more alternative patterns tested from left to right.
  * @returns A frozen union pattern helper.
  * @example
  * ```ts
@@ -250,10 +251,11 @@ type PatternListArgument<TPatterns extends readonly unknown[]> = {
 export function pUnion<const TPattern extends Primitive>(
   ...patterns: readonly [TPattern, ...TPattern[]]
 ): UnionPattern<readonly [TPattern, ...TPattern[]]>
-export function pUnion<const TPatterns extends readonly unknown[]>(
+export function pUnion<const TPatterns extends readonly [unknown, ...unknown[]]>(
   ...patterns: PatternListArgument<TPatterns>
 ): UnionPattern<TPatterns>
-export function pUnion(...patterns: readonly unknown[]): UnionPattern<readonly unknown[]> {
+export function pUnion(...patterns: readonly [unknown, ...unknown[]]): UnionPattern<readonly [unknown, ...unknown[]]> {
+  if (patterns.length === 0) throw new TypeError('P.union(...) requires at least one pattern.')
   return freezePattern({ [PATTERN_TOKEN]: 'union', patterns })
 }
 
