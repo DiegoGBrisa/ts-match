@@ -5,17 +5,20 @@ This page helps developers decide when `ts-match` is a better fit than plain `sw
 ## Quick decision guide
 
 Use **plain `switch` / `if`** when:
+
 - the branch is simple;
 - the input is open-ended;
 - a direct condition is already the clearest possible code.
 
 Use **`ts-match`** when:
+
 - you want exhaustive handling for discriminated unions;
 - you want narrowed branch-local payload types without manual casts;
 - you want cleaner reducer/event-router code through `matchBy(value, 'type')`;
 - you need structural object/tuple/array patterns that `switch` cannot express cleanly.
 
 Use a **broader pattern-matching library** when:
+
 - your main priority is maximum DSL breadth over focused discriminant-dispatch ergonomics;
 - you prefer a different API style and it fits your team better.
 
@@ -75,6 +78,7 @@ function planCartOperation(action: CartAction) {
 ## What `ts-match` is optimized for
 
 `ts-match` is especially strong when your code naturally looks like:
+
 - reducers;
 - event handlers / routers;
 - UI state transitions;
@@ -94,6 +98,7 @@ Its strongest ergonomic story is the `matchBy(value, 'type')` style: a common Ty
 ## Where plain `switch` is still better
 
 Prefer `switch` or `if` when:
+
 - a direct condition is simpler than a matching DSL;
 - you only branch on one scalar value and there is no real type-safety pain;
 - the code is so small that another abstraction adds noise.
