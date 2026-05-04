@@ -148,10 +148,10 @@ const _partialStressResult = matchBy(event, 'type')
 
 type _partialStress = Expect<Equal<typeof _partialStressResult, WideEvent['payload']['code']>>
 
-const _asyncStressResult = match
-  .async(event)
+const _promiseStressResult = match
+  .promise(Promise.resolve(event))
   .with({ retryable: true }, async (value) => value.payload.value)
   .with({ retryable: false }, (value) => value.payload.value)
   .exhaustive()
 
-type _asyncStress = Expect<Equal<typeof _asyncStressResult, Promise<string>>>
+type _promiseStress = Expect<Equal<typeof _promiseStressResult, Promise<string>>>

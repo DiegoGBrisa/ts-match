@@ -6,25 +6,23 @@ type UiEvent =
   | { readonly meta: { readonly type: 'click'; readonly x: number; readonly y: number } }
   | { readonly meta: { readonly type: 'submit'; readonly form: string } }
 
-type SymbolEvent =
+type SourceEvent =
   | { readonly meta: { readonly [EVENT_KIND]: 'user'; readonly name: string } }
   | { readonly meta: { readonly [EVENT_KIND]: 'system'; readonly code: number } }
 
-function labelEvent(event: UiEvent): string {
+export function routeEvent(event: UiEvent) {
   return matchBy(event, 'meta.type')
-    .with('click', (value) => `click:${String(value.meta.x)},${String(value.meta.y)}`)
-    .with('submit', (value) => `submit:${value.meta.form}`)
+    .with('click', (value) => ({ kind: 'pointer', x: value.meta.x, y: value.meta.y }))
+    .with('submit', (value) => ({ kind: 'form', form: value.meta.form }))
     .exhaustive()
 }
 
-function labelSymbolEvent(event: SymbolEvent): string {
+export function labelSource(event: SourceEvent) {
   return matchBy(event, ['meta', EVENT_KIND])
-    .with('user', (value) => `user:${value.meta.name}`)
-    .with('system', (value) => `system:${String(value.meta.code)}`)
+    .with('user', (value) => `User: ${value.meta.name}`)
+    .with('system', (value) => `System: ${String(value.meta.code)}`)
     .exhaustive()
 }
 
-if (labelEvent({ meta: { type: 'click', x: 10, y: 20 } }) !== 'click:10,20') throw new Error('dot path failed')
-if (labelSymbolEvent({ meta: { [EVENT_KIND]: 'user', name: 'Ada' } }) !== 'user:Ada') {
-  throw new Error('tuple symbol path failed')
-}
+export const routedEvent = routeEvent({ meta: { type: 'click', x: 10, y: 20 } })
+export const sourceLabel = labelSource({ meta: { [EVENT_KIND]: 'user', name: 'Ada' } })

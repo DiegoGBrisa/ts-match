@@ -305,14 +305,6 @@ export type MatchPatternSuggestion<TValue> =
         | (TValue extends object ? ObjectPatternSuggestion<TValue> : never)
 
 /**
- * Autocomplete-friendly pattern type accepted by `match(...).with(...)`.
- *
- * @typeParam TValue - Value type currently remaining in a match chain.
- * @see https://github.com/DiegoGBrisa/ts-match#withpattern-handler
- */
-export type MatchPattern<TValue> = MatchPatternSuggestion<TValue> | BuiltInPattern
-
-/**
  * Constructor shape accepted by `P.instanceOf(...)`.
  *
  * @typeParam T - Instance type produced by the constructor.
@@ -1552,7 +1544,7 @@ type SelectPayload<TValue, TPattern> =
                       : never
 
 type ObjectSelectPayloadUnion<TValue, TPattern extends object> = {
-  [K in keyof TPattern]: K extends keyof TValue ? SelectPayload<TValue[K], TPattern[K]> : never
+  [K in keyof TPattern]-?: K extends keyof TValue ? SelectPayload<TValue[K], TPattern[K]> : never
 }[keyof TPattern]
 
 type SelectPayloadFromObject<TValue, TPattern extends object> = UnionToIntersection<
@@ -1902,9 +1894,20 @@ export type NoExtraKeys<TActual, TAllowedKeys extends PropertyKey> =
     : unknown
 
 /**
- * Recursively unwraps promise-like return types from async match handlers.
+ * Result object returned by promise matcher safe terminals.
+ *
+ * The object is intentionally mutable and uses `ok` as the discriminant so
+ * callers get straightforward control-flow narrowing without annotations.
+ *
+ * @typeParam T - Successful resolved output value.
+ * @see https://github.com/DiegoGBrisa/ts-match#matchpromise
+ */
+export type MatchPromiseResult<T> = { ok: true; value: T } | { ok: false; error: unknown }
+
+/**
+ * Recursively unwraps promise-like return types from promise match handlers.
  *
  * @typeParam T - Handler return type to unwrap.
- * @see https://github.com/DiegoGBrisa/ts-match#matchasync
+ * @see https://github.com/DiegoGBrisa/ts-match#matchpromise
  */
 export type AwaitedReturn<T> = T extends PromiseLike<infer TResult> ? AwaitedReturn<TResult> : T

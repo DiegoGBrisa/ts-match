@@ -1,29 +1,29 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
-type ConnectionEvent =
-  | { readonly type: 'start'; readonly id: string }
-  | { readonly type: 'resume'; readonly id: string }
-  | { readonly type: 'stop'; readonly reason: string }
-
-type SaveAction =
-  | { readonly type: 'save'; readonly documentId: string }
-  | { readonly type: 'close'; readonly documentId: string }
+type CartAction =
+  | { readonly type: 'addItem'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+  | { readonly type: 'updateQuantity'; readonly cartId: string; readonly sku: string; readonly quantity: number }
+  | { readonly type: 'applyCoupon'; readonly cartId: string; readonly code: string }
+  | { readonly type: 'checkout'; readonly cartId: string; readonly total: number }
   | { readonly type: 'noop' }
 
-function connectionLabel(event: ConnectionEvent): string {
-  return matchBy(event, 'type')
-    .with('start', 'resume', (value) => `active:${value.id}`)
-    .with('stop', (value) => `stopped:${value.reason}`)
-    .exhaustive()
-}
-
-function saveLabel(action: SaveAction): string {
+export function cartResponse(action: CartAction) {
   return matchBy(action, 'type')
     .partial({
-      save: (value) => `save:${value.documentId}`,
+      checkout: (value) => ({ screen: 'payment', cartId: value.cartId, total: value.total }),
     })
-    .otherwise((remaining) => (remaining.type === 'close' ? `close:${remaining.documentId}` : 'noop'))
+    .otherwise(() => ({ screen: 'cart' }))
 }
 
-if (connectionLabel({ type: 'resume', id: 'socket-1' }) !== 'active:socket-1') throw new Error('matchBy.with failed')
-if (saveLabel({ type: 'close', documentId: 'doc-1' }) !== 'close:doc-1') throw new Error('matchBy.partial failed')
+export function cartReview(action: CartAction) {
+  return matchBy(action, 'type')
+    .partial((group) => [
+      group('addItem', 'updateQuantity', (value) => ({
+        type: 'inventoryCheck',
+        sku: value.sku,
+        quantity: value.quantity,
+      })),
+      group('applyCoupon', (value) => ({ type: 'discountPreview', cartId: value.cartId, code: value.code })),
+    ])
+    .otherwise(() => ({ type: 'noReview' }))
+}

@@ -54,7 +54,7 @@ Initial stable release of **ts-match**.
 
 ### Features
 
-- TypeScript-first pattern matching with `match(value)`, `match.async(value)`, `matchBy(value, path)`, and `matchBy.async(value, path)`.
+- TypeScript-first pattern matching with structural `match(...)`, discriminant `matchBy(...)`, and promise-normalized matching APIs.
 - Exhaustive checking for closed unions through `.exhaustive()` and explicit fallback handling through `.otherwise(...)`.
 - Discriminant dispatch through `matchBy(...).with(...).exhaustive()`, object-map `.cases({...})`, partial case maps, and grouped case callbacks.
 - Pattern helpers through `P` and named `p*` exports for primitives, arrays, tuples, records, objects, predicates, optional values, negation, exclusion, and selections.

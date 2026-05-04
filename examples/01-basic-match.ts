@@ -1,10 +1,19 @@
 import { match, P } from '@diegogbrisa/ts-match'
 
-const input: unknown = 'hello'
+const pageUrl = new URL('https://shop.example/products?view=grid&coupon=SPRING')
+const view = pageUrl.searchParams.get('view')
 
-const label = match(input)
-  .with(P.string, (value) => value.toUpperCase())
-  .with(P.number, (value) => `number:${String(value)}`)
-  .otherwise(() => 'unknown')
+export const layout = match(view)
+  .with('grid', () => ({ columns: 3 }))
+  .with('list', () => ({ columns: 1 }))
+  .with(P.null, () => ({ columns: 2 }))
+  .otherwise(() => ({ columns: 2 }))
 
-if (label !== 'HELLO') throw new Error(`Expected HELLO, got ${label}`)
+const cart = {
+  items: ['sku-1', 'sku-2'],
+  coupon: pageUrl.searchParams.get('coupon'),
+}
+
+export const banner = match(cart)
+  .with({ coupon: P.string }, (value) => `Coupon ${value.coupon} applied`)
+  .otherwise(() => 'No coupon applied')

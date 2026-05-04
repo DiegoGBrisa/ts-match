@@ -53,7 +53,7 @@ P.array(P.select('item'))
 P.exclude(P.select('x'))
 
 // @ts-expect-error ts-match: invalid P.rest usage
-P.tuple([P.rest(P.string), P.number] as const)
+P.tuple([P.rest(P.string), P.number])
 
 // @ts-expect-error ts-match: invalid P.select usage
 isMatching(P.array(P.select('item')))

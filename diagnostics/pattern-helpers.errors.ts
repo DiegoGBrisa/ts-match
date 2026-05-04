@@ -16,10 +16,10 @@ P.exclude(P.select('excluded'))
 pExclude(P.select('excluded'))
 
 // Intended diagnostic: ts-match says P.rest must be the final item in tuple patterns.
-P.tuple([P.rest(P.string), P.number] as const)
+P.tuple([P.rest(P.string), P.number])
 
 // Intended diagnostic: ts-match says pTuple has the same rest-placement diagnostic as P.tuple.
-pTuple([P.rest(P.string), P.number] as const)
+pTuple([P.rest(P.string), P.number])
 
 // Intended diagnostic: ts-match says record key patterns must match property keys.
 P.record(P.array(P.string), P.number)

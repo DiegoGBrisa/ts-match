@@ -234,11 +234,12 @@ type PatternListArgument<TPatterns extends readonly unknown[]> = {
 /**
  * Matches when any supplied pattern matches.
  *
- * Use `P.union(...)` to express alternatives inside a single structural pattern
- * rather than adding separate branches. Each argument must be a valid public
- * pattern, literal pattern, object pattern, array pattern, or tuple pattern.
+ * Use `P.union(...)` to express one or more alternatives inside a single
+ * structural pattern rather than adding separate branches. Each argument must be
+ * a valid public pattern, literal pattern, object pattern, array pattern, or
+ * tuple pattern.
  *
- * @param patterns - Alternative patterns tested from left to right.
+ * @param patterns - One or more alternative patterns tested from left to right.
  * @returns A frozen union pattern helper.
  * @example
  * ```ts
@@ -247,9 +248,14 @@ type PatternListArgument<TPatterns extends readonly unknown[]> = {
  * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#pattern-helpers
  */
-export function pUnion<const TPatterns extends readonly unknown[]>(
+export function pUnion<const TPattern extends Primitive>(
+  ...patterns: readonly [TPattern, ...TPattern[]]
+): UnionPattern<readonly [TPattern, ...TPattern[]]>
+export function pUnion<const TPatterns extends readonly [unknown, ...unknown[]]>(
   ...patterns: PatternListArgument<TPatterns>
-): UnionPattern<TPatterns> {
+): UnionPattern<TPatterns>
+export function pUnion(...patterns: readonly [unknown, ...unknown[]]): UnionPattern<readonly [unknown, ...unknown[]]> {
+  if (patterns.length === 0) throw new TypeError('P.union(...) requires at least one pattern.')
   return freezePattern({ [PATTERN_TOKEN]: 'union', patterns })
 }
 
@@ -351,7 +357,7 @@ export function pNonEmptyArray<const TPattern>(
  * @returns A frozen tuple pattern helper.
  * @example
  * ```ts
- * match(value).with(P.tuple([P.string, P.number] as const), ([name, count]) => count)
+ * match(value).with(P.tuple([P.string, P.number]), ([name, count]) => count)
  * ```
  * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
@@ -373,7 +379,7 @@ export function pTuple<const TPatterns extends readonly unknown[]>(
  * @throws {TypeError} When used outside a tuple or before the final tuple item.
  * @example
  * ```ts
- * match(value).with(P.tuple([P.string, P.rest(P.number)] as const), ([head]) => head)
+ * match(value).with(P.tuple([P.string, P.rest(P.number)]), ([head]) => head)
  * ```
  * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics

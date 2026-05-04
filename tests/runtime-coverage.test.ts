@@ -283,25 +283,215 @@ describe('match terminal behavior', () => {
     expect(error.value).toBe(value)
   })
 
-  it('normalizes match.async return values and rejections', async () => {
-    const value = await Promise.resolve('x' as const)
+  it('resolves match.promise input values and normalizes handler outputs', async () => {
     const terminal = match
-      .async(value)
+      .promise(Promise.resolve('x' as const))
       .with('x', () => Promise.resolve(1))
       .exhaustive()
 
     expect(terminal).toBeInstanceOf(Promise)
     await expect(terminal).resolves.toBe(1)
+
+    const maybeValue: 'x' | PromiseLike<'x'> = 'x'
     await expect(
       match
-        .async('x')
+        .promise(maybeValue)
+        .with('x', () => 2)
+        .exhaustive(),
+    ).resolves.toBe(2)
+
+    const nested = new Promise<Promise<'x'>>((resolve) => resolve(Promise.resolve('x')))
+    await expect(
+      match
+        .promise(nested)
+        .with('x', () => 3)
+        .exhaustive(),
+    ).resolves.toBe(3)
+
+    class StringThenable implements PromiseLike<'x'> {
+      then<TResult1 = 'x', TResult2 = never>(
+        onfulfilled?: ((value: 'x') => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        return Promise.resolve('x' as const).then(onfulfilled, onrejected)
+      }
+    }
+
+    await expect(
+      match
+        .promise(new StringThenable())
+        .with('x', () => 4)
+        .exhaustive(),
+    ).resolves.toBe(4)
+  })
+
+  it('reports promise-specific .with(...) validation labels', () => {
+    expect(() => {
+      // @ts-expect-error runtime validation for missing promise .with(...) handler
+      match.promise(Promise.resolve('x' as const)).with('x')
+    }).toThrow('match.promise(...).with(...) requires a pattern and handler.')
+
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-function promise .with(...) handlers
+      match.promise(Promise.resolve('x' as const)).with('x', 'not a handler')
+    }).toThrow('match.promise(...).with(...) handler must be a function.')
+  })
+
+  it('rejects invalid match.promise fallback handlers through the returned promise', async () => {
+    // @ts-expect-error runtime validation rejects non-function promise fallback handlers
+    const terminal = match.promise(Promise.resolve('x' as const)).otherwise('not a handler')
+
+    expect(terminal).toBeInstanceOf(Promise)
+    await expect(terminal).rejects.toThrow('match.promise(...).otherwise(...) handler must be a function.')
+  })
+
+  it('rejects match.promise normal terminals for input, predicate, handler, and exhaustive failures', async () => {
+    const inputError = new Error('input failed')
+    const predicateError = new Error('predicate failed')
+    const handlerError = new Error('handler failed')
+
+    await expect(match.promise(Promise.reject(inputError)).otherwise(() => 0)).rejects.toBe(inputError)
+
+    let fallbackCalled = false
+    await expect(
+      match.promise(Promise.reject(inputError)).otherwise(() => {
+        fallbackCalled = true
+        return 0
+      }),
+    ).rejects.toBe(inputError)
+    expect(fallbackCalled).toBe(false)
+
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
+        .with(
+          P.when(() => {
+            throw predicateError
+          }),
+          () => 1,
+        )
+        .otherwise(() => 0),
+    ).rejects.toBe(predicateError)
+
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
         .with('x', () => {
-          throw new Error('boom')
+          throw handlerError
         })
         .exhaustive(),
-    ).rejects.toThrow('boom')
-    // @ts-expect-error runtime coverage for impossible async non-exhaustive data
-    await expect(match.async('x').exhaustive()).rejects.toThrow(NonExhaustiveMatchError)
+    ).rejects.toBe(handlerError)
+
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
+        .with('x', () => Promise.reject(handlerError))
+        .exhaustive(),
+    ).rejects.toBe(handlerError)
+
+    const getterError = new Error('getter failed')
+    const throwingValue: { readonly type: 'x' } = {
+      get type(): 'x' {
+        throw getterError
+      },
+    }
+    await expect(
+      match
+        .promise(Promise.resolve(throwingValue))
+        .with({ type: 'x' }, () => 1)
+        .otherwise(() => 0),
+    ).rejects.toBe(getterError)
+
+    // @ts-expect-error runtime coverage for impossible promise non-exhaustive data
+    await expect(match.promise(Promise.resolve('x' as const)).exhaustive()).rejects.toThrow(NonExhaustiveMatchError)
+  })
+
+  it('wraps match.promise safe terminal results without rejecting', async () => {
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
+        .with('x', () => Promise.resolve(1))
+        .safeExhaustive(),
+    ).resolves.toEqual({ ok: true, value: 1 })
+
+    const inputError = new Error('input failed')
+    const handlerError = new Error('handler failed')
+    const fallbackError = new Error('fallback failed')
+
+    await expect(match.promise(Promise.reject(inputError)).safeOtherwise(() => 0)).resolves.toEqual({
+      ok: false,
+      error: inputError,
+    })
+
+    const predicateError = new Error('predicate failed')
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
+        .with(
+          P.when(() => {
+            throw predicateError
+          }),
+          () => 1,
+        )
+        .safeOtherwise(() => 0),
+    ).resolves.toEqual({ ok: false, error: predicateError })
+
+    const getterError = new Error('getter failed')
+    const throwingValue: { readonly type: 'x' } = {
+      get type(): 'x' {
+        throw getterError
+      },
+    }
+    await expect(
+      match
+        .promise(Promise.resolve(throwingValue))
+        .with({ type: 'x' }, () => 1)
+        .safeOtherwise(() => 0),
+    ).resolves.toEqual({ ok: false, error: getterError })
+
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
+        .with('x', () => {
+          throw handlerError
+        })
+        .safeExhaustive(),
+    ).resolves.toEqual({ ok: false, error: handlerError })
+
+    await expect(
+      match
+        .promise(Promise.resolve('x' as const))
+        .with('x', () => Promise.reject(handlerError))
+        .safeExhaustive(),
+    ).resolves.toEqual({ ok: false, error: handlerError })
+
+    const fallbackInput = ((): 'x' | 'missing' => 'missing')()
+    await expect(
+      match
+        .promise(Promise.resolve(fallbackInput))
+        .with('x', () => 1)
+        .safeOtherwise(() => 2),
+    ).resolves.toEqual({ ok: true, value: 2 })
+    await expect(
+      match
+        .promise(Promise.resolve(fallbackInput))
+        .with('x', () => 1)
+        .safeOtherwise(() => {
+          throw fallbackError
+        }),
+    ).resolves.toEqual({ ok: false, error: fallbackError })
+    await expect(
+      match
+        .promise(Promise.resolve(fallbackInput))
+        .with('x', () => 1)
+        .safeOtherwise(() => Promise.reject(fallbackError)),
+    ).resolves.toEqual({ ok: false, error: fallbackError })
+
+    // @ts-expect-error runtime coverage for defensive promise non-exhaustive data
+    const defensive = await match.promise(Promise.resolve('missing' as const)).safeExhaustive()
+    expect(defensive.ok).toBe(false)
+    if (defensive.ok) throw new Error('Expected failed safe result')
+    expect(defensive.error).toBeInstanceOf(NonExhaustiveMatchError)
   })
 })
 
@@ -336,6 +526,15 @@ describe('matchBy behavior', () => {
         [undefined, (value: Extract<State, { empty: true }>) => String(value.empty)],
       ]),
     ).toBe('true')
+
+    expect(
+      matchBy(state, 'kind')
+        .partial([
+          ['ready', (value) => value.data],
+          [[null] as const, (value) => value.reason],
+        ])
+        .otherwise((value) => String(value.empty)),
+    ).toBe('true')
   })
 
   it('supports partial maps and preserves string-looking numeric/boolean keys', () => {
@@ -362,23 +561,218 @@ describe('matchBy behavior', () => {
     }).toThrow(TypeError)
   })
 
-  it('normalizes matchBy.async return values and rejections', async () => {
-    const event = await Promise.resolve({ type: 'a' as const })
-    const terminal = matchBy.async(event, 'type').cases({ a: () => Promise.resolve(1) })
+  it('validates tuple-entry tags before storing cases', () => {
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-discriminant tuple tags
+      matchBy({ type: 'a' as const }, 'type').partial([[{}, () => 1]])
+    }).toThrow('group(...) tags must be discriminants.')
+
+    expect(() => {
+      matchBy({ type: 'a' as const }, 'type').partial([[[], () => 1]])
+    }).toThrow('group(...) requires at least one tag.')
+  })
+
+  it('resolves matchBy.promise input values and normalizes handler outputs', async () => {
+    type Event = { readonly type: 'a'; readonly value: number } | { readonly type: 'b'; readonly value: number }
+    const event = ((): Event => ({ type: 'a', value: 1 }))()
+    const eventPromise: Promise<Event> = Promise.resolve(event)
+
+    class EventThenable implements PromiseLike<Event> {
+      constructor(private readonly event: Event) {}
+
+      then<TResult1 = Event, TResult2 = never>(
+        onfulfilled?: ((value: Event) => TResult1 | PromiseLike<TResult1>) | null,
+        _onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        return Promise.resolve(this.event).then(onfulfilled, _onrejected)
+      }
+    }
+
+    class RejectedEventThenable implements PromiseLike<Event> {
+      constructor(private readonly error: Error) {}
+
+      then<TResult1 = Event, TResult2 = never>(
+        onfulfilled?: ((value: Event) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        return Promise.reject<Event>(this.error).then(onfulfilled, onrejected)
+      }
+    }
+
+    const terminal = matchBy.promise(eventPromise, 'type').cases({ a: () => Promise.resolve(1), b: () => 2 })
 
     expect(terminal).toBeInstanceOf(Promise)
     await expect(terminal).resolves.toBe(1)
+
+    const nestedEvent = new Promise<Promise<Event>>((resolve) => resolve(Promise.resolve(event)))
     await expect(
-      matchBy.async({ type: 'a' as const }, 'type').cases({
+      matchBy
+        .promise(nestedEvent, 'type')
+        .with('a', (value) => value.value + 3)
+        .otherwise((value) => value.value),
+    ).resolves.toBe(4)
+
+    await expect(
+      matchBy
+        .promise(Promise.resolve(event), 'type')
+        .cases((group) => [
+          group('a', (value) => Promise.resolve(value.value + 4)),
+          group('b', (value) => value.value),
+        ]),
+    ).resolves.toBe(5)
+
+    await expect(
+      matchBy.promise(Promise.resolve(event), 'type').cases([
+        ['a', (value) => Promise.resolve(value.value + 5)],
+        [['b'] as const, (value) => value.value],
+      ]),
+    ).resolves.toBe(6)
+
+    await expect(
+      matchBy
+        .promise(Promise.resolve(event), 'type')
+        .partial([['a', (value) => Promise.resolve(value.value + 6)]])
+        .otherwise((value) => value.value),
+    ).resolves.toBe(7)
+
+    const maybeEvent: Event | PromiseLike<Event> = event
+    await expect(
+      matchBy
+        .promise(maybeEvent, 'type')
+        .with('a', (value) => value.value + 1)
+        .otherwise((value) => value.value + 2),
+    ).resolves.toBe(2)
+
+    await expect(
+      matchBy.promise(new EventThenable(event), 'type').cases({ a: (value) => value.value + 2, b: () => 0 }),
+    ).resolves.toBe(3)
+
+    const thenableError = new Error('thenable failed')
+    await expect(
+      matchBy.promise(new RejectedEventThenable(thenableError), 'type').safeOtherwise(() => 0),
+    ).resolves.toEqual({ ok: false, error: thenableError })
+  })
+
+  it('reports matchBy.promise-specific .with(...) validation labels', () => {
+    expect(() => {
+      // @ts-expect-error runtime validation for missing promise .with(...) handler
+      matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').with('a')
+    }).toThrow('matchBy.promise(...).with(...) requires at least one tag and a handler.')
+
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-function promise .with(...) handlers
+      matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').with('a', 'not a handler')
+    }).toThrow('matchBy.promise(...).with(...) handler must be a function.')
+  })
+
+  it('rejects invalid matchBy.promise fallback handlers through the returned promise', async () => {
+    // @ts-expect-error runtime validation rejects non-function promise fallback handlers
+    const terminal = matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').otherwise('not a handler')
+
+    expect(terminal).toBeInstanceOf(Promise)
+    await expect(terminal).rejects.toThrow('matchBy.promise(...).otherwise(...) handler must be a function.')
+  })
+
+  it('rejects matchBy.promise normal terminals and catches failures with safe terminals', async () => {
+    const inputError = new Error('input failed')
+    const pathError = new Error('path failed')
+    const handlerError = new Error('handler failed')
+    const fallbackError = new Error('fallback failed')
+    const throwingPath: { readonly meta: { readonly type: 'a' } } = {
+      get meta(): { readonly type: 'a' } {
+        throw pathError
+      },
+    }
+
+    const rejectedEvent = Promise.reject<{ readonly type: 'a' }>(inputError)
+    let fallbackCalled = false
+    await expect(
+      matchBy.promise(rejectedEvent, 'type').otherwise(() => {
+        fallbackCalled = true
+        return 0
+      }),
+    ).rejects.toBe(inputError)
+    expect(fallbackCalled).toBe(false)
+    await expect(matchBy.promise(Promise.resolve(throwingPath), 'meta.type').otherwise(() => 0)).rejects.toBe(pathError)
+    await expect(
+      matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').cases({
         a: () => {
-          throw new Error('boom')
+          throw handlerError
         },
       }),
-    ).rejects.toThrow('boom')
+    ).rejects.toBe(handlerError)
     await expect(
-      // @ts-expect-error runtime coverage for non-exhaustive async case maps
-      matchBy.async({ type: 'b' }, 'type').cases({ a: () => 1 }),
+      matchBy.promise(Promise.resolve({ type: 'a' as const }), 'type').cases({
+        a: () => Promise.reject(handlerError),
+      }),
+    ).rejects.toBe(handlerError)
+    await expect(
+      // @ts-expect-error runtime coverage for non-exhaustive promise case maps
+      matchBy.promise(Promise.resolve({ type: 'b' }), 'type').cases({ a: () => 1 }),
     ).rejects.toThrow(NonExhaustiveMatchError)
+
+    await expect(
+      matchBy
+        .promise(Promise.resolve({ type: 'a' as const }), 'type')
+        .with('a', () => Promise.resolve(1))
+        .safeExhaustive(),
+    ).resolves.toEqual({ ok: true, value: 1 })
+    await expect(
+      matchBy
+        .promise(Promise.resolve({ type: 'a' as const }), 'type')
+        .with('a', () => {
+          throw handlerError
+        })
+        .safeExhaustive(),
+    ).resolves.toEqual({ ok: false, error: handlerError })
+    await expect(
+      matchBy
+        .promise(Promise.resolve({ type: 'a' as const }), 'type')
+        .with('a', () => Promise.reject(handlerError))
+        .safeExhaustive(),
+    ).resolves.toEqual({ ok: false, error: handlerError })
+    const rejectedSafeEvent = Promise.reject<{ readonly type: 'a' }>(inputError)
+    await expect(matchBy.promise(rejectedSafeEvent, 'type').safeOtherwise(() => 0)).resolves.toEqual({
+      ok: false,
+      error: inputError,
+    })
+    await expect(matchBy.promise(Promise.resolve(throwingPath), 'meta.type').safeOtherwise(() => 0)).resolves.toEqual({
+      ok: false,
+      error: pathError,
+    })
+    const missingEvent = ((): { readonly type: 'known' } | { readonly type: 'missing' } => ({ type: 'missing' }))()
+    await expect(
+      matchBy
+        .promise(Promise.resolve(missingEvent), 'type')
+        .with('known', () => 1)
+        .safeOtherwise(() => 2),
+    ).resolves.toEqual({ ok: true, value: 2 })
+    await expect(
+      matchBy
+        .promise(Promise.resolve(missingEvent), 'type')
+        .with('known', () => 1)
+        .safeOtherwise(() => {
+          throw fallbackError
+        }),
+    ).resolves.toEqual({ ok: false, error: fallbackError })
+    await expect(
+      matchBy
+        .promise(Promise.resolve(missingEvent), 'type')
+        .with('known', () => 1)
+        .safeOtherwise(() => Promise.reject(fallbackError)),
+    ).resolves.toEqual({ ok: false, error: fallbackError })
+
+    const defensiveBuilder = matchBy
+      .promise(
+        Promise.resolve(((): { readonly type: 'known' } | { readonly type: 'missing' } => ({ type: 'missing' }))()),
+        'type',
+      )
+      .with('known', () => 1)
+    // @ts-expect-error runtime coverage for defensive promise non-exhaustive matchBy data
+    const defensive = await defensiveBuilder.safeExhaustive()
+    expect(defensive.ok).toBe(false)
+    if (defensive.ok) throw new Error('Expected failed safe result')
+    expect(defensive.error).toBeInstanceOf(NonExhaustiveMatchError)
   })
 })
 

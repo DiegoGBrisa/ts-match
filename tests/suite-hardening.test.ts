@@ -139,7 +139,7 @@ describe('suite-inspired hardening', () => {
     expect(() => isMatching({ records: P.optional(P.record(P.string, P.select('value'))) }, {})).toThrow(TypeError)
   })
 
-  it('covers sync and async predicate branch behavior', async () => {
+  it('covers sync and promise predicate branch behavior', async () => {
     let syncSkipped = false
     const syncResult = match('x')
       .with('x', () => 'matched')
@@ -157,7 +157,7 @@ describe('suite-inspired hardening', () => {
 
     await expect(
       match
-        .async(3)
+        .promise(Promise.resolve(3 as const))
         .when(
           (value): value is 3 => value === 3,
           async (value) => value + 1,
@@ -168,7 +168,7 @@ describe('suite-inspired hardening', () => {
     const asyncValue: number = 2
     await expect(
       match
-        .async(asyncValue)
+        .promise(Promise.resolve(asyncValue))
         .when(
           (value): value is 3 => value === 3,
           () => 3,
@@ -179,7 +179,7 @@ describe('suite-inspired hardening', () => {
     let asyncSkipped = false
     await expect(
       match
-        .async('done')
+        .promise(Promise.resolve('done' as const))
         .with('done', () => 'matched')
         .when(
           () => {

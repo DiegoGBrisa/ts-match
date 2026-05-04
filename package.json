@@ -21,7 +21,8 @@
   "sideEffects": false,
   "files": [
     "dist",
-    "docs",
+    "docs/design.md",
+    "docs/release.md",
     "diagnostics",
     "examples",
     "benchmarks/native.ts",

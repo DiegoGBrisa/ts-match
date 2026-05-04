@@ -342,14 +342,13 @@ const syncTasks: readonly SyncTask[] = [
 
 const asyncTasks: readonly AsyncTask[] = [
   {
-    name: 'match.async exhaustive',
+    name: 'match.promise with otherwise',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        const event = await asyncEvent()
         total += await match
-          .async(event)
+          .promise(asyncEvent())
           .with({ type: 'delta' }, async (value) => value.value)
           .otherwise(async () => 0)
       }
@@ -357,13 +356,12 @@ const asyncTasks: readonly AsyncTask[] = [
     },
   },
   {
-    name: 'matchBy.async cases',
+    name: 'matchBy.promise cases',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        const event = await asyncEvent()
-        total += await matchBy.async(event, 'type').cases(asyncEventCaseMap)
+        total += await matchBy.promise(asyncEvent(), 'type').cases(asyncEventCaseMap)
       }
       return total
     },

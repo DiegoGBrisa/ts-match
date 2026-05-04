@@ -544,20 +544,19 @@ const syncTasks: readonly SyncTask[] = [
 
 const asyncTasks: readonly AsyncTask[] = [
   {
-    scenario: 'async discriminant dispatch',
-    implementation: 'ts-match matchBy.async cases',
+    scenario: 'promise discriminant dispatch',
+    implementation: 'ts-match matchBy.promise cases',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        const event = await asyncEvent()
-        total += await matchBy.async(event, 'type').cases(ownAsyncEventCaseMap)
+        total += await matchBy.promise(asyncEvent(), 'type').cases(ownAsyncEventCaseMap)
       }
       return total
     },
   },
   {
-    scenario: 'async discriminant dispatch',
+    scenario: 'promise discriminant dispatch',
     implementation: 'ts-pattern async chain',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
@@ -574,15 +573,14 @@ const asyncTasks: readonly AsyncTask[] = [
     },
   },
   {
-    scenario: 'async object pattern',
-    implementation: 'ts-match match.async',
+    scenario: 'promise object pattern',
+    implementation: 'ts-match match.promise',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
       let total = 0
       for (let index = 0; index < ASYNC_ITERATIONS; index += 1) {
-        const event = await asyncEvent()
         total += await ownMatch
-          .async(event)
+          .promise(asyncEvent())
           .with({ type: 'delta' }, async (value) => value.value)
           .otherwise(async () => 0)
       }
@@ -590,7 +588,7 @@ const asyncTasks: readonly AsyncTask[] = [
     },
   },
   {
-    scenario: 'async object pattern',
+    scenario: 'promise object pattern',
     implementation: 'ts-pattern async handler',
     iterations: ASYNC_ITERATIONS,
     run: async () => {
