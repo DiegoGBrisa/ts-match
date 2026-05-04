@@ -119,6 +119,8 @@ bun add @diegogbrisa/ts-match
 - Includes both **ergonomic application-style branching** and **deeper structural matching**.
 - Designed to stay honest about tradeoffs: simple branches should stay simple.
 
+Want the deeper positioning? See [when to use `ts-match`, plain `switch`, or broader matching libraries](docs/compare.md).
+
 ## Documentation
 
 - [Quick start](#quick-start)
