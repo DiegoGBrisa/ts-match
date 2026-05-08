@@ -179,7 +179,7 @@ function reduce(state: State, action: Action) {
 const next = reduce({ status: 'idle', rows: [] }, { type: 'load-success', rows: ['Ada', 'Grace'] })
 ```
 
-Checked example: [`examples/02-exhaustive-discriminated-union.ts`](examples/02-exhaustive-discriminated-union.ts).
+Checked example: [`examples/02-exhaustive-discriminated-union.ts`](examples/02-exhaustive-discriminated-union.ts) — exhaustive reducer branching for a TypeScript discriminated union.
 
 ## Why use pattern matching instead of manual branching?
 
@@ -242,7 +242,7 @@ const layout = match(view)
   .otherwise(() => ({ columns: 2 }))
 ```
 
-Checked example: [`examples/01-basic-match.ts`](examples/01-basic-match.ts).
+Checked example: [`examples/01-basic-match.ts`](examples/01-basic-match.ts) — basic TypeScript pattern matching.
 
 ### `.with(pattern, handler)`
 
