@@ -13,7 +13,12 @@
     "pattern-matching",
     "exhaustive",
     "match",
-    "discriminated-unions"
+    "discriminated-union",
+    "discriminated-unions",
+    "assert-never",
+    "type-safety",
+    "reducer",
+    "union"
   ],
   "publishConfig": {
     "access": "public"
