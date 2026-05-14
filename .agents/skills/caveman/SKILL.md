@@ -40,7 +40,7 @@ Drop caveman temporarily for: security warnings, irreversible action confirmatio
 
 Example -- destructive op:
 
-> **Warning:** This will permanently delete all rows in the `users` table and cannot be undone.
+> **Warning:** This will permanently drop the `users` table (schema and data) and cannot be undone.
 >
 > ```sql
 > DROP TABLE users;

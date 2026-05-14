@@ -14,8 +14,8 @@ description: Create new agent skills with proper structure, progressive disclosu
    - Any reference materials to include?
 
 2. **Draft the skill** - create:
-   - SKILL.md with concise instructions
-   - Additional reference files if content exceeds 500 lines
+   - SKILL.md with concise instructions under 100 lines
+   - Additional reference files when material does not fit in SKILL.md; split auxiliary docs again if they exceed 500 lines
    - Utility scripts if deterministic operations needed
 
 3. **Review with user** - present draft and ask:
@@ -25,7 +25,7 @@ description: Create new agent skills with proper structure, progressive disclosu
 
 ## Skill Structure
 
-```
+```text
 skill-name/
 ├── SKILL.md           # Main instructions (required)
 ├── REFERENCE.md       # Detailed docs (if needed)
@@ -75,13 +75,13 @@ The description is **the only thing your agent sees** when deciding which skill 
 
 **Good example**:
 
-```
+```text
 Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when user mentions PDFs, forms, or document extraction.
 ```
 
 **Bad example**:
 
-```
+```text
 Helps with documents.
 ```
 
