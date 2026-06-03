@@ -1,6 +1,17 @@
 # ts-match
 
+[![npm version](https://img.shields.io/npm/v/%40diegogbrisa%2Fts-match.svg)](https://www.npmjs.com/package/@diegogbrisa/ts-match)
+
 **Exhaustive matching for TypeScript discriminated unions** — with ergonomic `matchBy(...)`, strong inference, structural patterns when you need them, and zero runtime dependencies.
+
+## Installation
+
+```bash
+npm install @diegogbrisa/ts-match
+pnpm add @diegogbrisa/ts-match
+yarn add @diegogbrisa/ts-match
+bun add @diegogbrisa/ts-match
+```
 
 `ts-match` is built for the kind of TypeScript branching that gets ugly fast:
 
@@ -103,15 +114,6 @@ Reach for `ts-match` when you want:
 - typed runtime validation helpers in the same toolkit.
 
 You may not need it when your branch is already trivial and a normal condition reads better.
-
-## Installation
-
-```bash
-npm install @diegogbrisa/ts-match
-pnpm add @diegogbrisa/ts-match
-yarn add @diegogbrisa/ts-match
-bun add @diegogbrisa/ts-match
-```
 
 ## Quick reasons to evaluate it over alternatives
 
