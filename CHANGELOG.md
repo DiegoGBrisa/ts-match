@@ -4,6 +4,13 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.3.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.2.0...v1.3.0) (2026-06-04)
+
+
+### Features
+
+* **patterns:** add convenience helper patterns ([b85c040](https://github.com/DiegoGBrisa/ts-match/commit/b85c040efd52162050dbca834e7da0e2b9ebba94))
+
 ## [1.2.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.1.0...v1.2.0) (2026-05-04)
 
 
