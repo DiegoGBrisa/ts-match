@@ -138,6 +138,72 @@ jobs:
       - name: Check package contents and tarball smoke
         run: pnpm pack:check:only
 
+  real-temporal:
+    name: Native Temporal / Node 26
+    runs-on: ubuntu-latest
+    needs: resolve-release
+    if: needs.resolve-release.outputs.should_publish == 'true'
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run real Temporal integration tests
+        env:
+          TS_MATCH_EXPECT_REAL_TEMPORAL: '1'
+        run: pnpm test:temporal-real
+
+  browser-temporal:
+    name: Native Temporal / ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    needs: resolve-release
+    if: needs.resolve-release.outputs.should_publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run browser Temporal integration tests
+        env:
+          TS_MATCH_BROWSER: ${{ matrix.browser }}
+          TS_MATCH_EXPECT_BROWSER_TEMPORAL: '1'
+        run: pnpm test:temporal-browser
+
   package-manager-smoke:
     name: Package smoke / Node ${{ matrix.node-version }} / ${{ matrix.package-manager }}
     runs-on: ubuntu-latest
@@ -193,6 +259,8 @@ jobs:
     needs:
       - resolve-release
       - validate
+      - real-temporal
+      - browser-temporal
       - package-manager-smoke
     if: needs.resolve-release.outputs.should_publish == 'true'
     environment: npm
