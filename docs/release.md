@@ -59,13 +59,15 @@ When release-please creates a stable release, the workflow:
 1. Checks out the release tag.
 2. Verifies the tag matches `package.json` version, for example `v1.2.3` ↔ `1.2.3`.
 3. Runs validation on Node 20, 22, and 24.
-4. Runs package-manager smoke tests for npm, pnpm, Yarn v4, and Bun across Node 20, 22, and 24.
-5. Verifies the publish job is running on Node 24 with npm 11.5.1 or newer, as required by npm Trusted Publishing.
-6. Verifies package metadata is compatible with npm provenance, including `package.json` `repository.url`.
-7. Verifies the npm version is not already published.
-8. Builds and validates the publish tarball with `pnpm pack:check`.
-9. Re-checks provenance metadata inside the packed tarball.
-10. Publishes that validated tarball with npm Trusted Publishing provenance:
+4. Runs native Temporal integration tests on Node 26, where `globalThis.Temporal` is enabled by default.
+5. Runs native Temporal integration tests in Chromium and Firefox through Playwright.
+6. Runs package-manager smoke tests for npm, pnpm, Yarn v4, and Bun across Node 20, 22, and 24.
+7. Verifies the publish job is running on Node 24 with npm 11.5.1 or newer, as required by npm Trusted Publishing.
+8. Verifies package metadata is compatible with npm provenance, including `package.json` `repository.url`.
+9. Verifies the npm version is not already published.
+10. Builds and validates the publish tarball with `pnpm pack:check`.
+11. Re-checks provenance metadata inside the packed tarball.
+12. Publishes that validated tarball with npm Trusted Publishing provenance:
 
 ```bash
 npm publish .pack/<tarball>.tgz --ignore-scripts --provenance --access public
@@ -88,6 +90,8 @@ release-please owns `CHANGELOG.md` and may generate Markdown that differs from P
 
 ## Local preflight
 
+Before running release preflight for any public API, example, diagnostic, limitation, or recommended-usage change, update both user-facing docs and agent-facing docs. `README.md` is the user-facing source of truth, and root `SKILL.md` is the portable usage guide for downstream coding agents. Public helper/API releases are not release-ready until both are aligned with the new surface.
+
 Run this before merging release-sensitive changes or before manually checking a release branch:
 
 ```bash
@@ -107,6 +111,17 @@ That runs:
 - production dependency audit;
 - zero-runtime-dependency check.
 
+Temporal runtime coverage is dynamic. On runtimes without `globalThis.Temporal`, `pnpm test:temporal-real` asserts Temporal helpers match nothing and do not throw. The Node 26 CI lane sets `TS_MATCH_EXPECT_REAL_TEMPORAL=1` so release validation proves the helpers against real native Temporal objects.
+
+Browser Temporal coverage is separate from the local preflight because it needs Playwright browsers:
+
+```bash
+TS_MATCH_BROWSER=chromium TS_MATCH_EXPECT_BROWSER_TEMPORAL=1 pnpm test:temporal-browser
+TS_MATCH_BROWSER=firefox TS_MATCH_EXPECT_BROWSER_TEMPORAL=1 pnpm test:temporal-browser
+```
+
+CI installs the Playwright Chromium and Firefox browsers for these release gates. Safari/WebKit is not a required native Temporal lane while MDN marks Temporal as limited availability.
+
 For package-manager-specific local checks, pack first:
 
 ```bash
@@ -122,7 +137,7 @@ YARN_VERSION=4.5.3 pnpm smoke:package-manager -- yarn
 PATH="$HOME/.bun/bin:$PATH" pnpm smoke:package-manager -- bun
 ```
 
-CI remains the source of truth for the full Node/package-manager matrix.
+CI remains the source of truth for the full Node/package-manager matrix and the required native Temporal lanes.
 
 ## Runtime benchmark budgets
 

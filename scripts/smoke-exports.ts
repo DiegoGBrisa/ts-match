@@ -28,7 +28,14 @@ if (matchByModule.matchBy({ type: 'a' as const, value: 2 }, 'type').cases({ a: (
 if (!patternsModule.P.string) {
   throw new Error('patterns subpath failed')
 }
+if (!patternsModule.P.regex(/\d/)) {
+  throw new Error('patterns regex helper export failed')
+}
+if (!patternsModule.pTemporalInstant) {
+  throw new Error('patterns temporal named helper export failed')
+}
 if (!assertionsModule.isMatching(patternsModule.P.string, 'x')) throw new Error('assertions subpath failed')
+if (!assertionsModule.isMatching(root.pNullish, null)) throw new Error('root named helper export failed')
 if (!(new errorsModule.NonExhaustiveMatchError('x') instanceof Error)) throw new Error('errors subpath failed')
 if (groupModule.group('a', () => 1).tags[0] !== 'a') throw new Error('group subpath failed')
 

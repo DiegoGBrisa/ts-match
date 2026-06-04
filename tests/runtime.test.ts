@@ -120,6 +120,84 @@ describe('match', () => {
     ).toBe('other')
   })
 
+  it('supports convenience primitive and built-in object helpers', () => {
+    const regex = /\d/g
+    regex.lastIndex = 1
+
+    expect(isMatching(P.regex(regex), '1')).toBe(true)
+    expect(isMatching(P.regex(regex), '1')).toBe(true)
+    expect(regex.lastIndex).toBe(1)
+    const frozenRegex = /1/g
+    frozenRegex.lastIndex = 1
+    Object.freeze(frozenRegex)
+    expect(isMatching(P.regex(frozenRegex), '1')).toBe(true)
+    expect(frozenRegex.lastIndex).toBe(1)
+    expect(isMatching(P.regex(regex), 1)).toBe(false)
+    expect(() => {
+      // @ts-expect-error runtime validation rejects non-RegExp values for JavaScript callers
+      P.regex('^user-')
+    }).toThrow(TypeError)
+
+    expect(isMatching(P.date, new Date('2026-06-03T00:00:00.000Z'))).toBe(true)
+    expect(isMatching(P.date, new Date('invalid'))).toBe(false)
+    const invalidDate: Date = new Date('invalid')
+    expect(() =>
+      // @ts-expect-error P.date cannot prove every Date is valid; runtime still throws for invalid Date
+      match(invalidDate)
+        .with(P.date, () => 'valid-date')
+        .exhaustive(),
+    ).toThrow(NonExhaustiveMatchError)
+    expect(isMatching(P.error, new TypeError('boom'))).toBe(true)
+    expect(isMatching(P.regexp, /ok/)).toBe(true)
+    expect(isMatching(P.nullish, null)).toBe(true)
+    expect(isMatching(P.nullish, undefined)).toBe(true)
+    expect(isMatching({ value: P.nullish }, {})).toBe(false)
+    const absentNullishValue = (():
+      | { readonly kind: 'nullable'; readonly value?: null }
+      | { readonly kind: 'other'; readonly other: string } => ({ kind: 'nullable' }))()
+    expect(() =>
+      // @ts-expect-error runtime coverage for absent optional property not covered by P.nullish
+      match(absentNullishValue)
+        .with({ kind: 'nullable', value: P.nullish }, () => 'nullish')
+        .with({ kind: 'other', other: P.string }, () => 'other')
+        .exhaustive(),
+    ).toThrow(NonExhaustiveMatchError)
+    expect(
+      match(absentNullishValue)
+        .with({ kind: 'nullable', value: P.optional(P.nullish) }, () => 'nullish-or-absent')
+        .with({ kind: 'other', other: P.string }, () => 'other')
+        .exhaustive(),
+    ).toBe('nullish-or-absent')
+    const absentTruthyValue = (():
+      | { readonly kind: 'present'; readonly value?: true }
+      | { readonly kind: 'other'; readonly other: string } => ({ kind: 'present' }))()
+    expect(() =>
+      // @ts-expect-error runtime coverage for absent optional property not covered by required P.truthy
+      match(absentTruthyValue)
+        .with({ kind: 'present', value: P.truthy }, () => 'truthy')
+        .with({ kind: 'other', other: P.string }, () => 'other')
+        .exhaustive(),
+    ).toThrow(NonExhaustiveMatchError)
+    expect(
+      match(absentTruthyValue)
+        .with({ kind: 'present', value: P.optional(P.truthy) }, () => 'truthy-or-absent')
+        .with({ kind: 'other', other: P.string }, () => 'other')
+        .exhaustive(),
+    ).toBe('truthy-or-absent')
+    expect(isMatching(P.falsy, Number.NaN)).toBe(true)
+    expect(isMatching(P.falsy, '')).toBe(true)
+    expect(isMatching(P.falsy, new Boolean(false))).toBe(false)
+    expect(isMatching(P.truthy, [])).toBe(true)
+    expect(isMatching(P.truthy, 0)).toBe(false)
+    const falsyUnknown: unknown = 0
+    expect(() =>
+      // @ts-expect-error P.truthy cannot prove exhaustiveness for unknown because falsy values remain possible
+      match(falsyUnknown)
+        .with(P.truthy, () => 'truthy')
+        .exhaustive(),
+    ).toThrow(NonExhaustiveMatchError)
+  })
+
   it('supports record and non-empty record patterns', () => {
     expect(
       match({ 1: 'one', 2: 'two' })

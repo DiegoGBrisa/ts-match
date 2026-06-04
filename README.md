@@ -743,35 +743,51 @@ import { P } from '@diegogbrisa/ts-match'
 
 Checked example using common helpers: [`examples/08-pattern-helpers.ts`](examples/08-pattern-helpers.ts).
 
-| Helper                                       | What it matches                                  | Notes                                                                                             |
-| -------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `P._`                                        | anything                                         | Wildcard. Handler receives the original value.                                                    |
-| `P.any`                                      | anything                                         | Alias of `P._`.                                                                                   |
-| `P.string`                                   | strings                                          | Narrows to `string`.                                                                              |
-| `P.number`                                   | numbers                                          | Includes `NaN` and infinities; use numeric helpers for stricter checks.                           |
-| `P.boolean`                                  | booleans                                         | Narrows to `boolean`.                                                                             |
-| `P.bigint`                                   | bigints                                          | Narrows to `bigint`.                                                                              |
-| `P.symbol`                                   | symbols                                          | Narrows to `symbol`.                                                                              |
-| `P.null`                                     | `null`                                           | Literal null pattern helper.                                                                      |
-| `P.undefined`                                | `undefined`                                      | Literal undefined pattern helper.                                                                 |
-| `P.nan`                                      | `NaN`                                            | Uses `Number.isNaN`.                                                                              |
-| `P.finite`                                   | finite numbers                                   | Uses `Number.isFinite`.                                                                           |
-| `P.integer`                                  | integers                                         | Uses `Number.isInteger`.                                                                          |
-| `P.union(...patterns)`                       | any listed pattern                               | Requires at least one pattern. Commits selections from the successful branch only.                |
-| `P.exclude(pattern)`                         | values that do not match `pattern`               | Cannot contain `P.select(...)`.                                                                   |
-| `P.optional(pattern)`                        | absent object field, `undefined`, or `pattern`   | Selections inside an absent optional capture `undefined`.                                         |
-| `P.array(pattern)`                           | arrays where every item matches                  | Variable length. `P.select(...)` inside is rejected because captures may repeat.                  |
-| `P.nonEmptyArray(pattern)`                   | non-empty arrays where every item matches        | Same selection limitation as `P.array`.                                                           |
-| `P.tuple([...])`                             | exact tuple pattern                              | Readability helper for bare tuple arrays.                                                         |
-| `P.rest(pattern)`                            | remaining tuple items                            | Valid only as the final tuple item.                                                               |
-| `P.exact(pattern)`                           | deep exact object pattern                        | Rejects enumerable own extra keys on values.                                                      |
-| `P.when(predicate)`                          | predicate-matched values                         | Supports type guards. Can be nested.                                                              |
-| `P.instanceOf(Constructor)`                  | `instanceof Constructor`                         | Useful for errors/classes.                                                                        |
-| `P.select()`                                 | anonymous selected value                         | Only one anonymous select is allowed per successful pattern.                                      |
-| `P.select(name)`                             | named selected value                             | Handler receives an object with selected keys.                                                    |
-| `P.select(name, pattern)`                    | named selected value that also matches `pattern` | Combines validation and selection.                                                                |
-| `P.record(keyPattern, valuePattern)`         | plain record-like objects                        | Rejects arrays, class instances, maps, sets, dates, regexps, and primitives. Empty records match. |
-| `P.nonEmptyRecord(keyPattern, valuePattern)` | non-empty plain record-like objects              | Same as `P.record`, but requires at least one enumerable own key.                                 |
+| Helper                                       | What it matches                                  | Notes                                                                                                |
+| -------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `P._`                                        | anything                                         | Wildcard. Handler receives the original value.                                                       |
+| `P.any`                                      | anything                                         | Alias of `P._`.                                                                                      |
+| `P.string`                                   | strings                                          | Narrows to `string`.                                                                                 |
+| `P.number`                                   | numbers                                          | Includes `NaN` and infinities; use numeric helpers for stricter checks.                              |
+| `P.boolean`                                  | booleans                                         | Narrows to `boolean`.                                                                                |
+| `P.bigint`                                   | bigints                                          | Narrows to `bigint`.                                                                                 |
+| `P.symbol`                                   | symbols                                          | Narrows to `symbol`.                                                                                 |
+| `P.null`                                     | `null`                                           | Literal null pattern helper.                                                                         |
+| `P.undefined`                                | `undefined`                                      | Literal undefined pattern helper.                                                                    |
+| `P.nan`                                      | `NaN`                                            | Uses `Number.isNaN`.                                                                                 |
+| `P.finite`                                   | finite numbers                                   | Uses `Number.isFinite`.                                                                              |
+| `P.integer`                                  | integers                                         | Uses `Number.isInteger`.                                                                             |
+| `P.regex(regex)`                             | strings accepted by `regex`                      | Requires a `RegExp`; starts at `lastIndex = 0` and restores the original `lastIndex`.                |
+| `P.date`                                     | valid `Date` instances                           | Rejects `Invalid Date`; use `P.instanceOf(Date)` for any `Date` instance.                            |
+| `P.error`                                    | `Error` instances                                | Includes subclasses such as `TypeError` and custom errors.                                           |
+| `P.regexp`                                   | `RegExp` instances                               | Matches regex objects; use `P.regex(regex)` to match strings.                                        |
+| `P.nullish`                                  | `null` or `undefined`                            | Does not match missing object properties unless wrapped in `P.optional(...)`.                        |
+| `P.falsy`                                    | JavaScript-falsy values                          | Matches values where `!value` is true, including `NaN`; broad primitive types narrow conservatively. |
+| `P.truthy`                                   | JavaScript-truthy values                         | Matches values where `Boolean(value)` is true.                                                       |
+| `P.temporal`                                 | any recognized Temporal value object             | Matches nothing when `globalThis.Temporal` is unavailable.                                           |
+| `P.temporalInstant`                          | `Temporal.Instant` instances                     | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalPlainDate`                        | `Temporal.PlainDate` instances                   | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalPlainTime`                        | `Temporal.PlainTime` instances                   | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalPlainDateTime`                    | `Temporal.PlainDateTime` instances               | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalZonedDateTime`                    | `Temporal.ZonedDateTime` instances               | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalDuration`                         | `Temporal.Duration` instances                    | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalPlainYearMonth`                   | `Temporal.PlainYearMonth` instances              | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.temporalPlainMonthDay`                    | `Temporal.PlainMonthDay` instances               | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.union(...patterns)`                       | any listed pattern                               | Requires at least one pattern. Commits selections from the successful branch only.                   |
+| `P.exclude(pattern)`                         | values that do not match `pattern`               | Cannot contain `P.select(...)`.                                                                      |
+| `P.optional(pattern)`                        | absent object field, `undefined`, or `pattern`   | Selections inside an absent optional capture `undefined`.                                            |
+| `P.array(pattern)`                           | arrays where every item matches                  | Variable length. `P.select(...)` inside is rejected because captures may repeat.                     |
+| `P.nonEmptyArray(pattern)`                   | non-empty arrays where every item matches        | Same selection limitation as `P.array`.                                                              |
+| `P.tuple([...])`                             | exact tuple pattern                              | Readability helper for bare tuple arrays.                                                            |
+| `P.rest(pattern)`                            | remaining tuple items                            | Valid only as the final tuple item.                                                                  |
+| `P.exact(pattern)`                           | deep exact object pattern                        | Rejects enumerable own extra keys on values.                                                         |
+| `P.when(predicate)`                          | predicate-matched values                         | Supports type guards. Can be nested.                                                                 |
+| `P.instanceOf(Constructor)`                  | `instanceof Constructor`                         | Useful for errors/classes.                                                                           |
+| `P.select()`                                 | anonymous selected value                         | Only one anonymous select is allowed per successful pattern.                                         |
+| `P.select(name)`                             | named selected value                             | Handler receives an object with selected keys.                                                       |
+| `P.select(name, pattern)`                    | named selected value that also matches `pattern` | Combines validation and selection.                                                                   |
+| `P.record(keyPattern, valuePattern)`         | plain record-like objects                        | Rejects arrays, class instances, maps, sets, dates, regexps, and primitives. Empty records match.    |
+| `P.nonEmptyRecord(keyPattern, valuePattern)` | non-empty plain record-like objects              | Same as `P.record`, but requires at least one enumerable own key.                                    |
 
 ### Literal patterns
 
@@ -786,6 +802,20 @@ const label = match(value)
 ```
 
 Literal equality uses `Object.is`, so `NaN`, `-0`, and `0` behave like `Object.is`.
+
+### Convenience helpers
+
+`P.regex(regex)` matches strings only. It requires a `RegExp` instance, does not coerce non-string values, starts matching from `lastIndex = 0`, and restores the regex's original `lastIndex` after evaluation.
+
+`P.date` matches valid `Date` instances only. `new Date('bad')` does not match `P.date`; use `P.instanceOf(Date)` when constructor-level matching should include invalid dates.
+
+`P.error` matches `Error` instances including subclasses. `P.regexp` matches regular expression objects, while `P.regex(regex)` matches strings accepted by a regular expression.
+
+`P.nullish` means exactly `null | undefined`. It does not match an absent object property unless the property pattern is wrapped with `P.optional(...)`. `P.falsy` and `P.truthy` follow JavaScript truthiness exactly at runtime.
+
+Temporal helpers are dependency-free and do not polyfill Temporal. When `globalThis.Temporal` is unavailable, `P.temporal` and the specific Temporal helpers match nothing and do not throw. When Temporal constructors are available natively or through a caller-installed global polyfill, helpers use constructor identity such as `value instanceof globalThis.Temporal.PlainDate`; they do not accept duck-typed objects or spoofed `Symbol.toStringTag` values.
+
+The public Temporal helper types do not require consumers to include TypeScript's `ESNext.Temporal` lib. They use package-local value interfaces so projects can import `@diegogbrisa/ts-match` before Temporal is available in every target TypeScript/runtime combination.
 
 ### Object patterns
 
@@ -838,6 +868,22 @@ Checked example using named helper imports: [`examples/09-named-helper-imports.t
 | `pNan`                                      | `P.nan`                                      |
 | `pFinite`                                   | `P.finite`                                   |
 | `pInteger`                                  | `P.integer`                                  |
+| `pRegex(regex)`                             | `P.regex(regex)`                             |
+| `pDate`                                     | `P.date`                                     |
+| `pError`                                    | `P.error`                                    |
+| `pRegexp`                                   | `P.regexp`                                   |
+| `pNullish`                                  | `P.nullish`                                  |
+| `pFalsy`                                    | `P.falsy`                                    |
+| `pTruthy`                                   | `P.truthy`                                   |
+| `pTemporal`                                 | `P.temporal`                                 |
+| `pTemporalInstant`                          | `P.temporalInstant`                          |
+| `pTemporalPlainDate`                        | `P.temporalPlainDate`                        |
+| `pTemporalPlainTime`                        | `P.temporalPlainTime`                        |
+| `pTemporalPlainDateTime`                    | `P.temporalPlainDateTime`                    |
+| `pTemporalZonedDateTime`                    | `P.temporalZonedDateTime`                    |
+| `pTemporalDuration`                         | `P.temporalDuration`                         |
+| `pTemporalPlainYearMonth`                   | `P.temporalPlainYearMonth`                   |
+| `pTemporalPlainMonthDay`                    | `P.temporalPlainMonthDay`                    |
 | `pUnion(...)`                               | `P.union(...)`                               |
 | `pExclude(pattern)`                         | `P.exclude(pattern)`                         |
 | `pOptional(pattern)`                        | `P.optional(pattern)`                        |
@@ -1108,9 +1154,8 @@ The repository also contains the development-only `benchmarks/dispatch.ts` strat
 
 - **ESM only.** CommonJS consumers need an ESM-compatible import path or bundler setup.
 - **Node 20+.** Older runtimes are not targeted.
-- **No structural `Map`/`Set` helpers in v1.** Use `P.instanceOf(Map)` / `P.instanceOf(Set)` plus `P.when(...)` for custom checks.
-- **No RegExp string helper.** Use `P.when((value): value is string => typeof value === 'string' && regex.test(value))`.
-- **No special aliases beyond the documented helpers.** For example, use `P.union(P.null, P.undefined)` for null-or-undefined.
+- **No structural `Map`/`Set` helpers yet.** Until they ship, use `P.instanceOf(Map)` / `P.instanceOf(Set)` plus `P.when(...)` for custom checks.
+- **Temporal availability is runtime-owned.** Temporal helpers do not polyfill `globalThis.Temporal`; they match nothing until the runtime or application provides Temporal constructors.
 - **Selections are intentionally restricted in repeated contexts.** `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, and `P.nonEmptyRecord(...)` reject `P.select(...)` because captures may repeat ambiguously.
 - **`P.exclude(...)` cannot contain selections.** Excluding a pattern should not capture data from a branch that did not match.
 - **`P.rest(...)` is tuple-only and must be final.** Runtime misuse throws `TypeError`.
@@ -1143,6 +1188,7 @@ Run all examples with `pnpm test:examples`.
 | [`examples/13-real-world-events.ts`](examples/13-real-world-events.ts)                           | Event routing and nested selection                 | `match`, `matchBy`, `P.select`                               |
 | [`examples/14-performance-friendly-hoisting.ts`](examples/14-performance-friendly-hoisting.ts)   | Inference-friendly hot-path guidance               | `matchBy.with`, hoisted `isMatching`, `P.exact`              |
 | [`examples/15-match-by-with-partial.ts`](examples/15-match-by-with-partial.ts)                   | Object and tuple partial fallback                  | `matchBy.partial`, `.otherwise`                              |
+| [`examples/16-convenience-helpers.ts`](examples/16-convenience-helpers.ts)                       | Convenience helpers and Temporal availability      | `P.regex`, `P.date`, `P.temporalInstant`, `P.truthy`         |
 
 ## API reference summary
 
@@ -1168,8 +1214,8 @@ Run all examples with `pnpm test:examples`.
 
 ### Pattern helper exports
 
-- Namespace: `P._`, `P.any`, `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined`, `P.nan`, `P.finite`, `P.integer`, `P.union`, `P.exclude`, `P.optional`, `P.array`, `P.nonEmptyArray`, `P.tuple`, `P.rest`, `P.exact`, `P.when`, `P.instanceOf`, `P.select`, `P.record`, `P.nonEmptyRecord`
-- Named helpers: `pWildcard`, `pAny`, `pString`, `pNumber`, `pBoolean`, `pBigint`, `pSymbol`, `pNull`, `pUndefined`, `pNan`, `pFinite`, `pInteger`, `pUnion`, `pExclude`, `pOptional`, `pArray`, `pNonEmptyArray`, `pTuple`, `pRest`, `pExact`, `pWhen`, `pInstanceOf`, `pSelect`, `pRecord`, `pNonEmptyRecord`
+- Namespace: `P._`, `P.any`, `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined`, `P.nan`, `P.finite`, `P.integer`, `P.regex`, `P.date`, `P.error`, `P.regexp`, `P.nullish`, `P.falsy`, `P.truthy`, `P.temporal`, `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, `P.temporalPlainMonthDay`, `P.union`, `P.exclude`, `P.optional`, `P.array`, `P.nonEmptyArray`, `P.tuple`, `P.rest`, `P.exact`, `P.when`, `P.instanceOf`, `P.select`, `P.record`, `P.nonEmptyRecord`
+- Named helpers: `pWildcard`, `pAny`, `pString`, `pNumber`, `pBoolean`, `pBigint`, `pSymbol`, `pNull`, `pUndefined`, `pNan`, `pFinite`, `pInteger`, `pRegex`, `pDate`, `pError`, `pRegexp`, `pNullish`, `pFalsy`, `pTruthy`, `pTemporal`, `pTemporalInstant`, `pTemporalPlainDate`, `pTemporalPlainTime`, `pTemporalPlainDateTime`, `pTemporalZonedDateTime`, `pTemporalDuration`, `pTemporalPlainYearMonth`, `pTemporalPlainMonthDay`, `pUnion`, `pExclude`, `pOptional`, `pArray`, `pNonEmptyArray`, `pTuple`, `pRest`, `pExact`, `pWhen`, `pInstanceOf`, `pSelect`, `pRecord`, `pNonEmptyRecord`
 
 ### Root type-only exports
 
@@ -1180,9 +1226,12 @@ These are mainly for library authors and advanced integrations:
 - `ArrayPattern`
 - `CaseEntry`
 - `CasesEntry`
+- `DatePattern`
 - `Discriminant`
+- `ErrorPattern`
 - `ExactPattern`
 - `ExcludePattern`
+- `FalsyPattern`
 - `FinitePattern`
 - `GroupedCaseEntry`
 - `GroupEntry`
@@ -1197,14 +1246,29 @@ These are mainly for library authors and advanced integrations:
 - `NanPattern`
 - `NonEmptyArrayPattern`
 - `NonEmptyRecordPattern`
+- `NullishPattern`
 - `OptionalPattern`
 - `PatternKind`
 - `Primitive`
 - `PrimitivePattern`
 - `PropertyPath`
 - `RecordPattern`
+- `RegexPattern`
+- `RegexpPattern`
 - `RestPattern`
 - `SelectPattern`
+- `TemporalDurationValue`
+- `TemporalInstantValue`
+- `TemporalPattern`
+- `TemporalPatternKind`
+- `TemporalPlainDateTimeValue`
+- `TemporalPlainDateValue`
+- `TemporalPlainMonthDayValue`
+- `TemporalPlainTimeValue`
+- `TemporalPlainYearMonthValue`
+- `TemporalValue`
+- `TemporalZonedDateTimeValue`
+- `TruthyPattern`
 - `TuplePattern`
 - `UnionPattern`
 - `WildcardPattern`

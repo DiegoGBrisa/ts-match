@@ -36,6 +36,14 @@ export type PatternKind =
   | 'nan'
   | 'finite'
   | 'integer'
+  | 'regex'
+  | 'date'
+  | 'error'
+  | 'regexp'
+  | 'nullish'
+  | 'falsy'
+  | 'truthy'
+  | 'temporal'
   | 'union'
   | 'exclude'
   | 'optional'
@@ -83,6 +91,78 @@ export type NanPattern = PatternBase<'nan'>
 export type FinitePattern = PatternBase<'finite'>
 /** Type of `P.integer`, which matches integer numbers. */
 export type IntegerPattern = PatternBase<'integer'>
+
+/** Type of `P.regex(regex)`, which matches strings accepted by a regular expression. */
+export interface RegexPattern extends PatternBase<'regex'> {
+  readonly regex: RegExp
+}
+
+/** Type of `P.date`, which matches valid Date instances. */
+export type DatePattern = PatternBase<'date'>
+/** Type of `P.error`, which matches Error instances and subclasses. */
+export type ErrorPattern = PatternBase<'error'>
+/** Type of `P.regexp`, which matches RegExp instances. */
+export type RegexpPattern = PatternBase<'regexp'>
+/** Type of `P.nullish`, which matches null or undefined. */
+export type NullishPattern = PatternBase<'nullish'>
+/** Type of `P.falsy`, which matches values using JavaScript falsiness. */
+export type FalsyPattern = PatternBase<'falsy'>
+/** Type of `P.truthy`, which matches values using JavaScript truthiness. */
+export type TruthyPattern = PatternBase<'truthy'>
+
+export type TemporalPatternKind =
+  | 'any'
+  | 'Instant'
+  | 'PlainDate'
+  | 'PlainTime'
+  | 'PlainDateTime'
+  | 'ZonedDateTime'
+  | 'Duration'
+  | 'PlainYearMonth'
+  | 'PlainMonthDay'
+
+/**
+ * Type of Temporal helpers. Public types intentionally avoid depending on
+ * TypeScript's `ESNext.Temporal` global declarations.
+ */
+export interface TemporalPattern<TTemporalKind extends TemporalPatternKind> extends PatternBase<'temporal'> {
+  readonly temporal: TTemporalKind
+}
+
+export interface TemporalInstantValue {
+  readonly [Symbol.toStringTag]: 'Temporal.Instant'
+}
+export interface TemporalPlainDateValue {
+  readonly [Symbol.toStringTag]: 'Temporal.PlainDate'
+}
+export interface TemporalPlainTimeValue {
+  readonly [Symbol.toStringTag]: 'Temporal.PlainTime'
+}
+export interface TemporalPlainDateTimeValue {
+  readonly [Symbol.toStringTag]: 'Temporal.PlainDateTime'
+}
+export interface TemporalZonedDateTimeValue {
+  readonly [Symbol.toStringTag]: 'Temporal.ZonedDateTime'
+}
+export interface TemporalDurationValue {
+  readonly [Symbol.toStringTag]: 'Temporal.Duration'
+}
+export interface TemporalPlainYearMonthValue {
+  readonly [Symbol.toStringTag]: 'Temporal.PlainYearMonth'
+}
+export interface TemporalPlainMonthDayValue {
+  readonly [Symbol.toStringTag]: 'Temporal.PlainMonthDay'
+}
+
+export type TemporalValue =
+  | TemporalInstantValue
+  | TemporalPlainDateValue
+  | TemporalPlainTimeValue
+  | TemporalPlainDateTimeValue
+  | TemporalZonedDateTimeValue
+  | TemporalDurationValue
+  | TemporalPlainYearMonthValue
+  | TemporalPlainMonthDayValue
 
 /**
  * Type of `P.union(...)`, which matches any one of several patterns.
@@ -256,6 +336,14 @@ export type BuiltInPattern =
   | NanPattern
   | FinitePattern
   | IntegerPattern
+  | RegexPattern
+  | DatePattern
+  | ErrorPattern
+  | RegexpPattern
+  | NullishPattern
+  | FalsyPattern
+  | TruthyPattern
+  | TemporalPattern<TemporalPatternKind>
   | UnionPattern<readonly unknown[]>
   | ExcludePattern<unknown>
   | OptionalPattern<unknown>
@@ -383,9 +471,31 @@ type IntegerLiteral<TValue> =
 type MatchedNan<TValue> = number extends Extract<TValue, number> ? number : never
 type MatchedFinite<TValue> = Extract<TValue, number>
 type MatchedInteger<TValue> = number extends Extract<TValue, number> ? number : IntegerLiteral<TValue>
+type StaticFalsy = false | 0 | 0n | '' | null | undefined
+type InferFalsy = StaticFalsy | number
+type MatchedFalsy<TValue> =
+  | Extract<TValue, StaticFalsy>
+  | (string extends Extract<TValue, string> ? string : never)
+  | (number extends Extract<TValue, number> ? number : never)
+  | (bigint extends Extract<TValue, bigint> ? bigint : never)
+type MatchedTruthy<TValue> = SafeExclude<TValue, StaticFalsy>
 type CoveredNan<_TValue> = never
 type CoveredFinite<TValue> = number extends Extract<TValue, number> ? never : NumericLiteral<TValue>
 type CoveredInteger<TValue> = number extends Extract<TValue, number> ? never : IntegerLiteral<TValue>
+type CoveredFalsy<TValue> = Extract<TValue, StaticFalsy>
+type CoveredTruthy<TValue> = TValue extends unknown
+  ? IsUnsafe<TValue> extends true
+    ? never
+    : TValue extends Primitive
+      ? IsBroad<TValue> extends true
+        ? never
+        : TValue extends StaticFalsy
+          ? never
+          : TValue
+      : Extract<TValue, Primitive> extends never
+        ? TValue
+        : never
+  : never
 
 type UnionToIntersection<T> = [T] extends [never]
   ? never
@@ -442,43 +552,77 @@ export type InferPattern<TPattern> = TPattern extends WildcardPattern
     ? TPrimitive
     : TPattern extends NanPattern | FinitePattern | IntegerPattern
       ? number
-      : TPattern extends UnionPattern<infer TPatterns>
-        ? InferPattern<TPatterns[number]>
-        : TPattern extends ExcludePattern<unknown>
-          ? unknown
-          : TPattern extends OptionalPattern<infer TInner>
-            ? InferPattern<TInner> | undefined
-            : TPattern extends ArrayPattern<infer TItem>
-              ? InferPattern<TItem>[]
-              : TPattern extends NonEmptyArrayPattern<infer TItem>
-                ? [InferPattern<TItem>, ...InferPattern<TItem>[]]
-                : TPattern extends TuplePattern<infer TItems>
-                  ? InferTuplePattern<TItems>
-                  : TPattern extends RestPattern<infer TItem>
-                    ? InferPattern<TItem>[]
-                    : TPattern extends ExactPattern<infer TInner>
-                      ? InferPattern<TInner>
-                      : TPattern extends GuardPattern<infer TGuarded, true>
-                        ? TGuarded
-                        : TPattern extends GuardPattern<infer TInput, false>
-                          ? TInput
-                          : TPattern extends InstanceOfPattern<infer TConstructor>
-                            ? InstanceType<TConstructor>
-                            : TPattern extends AnonymousSelectPattern<infer TInner>
-                              ? InferPattern<TInner>
-                              : TPattern extends NamedSelectPattern<PropertyKey, infer TInner>
-                                ? InferPattern<TInner>
-                                : TPattern extends RecordPattern<infer TKey, infer TValue>
-                                  ? InferRecordPattern<TKey, TValue>
-                                  : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
-                                    ? InferRecordPattern<TKey, TValue>
-                                    : TPattern extends readonly unknown[]
-                                      ? InferTuplePattern<TPattern>
-                                      : TPattern extends Primitive
-                                        ? TPattern
-                                        : TPattern extends object
-                                          ? InferObjectPattern<TPattern>
-                                          : never
+      : TPattern extends RegexPattern
+        ? string
+        : TPattern extends DatePattern
+          ? Date
+          : TPattern extends ErrorPattern
+            ? Error
+            : TPattern extends RegexpPattern
+              ? RegExp
+              : TPattern extends NullishPattern
+                ? null | undefined
+                : TPattern extends FalsyPattern
+                  ? InferFalsy
+                  : TPattern extends TruthyPattern
+                    ? unknown
+                    : TPattern extends TemporalPattern<infer TTemporalKind>
+                      ? TemporalValueForKind<TTemporalKind>
+                      : TPattern extends UnionPattern<infer TPatterns>
+                        ? InferPattern<TPatterns[number]>
+                        : TPattern extends ExcludePattern<unknown>
+                          ? unknown
+                          : TPattern extends OptionalPattern<infer TInner>
+                            ? InferPattern<TInner> | undefined
+                            : TPattern extends ArrayPattern<infer TItem>
+                              ? InferPattern<TItem>[]
+                              : TPattern extends NonEmptyArrayPattern<infer TItem>
+                                ? [InferPattern<TItem>, ...InferPattern<TItem>[]]
+                                : TPattern extends TuplePattern<infer TItems>
+                                  ? InferTuplePattern<TItems>
+                                  : TPattern extends RestPattern<infer TItem>
+                                    ? InferPattern<TItem>[]
+                                    : TPattern extends ExactPattern<infer TInner>
+                                      ? InferPattern<TInner>
+                                      : TPattern extends GuardPattern<infer TGuarded, true>
+                                        ? TGuarded
+                                        : TPattern extends GuardPattern<infer TInput, false>
+                                          ? TInput
+                                          : TPattern extends InstanceOfPattern<infer TConstructor>
+                                            ? InstanceType<TConstructor>
+                                            : TPattern extends AnonymousSelectPattern<infer TInner>
+                                              ? InferPattern<TInner>
+                                              : TPattern extends NamedSelectPattern<PropertyKey, infer TInner>
+                                                ? InferPattern<TInner>
+                                                : TPattern extends RecordPattern<infer TKey, infer TValue>
+                                                  ? InferRecordPattern<TKey, TValue>
+                                                  : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+                                                    ? InferRecordPattern<TKey, TValue>
+                                                    : TPattern extends readonly unknown[]
+                                                      ? InferTuplePattern<TPattern>
+                                                      : TPattern extends Primitive
+                                                        ? TPattern
+                                                        : TPattern extends object
+                                                          ? InferObjectPattern<TPattern>
+                                                          : never
+
+type TemporalValueForKind<TTemporalKind extends TemporalPatternKind> = TTemporalKind extends 'any'
+  ? TemporalValue
+  : TTemporalKind extends 'Instant'
+    ? TemporalInstantValue
+    : TTemporalKind extends 'PlainDate'
+      ? TemporalPlainDateValue
+      : TTemporalKind extends 'PlainTime'
+        ? TemporalPlainTimeValue
+        : TTemporalKind extends 'PlainDateTime'
+          ? TemporalPlainDateTimeValue
+          : TTemporalKind extends 'ZonedDateTime'
+            ? TemporalZonedDateTimeValue
+            : TTemporalKind extends 'Duration'
+              ? TemporalDurationValue
+              : TTemporalKind extends 'PlainYearMonth'
+                ? TemporalPlainYearMonthValue
+                : TemporalPlainMonthDayValue
 
 type InferObjectPattern<TPattern extends object> = Simplify<
   { [K in RequiredPatternKeys<TPattern>]: InferPattern<TPattern[K]> } & {
@@ -538,41 +682,60 @@ export type MatchedValue<TValue, TPattern> =
                   ? MatchedFinite<TValue>
                   : TPattern extends IntegerPattern
                     ? MatchedInteger<TValue>
-                    : TPattern extends UnionPattern<infer TPatterns>
-                      ? MatchedValue<TValue, TPatterns[number]>
-                      : TPattern extends ExcludePattern<infer TInner>
-                        ? SafeExclude<TValue, CoveredValue<TValue, TInner>>
-                        : TPattern extends OptionalPattern<infer TInner>
-                          ? MatchedValue<TValue, TInner> | Extract<TValue, undefined>
-                          : TPattern extends ArrayPattern<infer TItem>
-                            ? MatchedArray<TValue, TItem>
-                            : TPattern extends NonEmptyArrayPattern<infer TItem>
-                              ? MatchedNonEmptyArray<TValue, TItem>
-                              : TPattern extends TuplePattern<infer TItems>
-                                ? MatchedTuple<TValue, TItems>
-                                : TPattern extends ExactPattern<infer TInner>
-                                  ? MatchedExactValue<TValue, TInner>
-                                  : TPattern extends InstanceOfPattern<infer TConstructor>
-                                    ? Extract<TValue, InstanceType<TConstructor>>
-                                    : TPattern extends AnonymousSelectPattern<infer TInner>
-                                      ? MatchedValue<TValue, TInner>
-                                      : TPattern extends NamedSelectPattern<PropertyKey, infer TInner>
-                                        ? MatchedValue<TValue, TInner>
-                                        : TPattern extends RecordPattern<infer TKey, infer TRecordValue>
-                                          ? MatchedRecord<TValue, TKey, TRecordValue, false>
-                                          : TPattern extends NonEmptyRecordPattern<infer TKey, infer TRecordValue>
-                                            ? MatchedRecord<TValue, TKey, TRecordValue, true>
-                                            : TPattern extends readonly unknown[]
-                                              ? MatchedTuple<TValue, TPattern>
-                                              : TPattern extends Primitive
-                                                ? LiteralMatch<TValue, TPattern>
-                                                : TPattern extends object
-                                                  ? MatchedObject<TValue, TPattern>
-                                                  : never
+                    : TPattern extends RegexPattern
+                      ? Extract<TValue, string>
+                      : TPattern extends DatePattern
+                        ? Extract<TValue, Date>
+                        : TPattern extends ErrorPattern
+                          ? Extract<TValue, Error>
+                          : TPattern extends RegexpPattern
+                            ? Extract<TValue, RegExp>
+                            : TPattern extends NullishPattern
+                              ? Extract<TValue, null | undefined>
+                              : TPattern extends FalsyPattern
+                                ? MatchedFalsy<TValue>
+                                : TPattern extends TruthyPattern
+                                  ? MatchedTruthy<TValue>
+                                  : TPattern extends TemporalPattern<infer TTemporalKind>
+                                    ? Extract<TValue, TemporalValueForKind<TTemporalKind>>
+                                    : TPattern extends UnionPattern<infer TPatterns>
+                                      ? MatchedValue<TValue, TPatterns[number]>
+                                      : TPattern extends ExcludePattern<infer TInner>
+                                        ? SafeExclude<TValue, CoveredValue<TValue, TInner>>
+                                        : TPattern extends OptionalPattern<infer TInner>
+                                          ? MatchedValue<TValue, TInner> | Extract<TValue, undefined>
+                                          : TPattern extends ArrayPattern<infer TItem>
+                                            ? MatchedArray<TValue, TItem>
+                                            : TPattern extends NonEmptyArrayPattern<infer TItem>
+                                              ? MatchedNonEmptyArray<TValue, TItem>
+                                              : TPattern extends TuplePattern<infer TItems>
+                                                ? MatchedTuple<TValue, TItems>
+                                                : TPattern extends ExactPattern<infer TInner>
+                                                  ? MatchedExactValue<TValue, TInner>
+                                                  : TPattern extends InstanceOfPattern<infer TConstructor>
+                                                    ? Extract<TValue, InstanceType<TConstructor>>
+                                                    : TPattern extends AnonymousSelectPattern<infer TInner>
+                                                      ? MatchedValue<TValue, TInner>
+                                                      : TPattern extends NamedSelectPattern<PropertyKey, infer TInner>
+                                                        ? MatchedValue<TValue, TInner>
+                                                        : TPattern extends RecordPattern<infer TKey, infer TRecordValue>
+                                                          ? MatchedRecord<TValue, TKey, TRecordValue, false>
+                                                          : TPattern extends NonEmptyRecordPattern<
+                                                                infer TKey,
+                                                                infer TRecordValue
+                                                              >
+                                                            ? MatchedRecord<TValue, TKey, TRecordValue, true>
+                                                            : TPattern extends readonly unknown[]
+                                                              ? MatchedTuple<TValue, TPattern>
+                                                              : TPattern extends Primitive
+                                                                ? LiteralMatch<TValue, TPattern>
+                                                                : TPattern extends object
+                                                                  ? MatchedObject<TValue, TPattern>
+                                                                  : never
 
 type CoveredVariant<TValue, TPattern> = TPattern extends unknown
   ? TPattern extends ExactPattern<infer TInner>
-    ? MatchedExactValue<TValue, TInner>
+    ? CoveredExactValue<TValue, TInner>
     : CoveredValue<TValue, TPattern>
   : never
 
@@ -586,8 +749,16 @@ type CoveredVariant<TValue, TPattern> = TPattern extends unknown
 export type RemainingAfterPattern<TValue, TPattern> = TValue extends unknown
   ? [TValue] extends [CoveredVariant<TValue, TPattern>]
     ? never
-    : TValue
+    : RemainingAfterUncoveredPattern<TValue, TPattern>
   : never
+
+type RemainingAfterUncoveredPattern<TValue, TPattern> = TPattern extends BuiltInPattern
+  ? TValue
+  : TPattern extends readonly unknown[]
+    ? TValue
+    : TPattern extends object
+      ? RemainingAfterObjectPattern<TValue, TPattern>
+      : TValue
 
 /**
  * Removes cases covered by multiple alternative patterns from an input union.
@@ -609,19 +780,49 @@ type CoveredValue<TValue, TPattern> =
           ? CoveredFinite<TValue>
           : TPattern extends IntegerPattern
             ? CoveredInteger<TValue>
-            : TPattern extends ArrayPattern<infer TItem>
-              ? CoveredArray<TValue, TItem>
-              : TPattern extends NonEmptyArrayPattern<infer TItem>
-                ? CoveredNonEmptyArray<TValue, TItem>
-                : TPattern extends TuplePattern<infer TItems>
-                  ? MatchedTuple<TValue, TItems>
-                  : TPattern extends ExactPattern<infer TInner>
-                    ? MatchedExactValue<TValue, TInner>
-                    : TPattern extends RecordPattern<infer TKey, infer TValuePattern>
-                      ? CoveredRecord<TValue, TKey, TValuePattern>
-                      : TPattern extends NonEmptyRecordPattern<unknown, unknown>
-                        ? never
-                        : MatchedValue<TValue, TPattern>
+            : TPattern extends RegexPattern
+              ? never
+              : TPattern extends DatePattern
+                ? never
+                : TPattern extends TemporalPattern<TemporalPatternKind>
+                  ? never
+                  : TPattern extends UnionPattern<infer TPatterns>
+                    ? CoveredValue<TValue, TPatterns[number]>
+                    : TPattern extends ExcludePattern<infer TInner>
+                      ? CoveredExclude<TValue, TInner>
+                      : TPattern extends OptionalPattern<infer TInner>
+                        ? CoveredValue<TValue, TInner> | Extract<TValue, undefined>
+                        : TPattern extends FalsyPattern
+                          ? CoveredFalsy<TValue>
+                          : TPattern extends TruthyPattern
+                            ? CoveredTruthy<TValue>
+                            : TPattern extends ArrayPattern<infer TItem>
+                              ? CoveredArray<TValue, TItem>
+                              : TPattern extends NonEmptyArrayPattern<infer TItem>
+                                ? CoveredNonEmptyArray<TValue, TItem>
+                                : TPattern extends TuplePattern<infer TItems>
+                                  ? MatchedTuple<TValue, TItems>
+                                  : TPattern extends ExactPattern<infer TInner>
+                                    ? CoveredExactValue<TValue, TInner>
+                                    : TPattern extends RecordPattern<infer TKey, infer TValuePattern>
+                                      ? CoveredRecord<TValue, TKey, TValuePattern>
+                                      : TPattern extends NonEmptyRecordPattern<unknown, unknown>
+                                        ? never
+                                        : TPattern extends readonly unknown[]
+                                          ? MatchedTuple<TValue, TPattern>
+                                          : TPattern extends BuiltInPattern
+                                            ? MatchedValue<TValue, TPattern>
+                                            : TPattern extends object
+                                              ? CoveredObject<TValue, TPattern>
+                                              : MatchedValue<TValue, TPattern>
+
+type CoveredExclude<TValue, TPattern> = TValue extends unknown
+  ? [MatchedValue<TValue, TPattern>] extends [never]
+    ? TValue
+    : [TValue] extends [CoveredValue<TValue, TPattern>]
+      ? never
+      : never
+  : never
 
 type SafeExclude<TValue, TExcluded> = TValue extends string
   ? string extends TValue
@@ -868,15 +1069,177 @@ type ObjectPatternCompatible<TValue extends object, TPattern extends object> = f
   ? false
   : true
 
+type OptionalObjectKey<TValue extends object, TKey extends keyof TValue> =
+  Partial<Pick<TValue, TKey>> extends Pick<TValue, TKey> ? true : false
+
+type ObjectPatternKeyHasAbsentHole<
+  TValue extends object,
+  TPattern extends object,
+  TKey extends keyof TPattern,
+> = TKey extends keyof TValue
+  ? TPattern[TKey] extends OptionalPattern<unknown>
+    ? false
+    : OptionalObjectKey<TValue, TKey> extends true
+      ? true
+      : false
+  : false
+
+type ObjectPatternHasAbsentHole<TValue extends object, TPattern extends object> = true extends {
+  [K in keyof TPattern]: ObjectPatternKeyHasAbsentHole<TValue, TPattern, K>
+}[keyof TPattern]
+  ? true
+  : false
+
+type CoveredObject<TValue, TPattern extends object> = TValue extends unknown
+  ? TValue extends object
+    ? ObjectPatternCompatible<TValue, TPattern> extends true
+      ? ObjectPatternHasAbsentHole<TValue, TPattern> extends true
+        ? never
+        : CoveredRefineObject<TValue, TPattern>
+      : never
+    : never
+  : never
+
 type RefineObject<TValue extends object, TPattern extends object> = Simplify<{
   [K in keyof TValue]: K extends keyof TPattern ? MatchedValue<TValue[K], TPattern[K]> : TValue[K]
 }>
+
+type CoveredRefineObject<TValue extends object, TPattern extends object> = Simplify<{
+  [K in keyof TValue]: K extends keyof TPattern ? CoveredValue<TValue[K], TPattern[K]> : TValue[K]
+}>
+
+type RemainingAfterObjectPattern<TValue, TPattern extends object> = TValue extends unknown
+  ? TValue extends object
+    ? ObjectPatternCompatible<TValue, TPattern> extends true
+      ? ObjectPatternFailureUnion<TValue, TPattern>
+      : TValue
+    : TValue
+  : never
+
+type ObjectPatternFailureUnion<TValue extends object, TPattern extends object> = {
+  [K in keyof TPattern]: ObjectPatternKeyFailure<TValue, TPattern, K>
+}[keyof TPattern]
+
+type ObjectPatternKeyFailure<
+  TValue extends object,
+  TPattern extends object,
+  TKey extends keyof TPattern,
+> = TKey extends keyof TValue
+  ? TPattern[TKey] extends OptionalPattern<infer TInner>
+    ? PresentOptionalObjectKeyFailure<TValue, TKey, TInner>
+    : MissingRequiredObjectKey<TValue, TKey> | PresentRequiredObjectKeyFailure<TValue, TPattern, TKey>
+  : TPattern[TKey] extends OptionalPattern<unknown>
+    ? never
+    : TValue
+
+type PresentOptionalObjectKeyFailure<TValue extends object, TKey extends keyof TValue, TPattern> =
+  RemainingAfterPattern<Exclude<TValue[TKey], undefined>, TPattern> extends infer TRemaining
+    ? [TRemaining] extends [never]
+      ? never
+      : RequireObjectKey<TValue, TKey, TRemaining>
+    : never
+
+type PresentRequiredObjectKeyFailure<
+  TValue extends object,
+  TPattern extends object,
+  TKey extends keyof TPattern,
+> = TKey extends keyof TValue
+  ? RemainingAfterPattern<TValue[TKey], TPattern[TKey]> extends infer TRemaining
+    ? [TRemaining] extends [never]
+      ? never
+      : RequireObjectKey<TValue, TKey, TRemaining>
+    : never
+  : never
+
+type MissingRequiredObjectKey<TValue extends object, TKey extends keyof TValue> =
+  OptionalObjectKey<TValue, TKey> extends true ? AbsentObjectKey<TValue, TKey> : never
+
+type RequireObjectKey<TValue extends object, TKey extends keyof TValue, TProperty> = Simplify<
+  Omit<TValue, TKey> & { [K in keyof Pick<TValue, TKey>]-?: TProperty }
+>
+
+type AbsentObjectKey<TValue extends object, TKey extends keyof TValue> = Simplify<
+  Omit<TValue, TKey> & { [K in keyof Pick<TValue, TKey>]?: never }
+>
+
+type CoveredExactValue<TValue, TPattern> = TPattern extends WildcardPattern
+  ? TValue
+  : TPattern extends
+        | PrimitivePattern<Primitive>
+        | NanPattern
+        | FinitePattern
+        | IntegerPattern
+        | RegexPattern
+        | DatePattern
+        | ErrorPattern
+        | RegexpPattern
+        | NullishPattern
+        | FalsyPattern
+        | TruthyPattern
+        | TemporalPattern<TemporalPatternKind>
+    ? CoveredValue<TValue, TPattern>
+    : TPattern extends UnionPattern<infer TPatterns>
+      ? CoveredExactValue<TValue, TPatterns[number]>
+      : TPattern extends ExcludePattern<infer TInner>
+        ? CoveredExactExclude<TValue, TInner>
+        : TPattern extends OptionalPattern<infer TInner>
+          ? CoveredExactValue<TValue, TInner> | Extract<TValue, undefined>
+          : TPattern extends ArrayPattern<infer TItem>
+            ? CoveredArray<TValue, TItem>
+            : TPattern extends NonEmptyArrayPattern<infer TItem>
+              ? CoveredNonEmptyArray<TValue, TItem>
+              : TPattern extends TuplePattern<infer TItems>
+                ? MatchedTuple<TValue, TItems>
+                : TPattern extends RestPattern<unknown>
+                  ? never
+                  : TPattern extends RecordPattern<infer TKey, infer TRecordValue>
+                    ? CoveredRecord<TValue, TKey, TRecordValue>
+                    : TPattern extends NonEmptyRecordPattern<unknown, unknown>
+                      ? never
+                      : TPattern extends readonly unknown[]
+                        ? MatchedTuple<TValue, TPattern>
+                        : TPattern extends object
+                          ? CoveredExactObject<TValue, TPattern>
+                          : CoveredValue<TValue, TPattern>
+
+type CoveredExactObject<TValue, TPattern extends object> = TValue extends unknown
+  ? TValue extends object
+    ? ExactObjectCompatible<TValue, TPattern> extends true
+      ? ObjectPatternHasAbsentHole<TValue, TPattern> extends true
+        ? never
+        : CoveredRefineExactObject<TValue, TPattern>
+      : never
+    : never
+  : never
+
+type CoveredRefineExactObject<TValue extends object, TPattern extends object> = Simplify<{
+  [K in keyof TValue]: K extends keyof TPattern ? CoveredExactValue<TValue[K], TPattern[K]> : TValue[K]
+}>
+
+type CoveredExactExclude<TValue, TPattern> = TValue extends unknown
+  ? [MatchedExactValue<TValue, TPattern>] extends [never]
+    ? TValue
+    : [TValue] extends [CoveredExactValue<TValue, TPattern>]
+      ? never
+      : never
+  : never
 
 type MatchedExactValue<TValue, TPattern> = TPattern extends WildcardPattern
   ? TValue
   : TPattern extends PrimitivePattern<Primitive>
     ? MatchedValue<TValue, TPattern>
-    : TPattern extends NanPattern | FinitePattern | IntegerPattern
+    : TPattern extends
+          | NanPattern
+          | FinitePattern
+          | IntegerPattern
+          | RegexPattern
+          | DatePattern
+          | ErrorPattern
+          | RegexpPattern
+          | NullishPattern
+          | FalsyPattern
+          | TruthyPattern
+          | TemporalPattern<TemporalPatternKind>
       ? MatchedValue<TValue, TPattern>
       : TPattern extends UnionPattern<infer TPatterns>
         ? MatchedExactValue<TValue, TPatterns[number]>
@@ -982,6 +1345,14 @@ type SelectionModeOf<TPattern> = TPattern extends
   | NanPattern
   | FinitePattern
   | IntegerPattern
+  | RegexPattern
+  | DatePattern
+  | ErrorPattern
+  | RegexpPattern
+  | NullishPattern
+  | FalsyPattern
+  | TruthyPattern
+  | TemporalPattern<TemporalPatternKind>
   | GuardPattern<unknown, boolean>
   | InstanceOfPattern<AbstractConstructor>
   ? 'none'
@@ -1031,80 +1402,116 @@ type ContainsSelection<TPattern> = TPattern extends
   | AnonymousSelectPattern<unknown>
   | NamedSelectPattern<PropertyKey, unknown>
   ? true
-  : TPattern extends UnionPattern<infer TPatterns>
-    ? true extends (TPatterns[number] extends unknown ? ContainsSelection<TPatterns[number]> : never)
-      ? true
-      : false
-    : TPattern extends ExcludePattern<infer TInner>
-      ? ContainsSelection<TInner>
-      : TPattern extends OptionalPattern<infer TInner>
+  : TPattern extends
+        | WildcardPattern
+        | PrimitivePattern<Primitive>
+        | NanPattern
+        | FinitePattern
+        | IntegerPattern
+        | RegexPattern
+        | DatePattern
+        | ErrorPattern
+        | RegexpPattern
+        | NullishPattern
+        | FalsyPattern
+        | TruthyPattern
+        | TemporalPattern<TemporalPatternKind>
+        | GuardPattern<unknown, boolean>
+        | InstanceOfPattern<AbstractConstructor>
+    ? false
+    : TPattern extends UnionPattern<infer TPatterns>
+      ? true extends (TPatterns[number] extends unknown ? ContainsSelection<TPatterns[number]> : never)
+        ? true
+        : false
+      : TPattern extends ExcludePattern<infer TInner>
         ? ContainsSelection<TInner>
-        : TPattern extends ArrayPattern<infer TInner>
+        : TPattern extends OptionalPattern<infer TInner>
           ? ContainsSelection<TInner>
-          : TPattern extends NonEmptyArrayPattern<infer TInner>
+          : TPattern extends ArrayPattern<infer TInner>
             ? ContainsSelection<TInner>
-            : TPattern extends TuplePattern<infer TItems>
-              ? ContainsSelection<TItems>
-              : TPattern extends RestPattern<infer TInner>
-                ? ContainsSelection<TInner>
-                : TPattern extends ExactPattern<infer TInner>
+            : TPattern extends NonEmptyArrayPattern<infer TInner>
+              ? ContainsSelection<TInner>
+              : TPattern extends TuplePattern<infer TItems>
+                ? ContainsSelection<TItems>
+                : TPattern extends RestPattern<infer TInner>
                   ? ContainsSelection<TInner>
-                  : TPattern extends RecordPattern<infer TKey, infer TValue>
-                    ? ContainsSelection<TKey> extends true
-                      ? true
-                      : ContainsSelection<TValue>
-                    : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+                  : TPattern extends ExactPattern<infer TInner>
+                    ? ContainsSelection<TInner>
+                    : TPattern extends RecordPattern<infer TKey, infer TValue>
                       ? ContainsSelection<TKey> extends true
                         ? true
                         : ContainsSelection<TValue>
-                      : TPattern extends readonly unknown[]
-                        ? true extends (TPattern[number] extends unknown ? ContainsSelection<TPattern[number]> : never)
+                      : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+                        ? ContainsSelection<TKey> extends true
                           ? true
-                          : false
-                        : TPattern extends object
-                          ? true extends {
-                              [K in keyof TPattern]: ContainsSelection<TPattern[K]>
-                            }[keyof TPattern]
+                          : ContainsSelection<TValue>
+                        : TPattern extends readonly unknown[]
+                          ? true extends (
+                              TPattern[number] extends unknown ? ContainsSelection<TPattern[number]> : never
+                            )
                             ? true
                             : false
-                          : false
+                          : TPattern extends object
+                            ? true extends {
+                                [K in keyof TPattern]: ContainsSelection<TPattern[K]>
+                              }[keyof TPattern]
+                              ? true
+                              : false
+                            : false
 
 type RestUsageValid<TPattern> =
   TPattern extends RestPattern<unknown>
     ? false
-    : TPattern extends UnionPattern<infer TPatterns>
-      ? false extends (TPatterns[number] extends unknown ? RestUsageValid<TPatterns[number]> : never)
-        ? false
-        : true
-      : TPattern extends ExcludePattern<infer TInner>
-        ? RestUsageValid<TInner>
-        : TPattern extends OptionalPattern<infer TInner>
+    : TPattern extends
+          | WildcardPattern
+          | PrimitivePattern<Primitive>
+          | NanPattern
+          | FinitePattern
+          | IntegerPattern
+          | RegexPattern
+          | DatePattern
+          | ErrorPattern
+          | RegexpPattern
+          | NullishPattern
+          | FalsyPattern
+          | TruthyPattern
+          | TemporalPattern<TemporalPatternKind>
+          | GuardPattern<unknown, boolean>
+          | InstanceOfPattern<AbstractConstructor>
+      ? true
+      : TPattern extends UnionPattern<infer TPatterns>
+        ? false extends (TPatterns[number] extends unknown ? RestUsageValid<TPatterns[number]> : never)
+          ? false
+          : true
+        : TPattern extends ExcludePattern<infer TInner>
           ? RestUsageValid<TInner>
-          : TPattern extends ArrayPattern<infer TInner>
+          : TPattern extends OptionalPattern<infer TInner>
             ? RestUsageValid<TInner>
-            : TPattern extends NonEmptyArrayPattern<infer TInner>
+            : TPattern extends ArrayPattern<infer TInner>
               ? RestUsageValid<TInner>
-              : TPattern extends TuplePattern<infer TItems>
-                ? TupleRestUsageValid<TItems>
-                : TPattern extends ExactPattern<infer TInner>
-                  ? RestUsageValid<TInner>
-                  : TPattern extends RecordPattern<infer TKey, infer TValue>
-                    ? RestUsageValid<TKey> extends true
-                      ? RestUsageValid<TValue>
-                      : false
-                    : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+              : TPattern extends NonEmptyArrayPattern<infer TInner>
+                ? RestUsageValid<TInner>
+                : TPattern extends TuplePattern<infer TItems>
+                  ? TupleRestUsageValid<TItems>
+                  : TPattern extends ExactPattern<infer TInner>
+                    ? RestUsageValid<TInner>
+                    : TPattern extends RecordPattern<infer TKey, infer TValue>
                       ? RestUsageValid<TKey> extends true
                         ? RestUsageValid<TValue>
                         : false
-                      : TPattern extends readonly unknown[]
-                        ? TupleRestUsageValid<TPattern>
-                        : TPattern extends object
-                          ? false extends {
-                              [K in keyof TPattern]: RestUsageValid<TPattern[K]>
-                            }[keyof TPattern]
-                            ? false
+                      : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+                        ? RestUsageValid<TKey> extends true
+                          ? RestUsageValid<TValue>
+                          : false
+                        : TPattern extends readonly unknown[]
+                          ? TupleRestUsageValid<TPattern>
+                          : TPattern extends object
+                            ? false extends {
+                                [K in keyof TPattern]: RestUsageValid<TPattern[K]>
+                              }[keyof TPattern]
+                              ? false
+                              : true
                             : true
-                          : true
 
 type TupleRestUsageValid<TPatterns extends readonly unknown[]> = TPatterns extends readonly []
   ? true

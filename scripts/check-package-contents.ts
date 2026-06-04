@@ -39,6 +39,7 @@ const EXAMPLE_FILES = [
   '13-real-world-events.ts',
   '14-performance-friendly-hoisting.ts',
   '15-match-by-with-partial.ts',
+  '16-convenience-helpers.ts',
 ] as const
 
 const expectedPackageFiles = [

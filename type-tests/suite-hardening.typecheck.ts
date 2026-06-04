@@ -71,10 +71,7 @@ const _optionalResult = match(optionalInput)
   .with({ a: { name: P.string } }, (value) => value.a?.name)
   .exhaustive()
 type _optionalReturn = Expect<
-  Equal<
-    typeof _optionalResult,
-    'done' | { readonly name: 'Hello'; readonly age: number } | 'Hello' | 'Bonjour' | undefined
-  >
+  Equal<typeof _optionalResult, 'done' | { readonly name: 'Hello'; readonly age: number } | 'Bonjour' | undefined>
 >
 
 type OptionalSelectInput =

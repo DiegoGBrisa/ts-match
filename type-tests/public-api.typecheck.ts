@@ -23,8 +23,11 @@ import {
   pArray,
   pBigint,
   pBoolean,
+  pDate,
+  pError,
   pExact,
   pExclude,
+  pFalsy,
   pFinite,
   pInstanceOf,
   pInteger,
@@ -32,20 +35,33 @@ import {
   pNonEmptyArray,
   pNonEmptyRecord,
   pNull,
+  pNullish,
   pNumber,
   pOptional,
   pRecord,
+  pRegex,
+  pRegexp,
   pRest,
   pSelect,
   pString,
   pSymbol,
+  pTemporal,
+  pTemporalDuration,
+  pTemporalInstant,
+  pTemporalPlainDate,
+  pTemporalPlainDateTime,
+  pTemporalPlainMonthDay,
+  pTemporalPlainTime,
+  pTemporalPlainYearMonth,
+  pTemporalZonedDateTime,
+  pTruthy,
   pTuple,
   pUndefined,
   pUnion,
   pWhen,
   pWildcard,
 } from '../src/patterns.js'
-import type { InferPattern } from '../src/types.js'
+import type { InferPattern, TemporalInstantValue } from '../src/types.js'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
@@ -187,6 +203,33 @@ const _advancedHelperInference = match(unknownInput)
   .otherwise(() => 'unknown')
 type _advancedHelperResult = Expect<Equal<typeof _advancedHelperInference, string>>
 
+const _convenienceHelperInference = match(unknownInput)
+  .with(pRegex(/^user-/), (value) => {
+    const text: string = value
+    return text
+  })
+  .with(pDate, (value) => {
+    const date: Date = value
+    return date
+  })
+  .with(pError, (value) => {
+    const error: Error = value
+    return error
+  })
+  .with(pRegexp, (value) => {
+    const regexp: RegExp = value
+    return regexp
+  })
+  .with(pTemporalInstant, (value) => {
+    const temporal: TemporalInstantValue = value
+    return temporal[Symbol.toStringTag]
+  })
+  .with(pNullish, () => 'nullish')
+  .with(pFalsy, () => 'falsy')
+  .with(pTruthy, () => 'truthy')
+  .otherwise(() => 'unknown')
+type _convenienceHelperResult = Expect<Equal<typeof _convenienceHelperInference, string | Date | Error | RegExp>>
+
 const _whenHelperInference = match(unknownInput)
   .with(
     pWhen((value: unknown): value is string => typeof value === 'string'),
@@ -218,6 +261,15 @@ const _primitiveHelperResults = [
   isMatching(pBigint, 1n),
   isMatching(pSymbol, Symbol('s')),
   isMatching(pNan, Number.NaN),
+  isMatching(P.temporal, unknownInput),
+  isMatching(pTemporal, unknownInput),
+  isMatching(pTemporalPlainDate, unknownInput),
+  isMatching(pTemporalPlainTime, unknownInput),
+  isMatching(pTemporalPlainDateTime, unknownInput),
+  isMatching(pTemporalZonedDateTime, unknownInput),
+  isMatching(pTemporalDuration, unknownInput),
+  isMatching(pTemporalPlainYearMonth, unknownInput),
+  isMatching(pTemporalPlainMonthDay, unknownInput),
 ]
 
 const selectedPayload: unknown = { id: 'user-1' }
