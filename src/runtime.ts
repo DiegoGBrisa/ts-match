@@ -1,6 +1,6 @@
 import { ownEnumerableKeys } from './keys.js'
 import { PATTERN_TOKEN } from './tokens.js'
-import type { BuiltInPattern, OptionalPattern } from './types.js'
+import type { BuiltInPattern, OptionalPattern, TemporalPatternKind } from './types.js'
 
 type SelectionMode = 'none' | 'anonymous' | 'named'
 
@@ -43,6 +43,8 @@ interface IndexableObject {
 interface MatchOptions {
   readonly exactObjectKeys: boolean
 }
+
+type TemporalConstructor = abstract new (...args: never[]) => object
 
 const NORMAL_OPTIONS: MatchOptions = { exactObjectKeys: false }
 const EXACT_OPTIONS: MatchOptions = { exactObjectKeys: true }
@@ -132,6 +134,79 @@ function primitiveMatches(value: unknown, primitive: string): boolean {
   if (primitive === 'null') return value === null
   if (primitive === 'undefined') return value === undefined
   return false
+}
+
+/**
+ * Matches a string with a regular expression without leaking `lastIndex` changes.
+ *
+ * @param value - Candidate value.
+ * @param regex - Regular expression supplied to `P.regex(...)`.
+ * @returns `true` when the candidate is a string accepted by `regex`.
+ */
+function regexMatches(value: unknown, regex: RegExp): boolean {
+  if (typeof value !== 'string') return false
+  const lastIndexDescriptor = Object.getOwnPropertyDescriptor(regex, 'lastIndex')
+  if (lastIndexDescriptor?.writable !== true) return new RegExp(regex.source, regex.flags).test(value)
+
+  const originalLastIndex = regex.lastIndex
+  regex.lastIndex = 0
+  try {
+    return regex.test(value)
+  } finally {
+    regex.lastIndex = originalLastIndex
+  }
+}
+
+const TEMPORAL_KINDS: readonly Exclude<TemporalPatternKind, 'any'>[] = [
+  'Instant',
+  'PlainDate',
+  'PlainTime',
+  'PlainDateTime',
+  'ZonedDateTime',
+  'Duration',
+  'PlainYearMonth',
+  'PlainMonthDay',
+]
+
+function isTemporalConstructor(value: unknown): value is TemporalConstructor {
+  return typeof value === 'function'
+}
+
+/**
+ * Reads a Temporal constructor from `globalThis.Temporal` when available.
+ *
+ * @param temporalKind - Temporal constructor name to read.
+ * @returns Constructor function, or `undefined` when Temporal is unavailable.
+ */
+function getTemporalConstructor(temporalKind: Exclude<TemporalPatternKind, 'any'>): TemporalConstructor | undefined {
+  const temporal = Reflect.get(globalThis, 'Temporal')
+  if (!isObject(temporal)) return undefined
+  const constructor = readProperty(temporal, temporalKind)
+  return isTemporalConstructor(constructor) ? constructor : undefined
+}
+
+function temporalInstanceOf(value: unknown, constructor: TemporalConstructor): boolean {
+  try {
+    return value instanceof constructor
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Matches Temporal values by constructor identity without requiring Temporal at import time.
+ *
+ * @param value - Candidate value.
+ * @param temporalKind - Specific Temporal kind, or `any` for all supported kinds.
+ * @returns `true` when the candidate is an instance of the requested Temporal constructor.
+ */
+function temporalMatches(value: unknown, temporalKind: TemporalPatternKind): boolean {
+  if (temporalKind === 'any') {
+    return TEMPORAL_KINDS.some((kind) => temporalMatches(value, kind))
+  }
+
+  const constructor = getTemporalConstructor(temporalKind)
+  return constructor === undefined ? false : temporalInstanceOf(value, constructor)
 }
 
 /**
@@ -702,6 +777,14 @@ function matchPrimitivePattern(value: unknown, pattern: BuiltInPattern): boolean
   if (kind === 'nan') return Number.isNaN(value)
   if (kind === 'finite') return typeof value === 'number' && Number.isFinite(value)
   if (kind === 'integer') return Number.isInteger(value)
+  if (kind === 'regex') return regexMatches(value, pattern.regex)
+  if (kind === 'date') return value instanceof Date && !Number.isNaN(value.getTime())
+  if (kind === 'error') return value instanceof Error
+  if (kind === 'regexp') return value instanceof RegExp
+  if (kind === 'nullish') return value === null || value === undefined
+  if (kind === 'falsy') return !value
+  if (kind === 'truthy') return Boolean(value)
+  if (kind === 'temporal') return temporalMatches(value, pattern.temporal)
   return undefined
 }
 

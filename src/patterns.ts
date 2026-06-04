@@ -3,8 +3,11 @@ import type {
   AbstractConstructor,
   AnonymousSelectPattern,
   ArrayPattern,
+  DatePattern,
+  ErrorPattern,
   ExactPattern,
   ExcludePattern,
+  FalsyPattern,
   FinitePattern,
   GuardPattern,
   InstanceOfPattern,
@@ -13,6 +16,7 @@ import type {
   NanPattern,
   NonEmptyArrayPattern,
   NonEmptyRecordPattern,
+  NullishPattern,
   OptionalPattern,
   PatternStructureArgument,
   PrimitivePattern,
@@ -21,9 +25,14 @@ import type {
   RecordKeyPatternArgument,
   RecordPattern,
   RecordValuePatternArgument,
+  RegexPattern,
+  RegexpPattern,
   RepeatedPatternArgument,
   RestPattern,
   SelectPattern,
+  TemporalPattern,
+  TemporalPatternKind,
+  TruthyPattern,
   TuplePattern,
   TuplePatternArgument,
   UnionPattern,
@@ -226,6 +235,66 @@ export const pFinite: FinitePattern = freezePattern({ [PATTERN_TOKEN]: 'finite' 
  * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
  */
 export const pInteger: IntegerPattern = freezePattern({ [PATTERN_TOKEN]: 'integer' })
+
+/**
+ * Matches strings accepted by a regular expression.
+ *
+ * The helper is string-only and does not coerce non-string values. Runtime
+ * matching starts from `lastIndex = 0` and restores the caller's original
+ * `lastIndex` so reused stateful regexes behave deterministically.
+ *
+ * @param regex - Regular expression used to match string values.
+ * @returns A frozen regular-expression string pattern helper.
+ * @throws {TypeError} When `regex` is not a `RegExp` instance.
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
+export function pRegex(regex: RegExp): RegexPattern {
+  if (!(regex instanceof RegExp)) throw new TypeError('P.regex(...) requires a RegExp instance.')
+  return freezePattern({ [PATTERN_TOKEN]: 'regex', regex })
+}
+
+/** Matches valid `Date` instances. */
+export const pDate: DatePattern = freezePattern({ [PATTERN_TOKEN]: 'date' })
+
+/** Matches `Error` instances, including subclasses. */
+export const pError: ErrorPattern = freezePattern({ [PATTERN_TOKEN]: 'error' })
+
+/** Matches `RegExp` instances. */
+export const pRegexp: RegexpPattern = freezePattern({ [PATTERN_TOKEN]: 'regexp' })
+
+/** Matches exactly `null | undefined`. */
+export const pNullish: NullishPattern = freezePattern({ [PATTERN_TOKEN]: 'nullish' })
+
+/** Matches values where JavaScript truthiness is false. */
+export const pFalsy: FalsyPattern = freezePattern({ [PATTERN_TOKEN]: 'falsy' })
+
+/** Matches values where JavaScript truthiness is true. */
+export const pTruthy: TruthyPattern = freezePattern({ [PATTERN_TOKEN]: 'truthy' })
+
+function temporal<TTemporalKind extends TemporalPatternKind>(
+  temporalKind: TTemporalKind,
+): TemporalPattern<TTemporalKind> {
+  return freezePattern({ [PATTERN_TOKEN]: 'temporal', temporal: temporalKind })
+}
+
+/** Matches any recognized Temporal value object when Temporal is available. */
+export const pTemporal: TemporalPattern<'any'> = temporal('any')
+/** Matches `Temporal.Instant` instances when Temporal is available. */
+export const pTemporalInstant: TemporalPattern<'Instant'> = temporal('Instant')
+/** Matches `Temporal.PlainDate` instances when Temporal is available. */
+export const pTemporalPlainDate: TemporalPattern<'PlainDate'> = temporal('PlainDate')
+/** Matches `Temporal.PlainTime` instances when Temporal is available. */
+export const pTemporalPlainTime: TemporalPattern<'PlainTime'> = temporal('PlainTime')
+/** Matches `Temporal.PlainDateTime` instances when Temporal is available. */
+export const pTemporalPlainDateTime: TemporalPattern<'PlainDateTime'> = temporal('PlainDateTime')
+/** Matches `Temporal.ZonedDateTime` instances when Temporal is available. */
+export const pTemporalZonedDateTime: TemporalPattern<'ZonedDateTime'> = temporal('ZonedDateTime')
+/** Matches `Temporal.Duration` instances when Temporal is available. */
+export const pTemporalDuration: TemporalPattern<'Duration'> = temporal('Duration')
+/** Matches `Temporal.PlainYearMonth` instances when Temporal is available. */
+export const pTemporalPlainYearMonth: TemporalPattern<'PlainYearMonth'> = temporal('PlainYearMonth')
+/** Matches `Temporal.PlainMonthDay` instances when Temporal is available. */
+export const pTemporalPlainMonthDay: TemporalPattern<'PlainMonthDay'> = temporal('PlainMonthDay')
 
 type PatternListArgument<TPatterns extends readonly unknown[]> = {
   readonly [K in keyof TPatterns]: TPatterns[K] & PatternStructureArgument<TPatterns[K]>
@@ -601,6 +670,22 @@ export const P = Object.freeze({
   nan: pNan,
   finite: pFinite,
   integer: pInteger,
+  regex: pRegex,
+  date: pDate,
+  error: pError,
+  regexp: pRegexp,
+  nullish: pNullish,
+  falsy: pFalsy,
+  truthy: pTruthy,
+  temporal: pTemporal,
+  temporalInstant: pTemporalInstant,
+  temporalPlainDate: pTemporalPlainDate,
+  temporalPlainTime: pTemporalPlainTime,
+  temporalPlainDateTime: pTemporalPlainDateTime,
+  temporalZonedDateTime: pTemporalZonedDateTime,
+  temporalDuration: pTemporalDuration,
+  temporalPlainYearMonth: pTemporalPlainYearMonth,
+  temporalPlainMonthDay: pTemporalPlainMonthDay,
   union: pUnion,
   exclude: pExclude,
   optional: pOptional,
