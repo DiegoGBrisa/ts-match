@@ -59,7 +59,7 @@ Root import for normal usage:
 
 ```ts
 import { assertMatching, group, isMatching, match, matchBy, P } from '@diegogbrisa/ts-match'
-import type { MatchByPath, MatchedValue, MatchPromiseResult } from '@diegogbrisa/ts-match'
+import type { MatchByPath, MatchedValue, MatchPromiseResult, TemporalInstantValue } from '@diegogbrisa/ts-match'
 ```
 
 Focused subpaths:
@@ -67,7 +67,7 @@ Focused subpaths:
 ```ts
 import { match } from '@diegogbrisa/ts-match/match'
 import { matchBy } from '@diegogbrisa/ts-match/match-by'
-import { P, pString } from '@diegogbrisa/ts-match/patterns'
+import { P, pRegex, pString } from '@diegogbrisa/ts-match/patterns'
 import { isMatching, assertMatching } from '@diegogbrisa/ts-match/assertions'
 import { NonExhaustiveMatchError, PatternMismatchError } from '@diegogbrisa/ts-match/errors'
 import { group } from '@diegogbrisa/ts-match/group'
@@ -543,6 +543,10 @@ Array-form groups remain supported and are often more readable because `group` k
 - `P._`, `P.any` — wildcard helpers that match anything.
 - `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined` — primitive helpers.
 - `P.nan`, `P.finite`, `P.integer` — numeric helpers.
+- `P.regex(regex)` — string-only regular expression matching; restores `regex.lastIndex`.
+- `P.date`, `P.error`, `P.regexp` — valid `Date`, `Error`, and `RegExp` instance helpers.
+- `P.nullish`, `P.falsy`, `P.truthy` — JavaScript nullish/truthiness helpers.
+- `P.temporal`, `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, `P.temporalPlainMonthDay` — Temporal helpers. They match nothing when `globalThis.Temporal` is unavailable and do not polyfill Temporal.
 - `P.union(...patterns)` — matches any listed pattern; requires at least one pattern.
 - `P.exclude(pattern)` — matches values that do not match the nested pattern; cannot contain selections.
 - `P.optional(pattern)` — matches an absent object property, `undefined`, or the nested pattern.
@@ -563,11 +567,15 @@ Named helper exports mirror `P` helpers:
 
 - `pWildcard`, `pAny`, `pString`, `pNumber`, `pBoolean`, `pBigint`, `pSymbol`, `pNull`, `pUndefined`
 - `pNan`, `pFinite`, `pInteger`
+- `pRegex`, `pDate`, `pError`, `pRegexp`, `pNullish`, `pFalsy`, `pTruthy`
+- `pTemporal`, `pTemporalInstant`, `pTemporalPlainDate`, `pTemporalPlainTime`, `pTemporalPlainDateTime`, `pTemporalZonedDateTime`, `pTemporalDuration`, `pTemporalPlainYearMonth`, `pTemporalPlainMonthDay`
 - `pUnion`, `pExclude`, `pOptional`
 - `pArray`, `pNonEmptyArray`, `pTuple`, `pRest`
 - `pExact`, `pWhen`, `pInstanceOf`, `pSelect`, `pRecord`, `pNonEmptyRecord`
 
 Use named helpers when codebases prefer focused imports or want helper usage visible to bundlers.
+
+Use `P.regex(regex)` instead of hand-written `P.when(...)` for string regex checks. Use `P.nullish` only for `null | undefined`; wrap it in `P.optional(...)` when an absent object property should also match. Use `P.date` for valid dates and `P.instanceOf(Date)` only when invalid `Date` instances should still match. Temporal helpers depend on runtime constructors supplied by the environment or the application; they are safe to import in projects that do not include TypeScript's `ESNext.Temporal` lib.
 
 ## Runtime guards and assertions
 
@@ -637,7 +645,7 @@ If grouped-case handler inference is weak and variadic `.with(tag1, tag2, handle
 - Object-map `.cases({...})` cannot represent `null`, `undefined`, or normalized key collisions. Avoid bare `__proto__:` object-literal syntax; use computed `['__proto__']`, tuple/grouped entries, or callback grouped cases.
 - Standalone exported `group(...)` cannot always infer handler parameter types from a later `.cases(...)` or `.partial(...)` call. Use callback-local `group` for annotation-free grouped handlers.
 - No structural `Map`/`Set` helper exists. Use `P.instanceOf(Map)` / `P.instanceOf(Set)` plus `P.when(...)` for custom checks.
-- No RegExp string helper exists. Use `P.when(...)`.
+- Temporal helpers do not polyfill `globalThis.Temporal`; they match nothing until the runtime or application provides Temporal constructors.
 
 ## Anti-patterns
 

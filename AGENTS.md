@@ -30,6 +30,8 @@ Use `pnpm` for this repository. Prefer the narrowest command that validates your
 - `pnpm test:coverage` — run coverage, excluding editor-DX tests.
 - `pnpm test:editor-dx` — run TypeScript language-service autocomplete/DX tests.
 - `pnpm test:diagnostics` — verify expected `ts-match:` compiler diagnostics.
+- `pnpm test:temporal-real` — run dynamic Temporal integration tests; uses real Temporal when available and asserts no-match/no-throw fallback when unavailable.
+- `pnpm test:temporal-browser` — build and run browser Temporal integration tests with Playwright; set `TS_MATCH_BROWSER=chromium` or `firefox`.
 
 ### Docs and examples
 
@@ -55,7 +57,7 @@ Use `pnpm` for this repository. Prefer the narrowest command that validates your
 
 ### Release checks
 
-- `pnpm release:preflight` — full release gate including checks, benchmarks, pack validation, audit, and zero-runtime-deps check.
+- `pnpm release:preflight` — local release gate including checks, benchmarks, pack validation, audit, and zero-runtime-deps check; CI adds native Temporal lanes for Node 26, Chromium, and Firefox.
 - `pnpm release:notes` — extract release notes.
 - `pnpm release:verify-tag` — verify release tag state.
 - `pnpm release:verify-unpublished` — verify the package version is not already published.

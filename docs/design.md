@@ -26,6 +26,47 @@ User-facing guide: [`../README.md`](../README.md). Checked examples: [`../exampl
 - Promise normalization is explicit: `match.promise(...)` and `matchBy.promise(...)` resolve value, promise, thenable, and maybe-promise inputs internally; handlers receive `Awaited<TInput>`, terminal values are promise-normalized, normal terminals reject normally, and safe terminals return `MatchPromiseResult<T>`.
 - `matchBy(value, path)` is the differentiator for discriminated unions and nested discriminants.
 
+## v1.x roadmap principle
+
+v1.x roadmap work should be additive-only public API work. New pattern helpers, safe terminals, and type refinements can ship in v1.x when they preserve current runtime behavior, TypeScript inference expectations, ESM-only packaging, Node 20+ targeting, zero runtime dependencies, and performance posture. Changes to existing pattern semantics, selection rules, property-path behavior, exhaustiveness behavior, or fallback behavior require a separate design decision before they can ship.
+
+The first v1.x roadmap batch is limited to convenience pattern helpers and ships as one release, including date/time and Temporal helpers. The batch includes `P.regex`, `P.date`, `P.error`, `P.regexp`, `P.nullish`, `P.falsy`, `P.truthy`, and the Temporal helpers listed below. `P.not` is intentionally not planned because `P.exclude(...)` is the canonical negative helper and aligns with TypeScript's `Exclude<T, U>` mental model.
+
+Every new `P.*` helper in the first v1.x batch must also have the matching named `p*` export to preserve the package's established namespace-plus-named-helper API symmetry.
+
+Helper semantics:
+
+- `P.regex(regex)` accepts only a `RegExp` instance. It is string-only: it matches values where `typeof value === 'string'` and the supplied regular expression matches the string; it does not coerce non-string values. It is deterministic for stateful regular expressions: matching starts from `lastIndex = 0` and restores the caller's original `lastIndex` after evaluation.
+- `P.date` matches valid `Date` instances only, equivalent to `value instanceof Date && !Number.isNaN(value.getTime())`. Invalid `Date` instances remain matchable with `P.instanceOf(Date)` when callers want constructor-level matching.
+- `P.error` matches `Error` instances, including subclasses such as `TypeError`, `RangeError`, and custom errors.
+- `P.regexp` matches `RegExp` instances only. It is distinct from `P.regex(regex)`: `P.regexp` matches regular expression objects, while `P.regex(regex)` matches strings accepted by a regular expression.
+- `P.nullish` matches exactly `null | undefined`. It does not match missing object properties unless wrapped in `P.optional(...)`.
+- `P.falsy` follows JavaScript truthiness exactly and matches values where `!value` is `true`, including `false`, `0`, `-0`, `0n`, `''`, `null`, `undefined`, and `NaN`. It does not match truthy containers or wrappers such as `[]`, `{}`, `'0'`, `'false'`, or `new Boolean(false)`.
+- `P.truthy` follows JavaScript truthiness exactly and matches values where `Boolean(value)` is `true`.
+- Date/time helper work should ship with Temporal support rather than treating Temporal as a later unrelated feature. Temporal helpers must remain dependency-free and should not require the library to polyfill `globalThis.Temporal`.
+- `P.temporal` matches any recognized Temporal value object and remains separate from `P.date`; legacy `Date` instances do not match `P.temporal`, and Temporal objects do not match `P.date`. Specific planned helpers are `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, and `P.temporalPlainMonthDay`.
+- When `globalThis.Temporal` is unavailable, Temporal helpers match nothing. They must not throw at module import time, pattern construction time, or match evaluation time merely because the runtime does not provide Temporal.
+- Temporal helpers use real constructor identity when Temporal constructors are available, for example `value instanceof globalThis.Temporal.PlainDate`. They do not accept duck-typed objects or spoofed `Symbol.toStringTag` values.
+- Temporal helper public types should not force consumers to include TypeScript's `ESNext.Temporal` lib. The README is the user-facing documentation source and must explain the runtime/type compatibility tradeoff clearly: runtime matching depends on available Temporal constructors or a caller-provided polyfill, while declaration compatibility should remain usable for projects that do not include global Temporal types yet. Design details can also live in this document, but user-facing behavior belongs in the README.
+
+Helper type behavior should match what TypeScript can represent honestly. `P.nullish` removes `null | undefined` from remaining unions. `P.falsy` removes statically representable falsy literals (`false | 0 | 0n | '' | null | undefined`) from remaining unions; `NaN` is runtime-only because TypeScript has no `NaN` literal type. `P.truthy` narrows by excluding statically representable falsy literals. `P.regex(regex)` narrows matched payloads to `string` but does not prove coverage of arbitrary string sublanguages. `P.date`, `P.error`, `P.regexp`, and Temporal helpers narrow to their corresponding public helper types while preserving declaration compatibility.
+
+Release acceptance for this helper batch includes public API exports, README documentation, runtime tests, type tests, Temporal declaration compatibility coverage, no-Temporal fallback coverage on runtimes without `globalThis.Temporal`, native Temporal runtime coverage on Node 26 and Temporal-capable browser lanes, export smoke/package checks, at least one natural checked example, and an updated root `SKILL.md` so downstream coding agents learn the new version's public helper surface before release. Track the helper batch as a single implementation issue so date/time, Temporal, docs, examples, tests, and agent skill updates land together in one coherent v1.x release.
+
+Future collection helper design:
+
+- `P.map(keyPattern, valuePattern)` matches actual `Map` instances only, using `value instanceof Map`. It does not match plain objects, entry arrays, or duck-typed map-like objects.
+- `P.map(...)` should support both homogeneous maps (`P.map(keyPattern, valuePattern)`, where every entry must match the same key and value patterns) and variadic entry-pattern maps (`P.map([keyPattern, valuePattern], [keyPattern, valuePattern], ...)`). Entry-pattern maps are partial by default, mirroring object pattern semantics: a map may contain extra entries unless wrapped in exact matching semantics. Ambiguous homogeneous tuple key/value patterns should use explicit `P.tuple(...)`, for example `P.map(P.tuple([P.string, P.number]), P.tuple([P.boolean, P.boolean]))`, because top-level array pairs in `P.map(...)` are interpreted as entry patterns.
+- Entry-pattern `P.map(...)` clauses consume distinct runtime entries. One actual Map entry cannot satisfy multiple top-level entry clauses; repeated broad clauses therefore express cardinality, and future exact matching can reason about matched entry counts predictably.
+- Entry-pattern `P.map(...)` matching is deterministic: evaluate entry clauses left to right, and for each clause scan Map entries in insertion order for the first unused entry that satisfies the key and value patterns.
+- `P.exact(P.map(...entries))` rejects extra Map entries beyond the distinct entries consumed by the entry clauses. `P.exact(P.map(keyPattern, valuePattern))` adds no extra constraint beyond homogeneous matching because homogeneous matching already checks every runtime entry and does not express required cardinality.
+- Map key and value positions accept the normal public pattern grammar, including plain literal patterns and `P.union(...)`. Add `P.literal(value)` with Map/Set work so callers can express exact value/reference identity for object, function, or array keys without changing the existing structural meaning of plain object patterns.
+- `P.select(...)` remains rejected inside `P.map(...)` for now, consistent with repeated-container restrictions. Aggregate collection captures should be designed explicitly later, for example as `P.collect(...)`, rather than overloading `P.select(...)`.
+- `P.set(...)` should mirror the Map API shape. `P.set(valuePattern)` is homogeneous and requires every Set value to match the same pattern. `P.set(valuePattern, ...moreValuePatterns)` is required-value mode and requires distinct Set values matching each top-level value pattern, with extra values allowed unless wrapped in exact matching semantics. Ambiguous tuple value patterns should use explicit `P.tuple(...)`.
+- Required-value `P.set(...)` clauses consume distinct runtime values and match deterministically: evaluate value patterns left to right, scanning Set values in insertion order for the first unused value that satisfies each pattern.
+- `P.exact(P.set(...requiredValues))` rejects extra Set values beyond the distinct values consumed by the required-value clauses. `P.exact(P.set(valuePattern))` adds no extra constraint beyond homogeneous matching because homogeneous matching already checks every runtime value and does not express required cardinality.
+- `P.select(...)` remains rejected inside `P.set(...)` for now, consistent with repeated-container restrictions. Aggregate Set captures belong in a future explicit collection-capture helper such as `P.collect(...)`.
+
 ## Pattern helpers
 
 Canonical namespace: `P`.
@@ -37,6 +78,9 @@ Supported helpers:
 - `P._` / `P.any`
 - `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined`
 - `P.nan`, `P.finite`, `P.integer`
+- `P.regex(regex)`
+- `P.date`, `P.error`, `P.regexp`, `P.nullish`, `P.falsy`, `P.truthy`
+- `P.temporal`, `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, `P.temporalPlainMonthDay`
 - `P.union(...)`
 - `P.exclude(pattern)`
 - `P.optional(pattern)`
@@ -52,11 +96,9 @@ Supported helpers:
 - `P.record(keyPattern, valuePattern)`
 - `P.nonEmptyRecord(keyPattern, valuePattern)`
 
-Out of scope for v1:
+Out of scope for the current convenience-helper batch:
 
-- Map/Set structural matching. Use `P.instanceOf(Map | Set)` plus `P.when(...)` for now.
-- RegExp-as-string matching. Use `P.when(...)` for now.
-- Special aliases like `P.date`, `P.error`, `P.regexp`.
+- Map/Set structural matching. It is tracked separately for v1.x; use `P.instanceOf(Map | Set)` plus `P.when(...)` for now.
 - Cycle protection for deeply cyclic value/pattern graphs.
 
 ## Object semantics
