@@ -40,6 +40,7 @@ const EXAMPLE_FILES = [
   '14-performance-friendly-hoisting.ts',
   '15-match-by-with-partial.ts',
   '16-convenience-helpers.ts',
+  '17-collection-helpers.ts',
 ] as const
 
 const expectedPackageFiles = [

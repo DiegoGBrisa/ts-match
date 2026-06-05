@@ -31,6 +31,15 @@ if (!patternsModule.P.string) {
 if (!patternsModule.P.regex(/\d/)) {
   throw new Error('patterns regex helper export failed')
 }
+if (!patternsModule.P.map(patternsModule.P.string, patternsModule.P.number)) {
+  throw new Error('patterns map helper export failed')
+}
+if (!patternsModule.pSet(patternsModule.pString)) {
+  throw new Error('patterns set named helper export failed')
+}
+if (!root.pLiteral('ready')) {
+  throw new Error('root literal named helper export failed')
+}
 if (!patternsModule.pTemporalInstant) {
   throw new Error('patterns temporal named helper export failed')
 }

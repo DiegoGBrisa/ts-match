@@ -773,14 +773,19 @@ Checked example using common helpers: [`examples/08-pattern-helpers.ts`](example
 | `P.temporalDuration`                         | `Temporal.Duration` instances                    | Uses runtime constructor identity when Temporal is available.                                        |
 | `P.temporalPlainYearMonth`                   | `Temporal.PlainYearMonth` instances              | Uses runtime constructor identity when Temporal is available.                                        |
 | `P.temporalPlainMonthDay`                    | `Temporal.PlainMonthDay` instances               | Uses runtime constructor identity when Temporal is available.                                        |
+| `P.literal(value)`                           | one exact value or reference                     | Primitive values match by value; objects, functions, and arrays match by reference identity.         |
 | `P.union(...patterns)`                       | any listed pattern                               | Requires at least one pattern. Commits selections from the successful branch only.                   |
 | `P.exclude(pattern)`                         | values that do not match `pattern`               | Cannot contain `P.select(...)`.                                                                      |
 | `P.optional(pattern)`                        | absent object field, `undefined`, or `pattern`   | Selections inside an absent optional capture `undefined`.                                            |
 | `P.array(pattern)`                           | arrays where every item matches                  | Variable length. `P.select(...)` inside is rejected because captures may repeat.                     |
 | `P.nonEmptyArray(pattern)`                   | non-empty arrays where every item matches        | Same selection limitation as `P.array`.                                                              |
+| `P.map(keyPattern, valuePattern)`            | homogeneous `Map` instances                      | Every Map entry must match the same key and value patterns.                                          |
+| `P.map([keyPattern, valuePattern], ...)`     | required-entry `Map` instances                   | Distinct entries satisfy each clause. Partial by default; `P.exact(...)` rejects extras.             |
+| `P.set(valuePattern)`                        | homogeneous `Set` instances                      | Every Set value must match the pattern.                                                              |
+| `P.set(valuePattern, ...morePatterns)`       | required-value `Set` instances                   | Distinct Set values satisfy each clause. Partial by default; `P.exact(...)` rejects extras.          |
 | `P.tuple([...])`                             | exact tuple pattern                              | Readability helper for bare tuple arrays.                                                            |
 | `P.rest(pattern)`                            | remaining tuple items                            | Valid only as the final tuple item.                                                                  |
-| `P.exact(pattern)`                           | deep exact object pattern                        | Rejects enumerable own extra keys on values.                                                         |
+| `P.exact(pattern)`                           | deep exact object/collection pattern             | Rejects object extra keys and required Map/Set extra entries.                                        |
 | `P.when(predicate)`                          | predicate-matched values                         | Supports type guards. Can be nested.                                                                 |
 | `P.instanceOf(Constructor)`                  | `instanceof Constructor`                         | Useful for errors/classes.                                                                           |
 | `P.select()`                                 | anonymous selected value                         | Only one anonymous select is allowed per successful pattern.                                         |
@@ -802,6 +807,17 @@ const label = match(value)
 ```
 
 Literal equality uses `Object.is`, so `NaN`, `-0`, and `0` behave like `Object.is`.
+
+Use `P.literal(value)` when plain pattern syntax would be structural but runtime reference identity matters:
+
+```ts
+const idKey = { field: 'id' }
+const value = new Map([[idKey, 'user-123']])
+
+const id = match(value)
+  .with(P.map([P.literal(idKey), P.string]), (fields) => fields.get(idKey))
+  .otherwise(() => undefined)
+```
 
 ### Convenience helpers
 
@@ -848,6 +864,67 @@ const total = match(values)
 
 Checked tuple/rest example: [`examples/08-pattern-helpers.ts`](examples/08-pattern-helpers.ts).
 
+### Map and Set patterns
+
+`P.map(...)` and `P.set(...)` match actual `Map` and `Set` instances only. They do not match plain objects, entry arrays, arrays, or duck-typed map-like/set-like objects.
+
+Inputs typed as `ReadonlyMap` or `ReadonlySet` are supported by the type layer and keep readonly handler types. Runtime matching still uses actual `Map`/`Set` instances.
+
+Homogeneous mode checks every runtime entry or value:
+
+```ts
+const scoreTotal = match(
+  new Map([
+    ['a', 1],
+    ['b', 2],
+  ]),
+)
+  .with(P.map(P.string, P.number), (scores) => [...scores.values()].reduce((total, score) => total + score, 0))
+  .otherwise(() => 0)
+
+const roleCount = match(new Set(['admin', 'owner']))
+  .with(P.set(P.string), (roles) => roles.size)
+  .otherwise(() => 0)
+```
+
+Required-entry/value mode consumes distinct runtime entries or values. It is partial by default, so extras are allowed:
+
+```ts
+const metadata = new Map<unknown, unknown>([
+  ['id', 'user-123'],
+  ['count', 2],
+  ['source', 'import'],
+])
+
+const label = match(metadata)
+  .with(P.map(['id', P.string], ['count', P.number]), () => 'has required metadata')
+  .otherwise(() => 'missing metadata')
+```
+
+Wrap required mode in `P.exact(...)` when extras should be rejected:
+
+```ts
+const exactRoles = match(new Set(['admin', 'owner']))
+  .with(P.exact(P.set('admin', 'owner')), () => true)
+  .otherwise(() => false)
+```
+
+Required clauses are deterministic: ts-match evaluates clauses left to right, and each clause scans the Map or Set in insertion order for the first unused entry/value that matches. One runtime entry/value cannot satisfy multiple clauses.
+
+Top-level array pairs in `P.map(...)` are entry clauses. Use `P.tuple(...)` when tuple keys or tuple values are intended:
+
+```ts
+const tupleMap = new Map([[['id', 1] as const, [true, false] as const]])
+
+const matchedTupleMap = match(tupleMap)
+  .with(P.map(P.tuple([P.string, P.number]), P.tuple([P.boolean, P.boolean])), () => true)
+  .otherwise(() => false)
+```
+
+`P.select(...)` is intentionally rejected inside `P.map(...)` and `P.set(...)`, matching the repeated-container rule used by arrays and records. If collection captures are needed, match the collection first and select outside the repeated entry/value pattern.
+
+Checked collection example: [`examples/17-collection-helpers.ts`](examples/17-collection-helpers.ts).
+
 ## Named `p*` helper exports
 
 Every `P` helper is also exported as a named helper. Named imports are useful when codebases prefer focused imports or bundlers can tree-shake individual symbols more visibly.
@@ -884,11 +961,14 @@ Checked example using named helper imports: [`examples/09-named-helper-imports.t
 | `pTemporalDuration`                         | `P.temporalDuration`                         |
 | `pTemporalPlainYearMonth`                   | `P.temporalPlainYearMonth`                   |
 | `pTemporalPlainMonthDay`                    | `P.temporalPlainMonthDay`                    |
+| `pLiteral(value)`                           | `P.literal(value)`                           |
 | `pUnion(...)`                               | `P.union(...)`                               |
 | `pExclude(pattern)`                         | `P.exclude(pattern)`                         |
 | `pOptional(pattern)`                        | `P.optional(pattern)`                        |
 | `pArray(pattern)`                           | `P.array(pattern)`                           |
 | `pNonEmptyArray(pattern)`                   | `P.nonEmptyArray(pattern)`                   |
+| `pMap(...)`                                 | `P.map(...)`                                 |
+| `pSet(...)`                                 | `P.set(...)`                                 |
 | `pTuple([...])`                             | `P.tuple([...])`                             |
 | `pRest(pattern)`                            | `P.rest(pattern)`                            |
 | `pExact(pattern)`                           | `P.exact(pattern)`                           |
@@ -1154,13 +1234,12 @@ The repository also contains the development-only `benchmarks/dispatch.ts` strat
 
 - **ESM only.** CommonJS consumers need an ESM-compatible import path or bundler setup.
 - **Node 20+.** Older runtimes are not targeted.
-- **No structural `Map`/`Set` helpers yet.** Until they ship, use `P.instanceOf(Map)` / `P.instanceOf(Set)` plus `P.when(...)` for custom checks.
 - **Temporal availability is runtime-owned.** Temporal helpers do not polyfill `globalThis.Temporal`; they match nothing until the runtime or application provides Temporal constructors.
-- **Selections are intentionally restricted in repeated contexts.** `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, and `P.nonEmptyRecord(...)` reject `P.select(...)` because captures may repeat ambiguously.
+- **Selections are intentionally restricted in repeated contexts.** `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, `P.nonEmptyRecord(...)`, `P.map(...)`, and `P.set(...)` reject `P.select(...)` because captures may repeat ambiguously.
 - **`P.exclude(...)` cannot contain selections.** Excluding a pattern should not capture data from a branch that did not match.
 - **`P.rest(...)` is tuple-only and must be final.** Runtime misuse throws `TypeError`.
 - **Object patterns use normal JavaScript property lookup.** Getters can run or throw, and inherited properties can match.
-- **`P.exact(...)` checks enumerable own extra keys on values.** It is deep for object patterns, but it is not a cyclic-graph matcher.
+- **`P.exact(...)` checks extras on values.** It is deep for object patterns and rejects extra required Map/Set entries, but it is not a cyclic-graph matcher.
 - **Dot paths mean nesting.** Use tuple paths when a literal key contains `.` or when path segments are symbols.
 - **Object-map `matchBy(...).cases({...})` cannot represent `null`, `undefined`, or normalized key collisions.** Avoid bare `__proto__:` object-literal syntax; use computed `['__proto__']`, `.cases((group) => [...])`, or tuple entries for those cases.
 - **Standalone exported `group(...)` has limited handler inference.** Use the callback `group` parameter for JavaScript-feeling grouped cases or partials.
@@ -1214,8 +1293,8 @@ Run all examples with `pnpm test:examples`.
 
 ### Pattern helper exports
 
-- Namespace: `P._`, `P.any`, `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined`, `P.nan`, `P.finite`, `P.integer`, `P.regex`, `P.date`, `P.error`, `P.regexp`, `P.nullish`, `P.falsy`, `P.truthy`, `P.temporal`, `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, `P.temporalPlainMonthDay`, `P.union`, `P.exclude`, `P.optional`, `P.array`, `P.nonEmptyArray`, `P.tuple`, `P.rest`, `P.exact`, `P.when`, `P.instanceOf`, `P.select`, `P.record`, `P.nonEmptyRecord`
-- Named helpers: `pWildcard`, `pAny`, `pString`, `pNumber`, `pBoolean`, `pBigint`, `pSymbol`, `pNull`, `pUndefined`, `pNan`, `pFinite`, `pInteger`, `pRegex`, `pDate`, `pError`, `pRegexp`, `pNullish`, `pFalsy`, `pTruthy`, `pTemporal`, `pTemporalInstant`, `pTemporalPlainDate`, `pTemporalPlainTime`, `pTemporalPlainDateTime`, `pTemporalZonedDateTime`, `pTemporalDuration`, `pTemporalPlainYearMonth`, `pTemporalPlainMonthDay`, `pUnion`, `pExclude`, `pOptional`, `pArray`, `pNonEmptyArray`, `pTuple`, `pRest`, `pExact`, `pWhen`, `pInstanceOf`, `pSelect`, `pRecord`, `pNonEmptyRecord`
+- Namespace: `P._`, `P.any`, `P.string`, `P.number`, `P.boolean`, `P.bigint`, `P.symbol`, `P.null`, `P.undefined`, `P.nan`, `P.finite`, `P.integer`, `P.regex`, `P.date`, `P.error`, `P.regexp`, `P.nullish`, `P.falsy`, `P.truthy`, `P.temporal`, `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, `P.temporalPlainMonthDay`, `P.literal`, `P.union`, `P.exclude`, `P.optional`, `P.array`, `P.nonEmptyArray`, `P.map`, `P.set`, `P.tuple`, `P.rest`, `P.exact`, `P.when`, `P.instanceOf`, `P.select`, `P.record`, `P.nonEmptyRecord`
+- Named helpers: `pWildcard`, `pAny`, `pString`, `pNumber`, `pBoolean`, `pBigint`, `pSymbol`, `pNull`, `pUndefined`, `pNan`, `pFinite`, `pInteger`, `pRegex`, `pDate`, `pError`, `pRegexp`, `pNullish`, `pFalsy`, `pTruthy`, `pTemporal`, `pTemporalInstant`, `pTemporalPlainDate`, `pTemporalPlainTime`, `pTemporalPlainDateTime`, `pTemporalZonedDateTime`, `pTemporalDuration`, `pTemporalPlainYearMonth`, `pTemporalPlainMonthDay`, `pLiteral`, `pUnion`, `pExclude`, `pOptional`, `pArray`, `pNonEmptyArray`, `pMap`, `pSet`, `pTuple`, `pRest`, `pExact`, `pWhen`, `pInstanceOf`, `pSelect`, `pRecord`, `pNonEmptyRecord`
 
 ### Root type-only exports
 
@@ -1239,6 +1318,9 @@ These are mainly for library authors and advanced integrations:
 - `InferPattern`
 - `InstanceOfPattern`
 - `IntegerPattern`
+- `LiteralPattern`
+- `MapEntryPattern`
+- `MapPattern`
 - `MatchedValue`
 - `MatchByPath`
 - `MatchPromiseResult`
@@ -1257,6 +1339,7 @@ These are mainly for library authors and advanced integrations:
 - `RegexpPattern`
 - `RestPattern`
 - `SelectPattern`
+- `SetPattern`
 - `TemporalDurationValue`
 - `TemporalInstantValue`
 - `TemporalPattern`

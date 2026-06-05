@@ -4,14 +4,18 @@ import type {
   AnonymousSelectPattern,
   ArrayPattern,
   DatePattern,
+  EntryMapPattern,
   ErrorPattern,
   ExactPattern,
   ExcludePattern,
   FalsyPattern,
   FinitePattern,
   GuardPattern,
+  HomogeneousMapPattern,
   InstanceOfPattern,
   IntegerPattern,
+  LiteralPattern,
+  MapEntryPattern,
   NamedSelectPattern,
   NanPattern,
   NonEmptyArrayPattern,
@@ -30,6 +34,7 @@ import type {
   RepeatedPatternArgument,
   RestPattern,
   SelectPattern,
+  SetPattern,
   TemporalPattern,
   TemporalPatternKind,
   TruthyPattern,
@@ -296,9 +301,231 @@ export const pTemporalPlainYearMonth: TemporalPattern<'PlainYearMonth'> = tempor
 /** Matches `Temporal.PlainMonthDay` instances when Temporal is available. */
 export const pTemporalPlainMonthDay: TemporalPattern<'PlainMonthDay'> = temporal('PlainMonthDay')
 
+/**
+ * Matches one exact value with `Object.is`.
+ *
+ * Primitive values behave like an explicit literal pattern. Object, function,
+ * and array values match by reference identity instead of structural shape.
+ *
+ * @param literal - Value or reference that must match exactly.
+ * @returns A frozen exact literal pattern helper.
+ * @example
+ * ```ts
+ * const key = { id: 1 }
+ * match(value).with(P.literal(key), () => 'same reference').otherwise(() => 'other')
+ * ```
+ * @see https://github.com/DiegoGBrisa/ts-match#pattern-guide-p-namespace
+ */
+export function pLiteral<const TLiteral>(literal: TLiteral): LiteralPattern<TLiteral> {
+  return freezePattern({ [PATTERN_TOKEN]: 'literal', literal })
+}
+
 type PatternListArgument<TPatterns extends readonly unknown[]> = {
   readonly [K in keyof TPatterns]: TPatterns[K] & PatternStructureArgument<TPatterns[K]>
 }
+
+type PatternHelperArgumentError<TMessage extends string, TDetails = unknown> = {
+  readonly [K in TMessage]: TDetails
+} & {
+  readonly 'ts-match: diagnostic': true
+}
+
+type TsMatchDiagnostic = {
+  readonly 'ts-match: diagnostic': true
+}
+
+type PatternStructureDiagnostic<TPattern> =
+  PatternStructureArgument<TPattern> extends infer TDiagnostic
+    ? TDiagnostic extends TsMatchDiagnostic
+      ? TDiagnostic
+      : never
+    : never
+
+type PatternStructureArgumentFromDiagnostic<TDiagnostic> = [TDiagnostic] extends [never] ? unknown : TDiagnostic
+
+type PatternListStructureArgument<TPatterns extends readonly unknown[]> = PatternStructureArgumentFromDiagnostic<
+  TPatterns[number] extends unknown ? PatternStructureDiagnostic<TPatterns[number]> : never
+>
+
+type AnyPatternContainsSelection<TPatterns extends readonly unknown[]> = true extends (
+  TPatterns[number] extends unknown ? PatternContainsSelection<TPatterns[number]> : never
+)
+  ? true
+  : false
+
+type ObjectPatternContainsSelection<TPattern extends object> = true extends {
+  readonly [K in keyof TPattern]: PatternContainsSelection<TPattern[K]>
+}[keyof TPattern]
+  ? true
+  : false
+
+type PatternContainsSelection<TPattern> = [unknown] extends [TPattern]
+  ? false
+  : TPattern extends AnonymousSelectPattern<unknown> | NamedSelectPattern<PropertyKey, unknown>
+    ? true
+    : TPattern extends
+          | WildcardPattern
+          | PrimitivePattern<Primitive>
+          | NanPattern
+          | FinitePattern
+          | IntegerPattern
+          | RegexPattern
+          | DatePattern
+          | ErrorPattern
+          | RegexpPattern
+          | NullishPattern
+          | FalsyPattern
+          | TruthyPattern
+          | TemporalPattern<TemporalPatternKind>
+          | LiteralPattern<unknown>
+          | GuardPattern<unknown, boolean>
+          | InstanceOfPattern<AbstractConstructor>
+      ? false
+      : TPattern extends UnionPattern<infer TPatterns>
+        ? AnyPatternContainsSelection<TPatterns>
+        : TPattern extends ExcludePattern<infer TInner>
+          ? PatternContainsSelection<TInner>
+          : TPattern extends OptionalPattern<infer TInner>
+            ? PatternContainsSelection<TInner>
+            : TPattern extends ArrayPattern<infer TInner>
+              ? PatternContainsSelection<TInner>
+              : TPattern extends NonEmptyArrayPattern<infer TInner>
+                ? PatternContainsSelection<TInner>
+                : TPattern extends TuplePattern<infer TItems>
+                  ? AnyPatternContainsSelection<TItems>
+                  : TPattern extends RestPattern<infer TInner>
+                    ? PatternContainsSelection<TInner>
+                    : TPattern extends ExactPattern<infer TInner>
+                      ? PatternContainsSelection<TInner>
+                      : TPattern extends RecordPattern<infer TKey, infer TValue>
+                        ? PatternContainsSelection<TKey> extends true
+                          ? true
+                          : PatternContainsSelection<TValue>
+                        : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+                          ? PatternContainsSelection<TKey> extends true
+                            ? true
+                            : PatternContainsSelection<TValue>
+                          : TPattern extends HomogeneousMapPattern<infer TKey, infer TValue>
+                            ? PatternContainsSelection<TKey> extends true
+                              ? true
+                              : PatternContainsSelection<TValue>
+                            : TPattern extends EntryMapPattern<infer TEntries>
+                              ? TEntries extends readonly MapEntryPattern[]
+                                ? MapEntriesContainSelection<TEntries>
+                                : false
+                              : TPattern extends SetPattern<infer TPatterns, 'homogeneous' | 'values'>
+                                ? AnyPatternContainsSelection<TPatterns>
+                                : TPattern extends readonly unknown[]
+                                  ? AnyPatternContainsSelection<TPattern>
+                                  : TPattern extends object
+                                    ? ObjectPatternContainsSelection<TPattern>
+                                    : false
+
+type MapEntryArgs<TArgs extends readonly unknown[]> = TArgs extends readonly [
+  infer THead extends MapEntryPattern,
+  ...infer TTail extends readonly MapEntryPattern[],
+]
+  ? readonly [THead, ...TTail]
+  : readonly MapEntryPattern[]
+
+type AnyMapEntryArg<TArgs extends readonly unknown[]> = true extends {
+  readonly [K in keyof TArgs]: TArgs[K] extends MapEntryPattern ? true : false
+}[number]
+  ? true
+  : false
+
+type AllMapEntryArgs<TArgs extends readonly unknown[]> = false extends {
+  readonly [K in keyof TArgs]: TArgs[K] extends MapEntryPattern ? true : false
+}[number]
+  ? false
+  : true
+
+type MapPatternFromArgs<TArgs extends readonly unknown[]> = TArgs extends readonly []
+  ? never
+  : AllMapEntryArgs<TArgs> extends true
+    ? EntryMapPattern<MapEntryArgs<TArgs>>
+    : AnyMapEntryArg<TArgs> extends true
+      ? never
+      : TArgs extends readonly [infer TKeyPattern, infer TValuePattern]
+        ? HomogeneousMapPattern<TKeyPattern, TValuePattern>
+        : never
+
+type MapSelectionArgumentError<TArgs extends readonly unknown[]> = PatternHelperArgumentError<
+  'ts-match: Map key/value patterns cannot contain P.select(...). Map patterns scan entries, so selections would be ambiguous.',
+  { readonly api: 'P.map'; readonly args: TArgs }
+>
+
+type MapTopLevelArrayArgumentError<TArgs extends readonly unknown[]> = PatternHelperArgumentError<
+  'ts-match: P.map(keyPattern, valuePattern) cannot use top-level array patterns. Use P.tuple([...]) for tuple keys/values, or use P.map([keyPattern, valuePattern], ...) for required entries.',
+  { readonly api: 'P.map'; readonly args: TArgs }
+>
+
+type MapArityArgumentError<TArgs extends readonly unknown[]> = PatternHelperArgumentError<
+  'ts-match: P.map(...) expects either P.map(keyPattern, valuePattern) or P.map([keyPattern, valuePattern], ...).',
+  { readonly api: 'P.map'; readonly args: TArgs }
+>
+
+type MapEntryContainsSelection<TEntry> = TEntry extends readonly [infer TKeyPattern, infer TValuePattern]
+  ? PatternContainsSelection<TKeyPattern> extends true
+    ? true
+    : PatternContainsSelection<TValuePattern>
+  : false
+
+type MapEntriesContainSelection<TEntries extends readonly unknown[]> = true extends (
+  TEntries[number] extends unknown ? MapEntryContainsSelection<TEntries[number]> : never
+)
+  ? true
+  : false
+
+type MapPairContainsSelection<TKeyPattern, TValuePattern> =
+  PatternContainsSelection<TKeyPattern> extends true ? true : PatternContainsSelection<TValuePattern>
+
+type MapEntryStructureDiagnostic<TEntry> = TEntry extends readonly [infer TKeyPattern, infer TValuePattern]
+  ? PatternStructureDiagnostic<TKeyPattern> | PatternStructureDiagnostic<TValuePattern>
+  : never
+
+type MapEntriesStructureArgument<TEntries extends readonly unknown[]> = PatternStructureArgumentFromDiagnostic<
+  TEntries[number] extends unknown ? MapEntryStructureDiagnostic<TEntries[number]> : never
+>
+
+type MapPairStructureArgument<TKeyPattern, TValuePattern> = PatternStructureArgumentFromDiagnostic<
+  PatternStructureDiagnostic<TKeyPattern> | PatternStructureDiagnostic<TValuePattern>
+>
+
+type MapPatternArgument<TArgs extends readonly unknown[]> =
+  AllMapEntryArgs<TArgs> extends true
+    ? MapEntriesContainSelection<TArgs> extends true
+      ? MapSelectionArgumentError<TArgs>
+      : MapEntriesStructureArgument<TArgs>
+    : AnyMapEntryArg<TArgs> extends true
+      ? MapTopLevelArrayArgumentError<TArgs>
+      : TArgs extends readonly [infer TKeyPattern, infer TValuePattern]
+        ? MapPairContainsSelection<TKeyPattern, TValuePattern> extends true
+          ? MapSelectionArgumentError<TArgs>
+          : TKeyPattern extends readonly unknown[]
+            ? MapTopLevelArrayArgumentError<TArgs>
+            : TValuePattern extends readonly unknown[]
+              ? MapTopLevelArrayArgumentError<TArgs>
+              : MapPairStructureArgument<TKeyPattern, TValuePattern>
+        : MapArityArgumentError<TArgs>
+
+type SetPatternFromArgs<TArgs extends readonly unknown[]> = TArgs extends readonly []
+  ? never
+  : TArgs extends readonly [infer TPattern]
+    ? SetPattern<readonly [TPattern], 'homogeneous'>
+    : TArgs extends readonly [unknown, unknown, ...unknown[]]
+      ? SetPattern<TArgs, 'values'>
+      : never
+
+type SetSelectionArgumentError<TArgs extends readonly unknown[]> = PatternHelperArgumentError<
+  'ts-match: Set value patterns cannot contain P.select(...). Set patterns scan values, so selections would be ambiguous.',
+  { readonly api: 'P.set'; readonly args: TArgs }
+>
+
+type SetPatternArgument<TArgs extends readonly unknown[]> =
+  AnyPatternContainsSelection<TArgs> extends true
+    ? SetSelectionArgumentError<TArgs>
+    : PatternListStructureArgument<TArgs>
 
 /**
  * Matches when any supplied pattern matches.
@@ -416,6 +643,88 @@ export function pNonEmptyArray<const TPattern>(
 }
 
 /**
+ * Matches actual `Map` instances.
+ *
+ * Use `P.map(keyPattern, valuePattern)` for homogeneous maps where every entry
+ * must match the same key and value patterns. Use `P.map([key, value], ...)` for
+ * required-entry mode, where distinct Map entries satisfy each clause and extra
+ * entries are allowed unless wrapped in `P.exact(...)`.
+ *
+ * @param key - Homogeneous key pattern.
+ * @param value - Homogeneous value pattern.
+ * @returns A frozen Map pattern helper.
+ * @see https://github.com/DiegoGBrisa/ts-match#map-and-set-patterns
+ */
+export function pMap<const TArgs extends readonly [unknown, ...unknown[]]>(
+  ...args: TArgs & MapPatternArgument<TArgs>
+): MapPatternFromArgs<TArgs>
+export function pMap(
+  ...args: readonly unknown[]
+): HomogeneousMapPattern<unknown, unknown> | EntryMapPattern<readonly MapEntryPattern[]> {
+  if (args.length === 0) throw new TypeError('P.map(...) requires map patterns.')
+
+  const topLevelArrays = args.filter(Array.isArray)
+  const entryClauses = args.filter(isMapEntryClause)
+  if (entryClauses.length === args.length) {
+    return freezePattern({
+      [PATTERN_TOKEN]: 'map',
+      mode: 'entries',
+      key: undefined,
+      value: undefined,
+      entries: entryClauses,
+    })
+  }
+
+  if (entryClauses.length > 0) {
+    throw new TypeError('P.map(...) cannot mix entry clauses with homogeneous key/value patterns.')
+  }
+
+  if (topLevelArrays.length > 0) {
+    throw new TypeError(
+      'P.map(keyPattern, valuePattern) cannot use top-level array patterns. Use P.tuple([...]) for tuple keys or values.',
+    )
+  }
+
+  if (args.length !== 2) {
+    throw new TypeError('P.map(keyPattern, valuePattern) requires exactly two patterns.')
+  }
+
+  return freezePattern({
+    [PATTERN_TOKEN]: 'map',
+    mode: 'homogeneous',
+    key: args[0],
+    value: args[1],
+    entries: undefined,
+  })
+}
+
+function isMapEntryClause(value: unknown): value is MapEntryPattern {
+  return Array.isArray(value) && value.length === 2
+}
+
+/**
+ * Matches actual `Set` instances.
+ *
+ * Use `P.set(valuePattern)` for homogeneous sets where every value must match
+ * one pattern. Use `P.set(valuePattern, ...moreValuePatterns)` for required-value
+ * mode, where distinct Set values satisfy each clause and extra values are
+ * allowed unless wrapped in `P.exact(...)`.
+ *
+ * @param value - Homogeneous value pattern or first required-value clause.
+ * @param moreValues - Additional required-value clauses.
+ * @returns A frozen Set pattern helper.
+ * @see https://github.com/DiegoGBrisa/ts-match#map-and-set-patterns
+ */
+export function pSet<const TArgs extends readonly [unknown, ...unknown[]]>(
+  ...values: TArgs & SetPatternArgument<TArgs>
+): SetPatternFromArgs<TArgs>
+export function pSet(...values: readonly unknown[]): SetPattern<readonly unknown[], 'homogeneous' | 'values'> {
+  if (values.length === 0) throw new TypeError('P.set(...) requires at least one value pattern.')
+  if (values.length === 1) return freezePattern({ [PATTERN_TOKEN]: 'set', mode: 'homogeneous', values })
+  return freezePattern({ [PATTERN_TOKEN]: 'set', mode: 'values', values })
+}
+
+/**
  * Matches arrays against positional tuple item patterns.
  *
  * Pass a readonly tuple of item patterns. Use `P.rest(pattern)` only as the final
@@ -458,20 +767,22 @@ export function pRest<const TPattern>(item: TPattern & PatternStructureArgument<
 }
 
 /**
- * Matches an object pattern while rejecting additional enumerable keys.
+ * Matches a pattern while rejecting supported extra object keys or collection
+ * entries.
  *
- * Use `P.exact(...)` when a branch should accept only the keys listed in the
- * nested object pattern. Non-object nested patterns are accepted by the type
- * system only when they are valid pattern structures, but exact matching is most
- * useful for object shapes.
+ * Use `P.exact(...)` when a branch should accept only the keys listed in a
+ * nested object pattern or only the entries/values consumed by required
+ * `P.map(...)` / `P.set(...)` patterns. Homogeneous Map/Set patterns already
+ * check every runtime entry/value, so exactness adds no extra constraint there.
  *
- * @param pattern - Object or pattern structure to match exactly.
+ * @param pattern - Object, collection, or pattern structure to match exactly.
  * @returns A frozen exact pattern helper.
  * @example
  * ```ts
  * match(value).with(P.exact({ type: 'ready' }), () => 'ready').otherwise(() => 'other')
  * ```
  * @see https://github.com/DiegoGBrisa/ts-match#object-patterns
+ * @see https://github.com/DiegoGBrisa/ts-match#map-and-set-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
  */
 export function pExact<const TPattern>(pattern: TPattern & PatternStructureArgument<TPattern>): ExactPattern<TPattern> {
@@ -686,11 +997,14 @@ export const P = Object.freeze({
   temporalDuration: pTemporalDuration,
   temporalPlainYearMonth: pTemporalPlainYearMonth,
   temporalPlainMonthDay: pTemporalPlainMonthDay,
+  literal: pLiteral,
   union: pUnion,
   exclude: pExclude,
   optional: pOptional,
   array: pArray,
   nonEmptyArray: pNonEmptyArray,
+  map: pMap,
+  set: pSet,
   tuple: pTuple,
   rest: pRest,
   exact: pExact,

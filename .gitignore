@@ -7,3 +7,5 @@ coverage
 .DS_Store
 .fallow
 docs/promise-api-spec.md
+__pycache__/
+*.pyc

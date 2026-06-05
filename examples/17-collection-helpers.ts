@@ -1,0 +1,33 @@
+import { match, P } from '@diegogbrisa/ts-match'
+
+const metadata = new Map<unknown, unknown>([
+  ['id', 'user-123'],
+  ['count', 2],
+  ['source', 'import'],
+])
+
+export const metadataStatus = match(metadata)
+  .with(P.map(['id', P.string], ['count', P.number]), () => 'has-required-metadata')
+  .otherwise(() => 'missing-metadata')
+
+const roles = new Set<unknown>(['admin', 'owner'])
+
+export const hasExactRoles = match(roles)
+  .with(P.exact(P.set('admin', 'owner')), () => true)
+  .otherwise(() => false)
+
+const fieldKey = Object.freeze({ field: 'id' })
+const fields = new Map<object, string>([[fieldKey, 'user-123']])
+
+export const fieldId = match(fields)
+  .with(P.map([P.literal(fieldKey), P.string]), (matchedFields) => matchedFields.get(fieldKey))
+  .otherwise(() => undefined)
+
+const scoreMap = new Map([
+  ['quality', 9],
+  ['speed', 7],
+])
+
+export const totalScore = match(scoreMap)
+  .with(P.map(P.string, P.number), (scores) => [...scores.values()].reduce((total, score) => total + score, 0))
+  .otherwise(() => 0)
