@@ -4,6 +4,19 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.4.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.3.0...v1.4.0) (2026-06-05)
+
+
+### Features
+
+* add collection pattern helpers ([df98f6d](https://github.com/DiegoGBrisa/ts-match/commit/df98f6d3fbadd20d66c8d5860596f0c654eb717e))
+* add collection pattern helpers ([7713e42](https://github.com/DiegoGBrisa/ts-match/commit/7713e423bbbab92a5510a3a8768622c884057ba2))
+
+
+### Bug Fixes
+
+* support readonly collection narrowing ([2d2761c](https://github.com/DiegoGBrisa/ts-match/commit/2d2761c3e48196c934ac9f1d0605a6283cb6c224))
+
 ## [1.3.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.2.0...v1.3.0) (2026-06-04)
 
 
