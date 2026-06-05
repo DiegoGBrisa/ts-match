@@ -321,6 +321,82 @@ const _collectionResult = match(collectionValue)
   .exhaustive()
 type _collection = Expect<Equal<typeof _collectionResult, number | 'ready' | 'idle' | undefined>>
 
+declare const repeatedUsers: readonly (
+  | { readonly id: string; readonly age: number }
+  | { readonly id?: undefined; readonly age: number }
+)[]
+const _collectionCaptureResult = match({ source: 'sync' as const, users: repeatedUsers })
+  .with(
+    {
+      source: P.select('source', P.string),
+      users: P.array({ id: P.optional(P.collect('ids', P.string)), age: P.collect('ages', P.number) }),
+    },
+    (value) => {
+      const source: string = value.source
+      const ids: (string | undefined)[] = value.ids
+      const ages: number[] = value.ages
+      return { source, ids, ages }
+    },
+  )
+  .otherwise(() => null)
+const _collectionCaptureAssignable: { source: string; ids: (string | undefined)[]; ages: number[] } | null =
+  _collectionCaptureResult
+
+declare const mixedList: readonly (string | number | boolean | null)[]
+const _collectionUnionResult = match(mixedList)
+  .with(
+    P.array(
+      P.union(P.collect('values', P.string), P.collect('values', P.number), P.collect('flags', P.boolean), P.null),
+    ),
+    (value) => {
+      const values: (string | number)[] = value.values
+      const flags: boolean[] = value.flags
+      return { values, flags }
+    },
+  )
+  .otherwise(() => null)
+const _collectionUnionAssignable: { values: (string | number)[]; flags: boolean[] } | null = _collectionUnionResult
+
+declare const collectMap: Map<string, number>
+const _collectionMapResult = match(collectMap)
+  .with(P.map(P.collect('keys', P.string), P.collect('values', P.number)), (value) => {
+    const keys: string[] = value.keys
+    const values: number[] = value.values
+    return keys.length + values.length
+  })
+  .exhaustive()
+type _collectionMap = Expect<Equal<typeof _collectionMapResult, number>>
+
+declare const collectSet: Set<'admin' | 'owner' | 1>
+const _collectionSetResult = match(collectSet)
+  .with(P.set(P.union(P.collect('roles', P.string), P.collect('levels', P.number))), (value) => {
+    const roles: string[] = value.roles
+    const levels: number[] = value.levels
+    return roles.length + levels.length
+  })
+  .exhaustive()
+type _collectionSet = Expect<Equal<typeof _collectionSetResult, number>>
+
+match('x')
+  // @ts-expect-error P.collect is only valid inside repeated container patterns
+  .with(P.collect('ids', P.string), () => 'bad')
+  .otherwise(() => 'fallback')
+
+// @ts-expect-error P.collect is invalid inside negative patterns
+P.array(P.exclude(P.collect('ids', P.string)))
+
+match({ selected: 'x', ids: ['a'] }).with(
+  // @ts-expect-error collection captures cannot mix with anonymous selections
+  { selected: P.select(), ids: P.array(P.collect('ids', P.string)) },
+  () => 'bad',
+)
+
+match({ source: 'sync', ids: ['a'] }).with(
+  // @ts-expect-error collection capture names cannot collide with named selections
+  { source: P.select('ids', P.string), ids: P.array(P.collect('ids', P.string)) },
+  () => 'bad',
+)
+
 declare const readonlyCollectionValue: ReadonlyMap<string, number> | ReadonlySet<string> | 'ready'
 const _readonlyCollectionResult = match(readonlyCollectionValue)
   .with(P.map(P.string, P.number), (value) => {

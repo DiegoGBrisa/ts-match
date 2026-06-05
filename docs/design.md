@@ -34,6 +34,8 @@ The first v1.x roadmap batch is limited to convenience pattern helpers and ships
 
 Every new `P.*` helper in the first v1.x batch must also have the matching named `p*` export to preserve the package's established namespace-plus-named-helper API symmetry.
 
+The same namespace-plus-named-helper symmetry applies to collection captures: `P.collect(...)` ships with `pCollect(...)` and a public `CollectPattern` type.
+
 Helper semantics:
 
 - `P.regex(regex)` accepts only a `RegExp` instance. It is string-only: it matches values where `typeof value === 'string'` and the supplied regular expression matches the string; it does not coerce non-string values. It is deterministic for stateful regular expressions: matching starts from `lastIndex = 0` and restores the caller's original `lastIndex` after evaluation.
@@ -62,11 +64,11 @@ Collection helper design:
 - Entry-pattern `P.map(...)` matching is deterministic: evaluate entry clauses left to right, and for each clause scan Map entries in insertion order for the first unused entry that satisfies the key and value patterns.
 - `P.exact(P.map(...entries))` rejects extra Map entries beyond the distinct entries consumed by the entry clauses. `P.exact(P.map(keyPattern, valuePattern))` adds no extra constraint beyond homogeneous matching because homogeneous matching already checks every runtime entry and does not express required cardinality.
 - Map key and value positions accept the normal public pattern grammar, including plain literal patterns and `P.union(...)`. `P.literal(value)` lets callers express exact value/reference identity for object, function, or array keys without changing the existing structural meaning of plain object patterns.
-- `P.select(...)` remains rejected inside `P.map(...)` for now, consistent with repeated-container restrictions. Aggregate collection captures should be designed explicitly later, for example as `P.collect(...)`, rather than overloading `P.select(...)`.
+- `P.select(...)` remains rejected inside `P.map(...)`, consistent with repeated-container restrictions. Use the explicit `P.collect(...)` collection-capture helper for aggregate Map key/value captures rather than overloading `P.select(...)`.
 - `P.set(...)` mirrors the Map API shape. `P.set(valuePattern)` is homogeneous and requires every Set value to match the same pattern. `P.set(valuePattern, ...moreValuePatterns)` is required-value mode and requires distinct Set values matching each top-level value pattern, with extra values allowed unless wrapped in exact matching semantics. Ambiguous tuple value patterns should use explicit `P.tuple(...)`.
 - Required-value `P.set(...)` clauses consume distinct runtime values and match deterministically: evaluate value patterns left to right, scanning Set values in insertion order for the first unused value that satisfies each pattern.
 - `P.exact(P.set(...requiredValues))` rejects extra Set values beyond the distinct values consumed by the required-value clauses. `P.exact(P.set(valuePattern))` adds no extra constraint beyond homogeneous matching because homogeneous matching already checks every runtime value and does not express required cardinality.
-- `P.select(...)` remains rejected inside `P.set(...)` for now, consistent with repeated-container restrictions. Aggregate Set captures belong in a future explicit collection-capture helper such as `P.collect(...)`.
+- `P.select(...)` remains rejected inside `P.set(...)`, consistent with repeated-container restrictions. Use the explicit `P.collect(...)` collection-capture helper for aggregate Set value captures.
 
 ## Pattern helpers
 
@@ -96,6 +98,7 @@ Supported helpers:
 - `P.when(predicate)` and `.when(predicate, handler)`
 - `P.instanceOf(Constructor)`
 - `P.select()`, `P.select(name)`, `P.select(name, pattern)`
+- `P.collect(name, pattern)`
 - `P.select(...)` is intentionally rejected inside `P.exclude(...)`, `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, `P.nonEmptyRecord(...)`, `P.map(...)`, and `P.set(...)` because those contexts can invert, skip, or repeat captures ambiguously.
 - `P.record(keyPattern, valuePattern)`
 - `P.nonEmptyRecord(keyPattern, valuePattern)`
@@ -135,6 +138,20 @@ Out of scope for the current helper batches:
 - Selections inside a matching `P.optional(...)` pattern capture `undefined` when the optional value is absent or explicitly `undefined`.
 - Anonymous and named selections are intentionally not mixed in one pattern.
 - Selection inside `P.exclude(...)` is invalid.
+- Collection captures are distinct from selections: `P.collect(name, pattern)` is named-only, valid only inside repeated container patterns (`P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, `P.nonEmptyRecord(...)`, `P.map(...)`, and `P.set(...)`), and contributes named arrays to the handler payload.
+- Collection captures may mix with named `P.select(...)` captures in the same pattern, producing one object handler payload with named single values and named arrays. Collection captures do not mix with anonymous `P.select()` because anonymous selection replaces the handler payload shape.
+- Multiple `P.collect(...)` captures with the same name append into the same handler-payload array. A `P.collect(...)` name must not collide with a `P.select(...)` name because one field cannot be both a single selected value and a collected array.
+- Handler payload inference for `P.collect(name, pattern)` contributes `name: T[]`, where `T` is the value matched by the inner pattern. Duplicate `P.collect(...)` names merge by unioning their element types, for example repeated `P.collect('values', P.string)` and `P.collect('values', P.number)` produce `values: (string | number)[]`.
+- Collection captures do not add special exhaustiveness behavior. Exhaustiveness and remaining-union reduction are determined by the inner pattern exactly as if the collection capture were a normal matching wrapper.
+- Collection capture order follows JavaScript iteration order: array index order for arrays, `Object.keys(value)` order for records, Map insertion order for maps, and Set insertion order for sets. Required-entry `P.map(...)` and required-value `P.set(...)` collect from the entries/values consumed by each top-level pattern clause in clause order.
+- Empty repeated containers that match still provide empty arrays for collection-capture names present in the repeated item/key/value pattern. For example, `P.array(P.collect('ids', P.string))` matches `[]` with a handler payload of `{ ids: [] }`.
+- Collection captures are position-aware: array items, record keys, record values, Map keys, Map values, and Set values can each contain `P.collect(...)`, and the captured value is the current item/key/value at that position.
+- Homogeneous Map and Set patterns collect from every matching runtime entry/value because the homogeneous pattern checks every entry/value. Required-entry Map and required-value Set patterns collect only from the distinct entries/values consumed by their top-level clauses; extra entries/values allowed by partial matching are not inspected for collection captures.
+- `P.collect(name, pattern)` is a normal matching capture, not a filter. The inner `pattern` must match for the surrounding repeated pattern to match; mixed repeated values should use `P.union(...)` or another explicit pattern that accepts each allowed item/value shape.
+- `P.collect(...)` works inside `P.union(...)` when the union appears inside a repeated container. Only the collection captures from the union option that actually matches are committed; failed union options must not leak partial captures.
+- `P.collect(...)` follows existing optional-selection semantics inside `P.optional(...)`: if an optional property is absent or explicitly `undefined` in a matching repeated item, the collection capture appends `undefined` and the captured array type includes `undefined`.
+- Collection captures are invalid inside `P.exclude(...)`, including when the negative pattern appears inside a repeated container, because negative matching has no positive matched value to capture.
+- Collection captures are branch-local and commit only when the surrounding pattern succeeds. Failed repeated-container matches, failed union options, and failed required Map/Set clauses must discard tentative collection captures before matching continues to later branches or fallbacks.
 
 ## matchBy semantics
 

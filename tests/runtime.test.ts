@@ -36,6 +36,26 @@ describe('match', () => {
     expect(result).toBe('Diego:30')
   })
 
+  it('preserves capture payloads with special property names', () => {
+    const selected = match('a')
+      .with(P.select('__proto__', P.string), (payload) => ({
+        hasOwnKey: Object.prototype.hasOwnProperty.call(payload, '__proto__'),
+        value: payload['__proto__'],
+      }))
+      .otherwise(() => null)
+
+    expect(selected).toEqual({ hasOwnKey: true, value: 'a' })
+
+    const collected = match(['a'])
+      .with(P.array(P.collect('__proto__', P.string)), (payload) => ({
+        hasOwnKey: Object.prototype.hasOwnProperty.call(payload, '__proto__'),
+        value: payload['__proto__'],
+      }))
+      .otherwise(() => null)
+
+    expect(collected).toEqual({ hasOwnKey: true, value: ['a'] })
+  })
+
   it('supports anonymous selection', () => {
     expect(
       match({ ok: true, data: 'value' })
@@ -325,6 +345,170 @@ describe('match', () => {
       // @ts-expect-error runtime validation still rejects Set selections for JavaScript callers
       isMatching(P.set(P.select('value'), P.string), new Set(['admin', 'owner'])),
     ).toThrow(TypeError)
+  })
+
+  it('supports collection captures in repeated arrays and unions', () => {
+    const mixedRuntimeValue: unknown = ['a', 1]
+
+    expect(
+      match(['a', 'b'])
+        .with(P.array(P.collect('ids', P.string)), ({ ids }) => ids)
+        .otherwise(() => []),
+    ).toEqual(['a', 'b'])
+
+    expect(
+      match([])
+        .with(P.array(P.collect('ids', P.string)), ({ ids }) => ids)
+        .otherwise(() => ['fallback']),
+    ).toEqual([])
+
+    expect(
+      match(['a', 1, true, null])
+        .with(
+          P.array(
+            P.union(P.collect('ids', P.string), P.collect('ages', P.number), P.collect('flags', P.boolean), P.null),
+          ),
+          ({ ids, ages, flags }) => ({ ids, ages, flags }),
+        )
+        .otherwise(() => ({ ids: [], ages: [], flags: [] })),
+    ).toEqual({ ids: ['a'], ages: [1], flags: [true] })
+
+    expect(
+      match(mixedRuntimeValue)
+        .with(P.array(P.collect('ids', P.string)), ({ ids }) => ids)
+        .with(P.array(P.union(P.collect('ids', P.string), P.collect('ages', P.number))), ({ ids, ages }) => ({
+          ids,
+          ages,
+        }))
+        .otherwise(() => null),
+    ).toEqual({ ids: ['a'], ages: [1] })
+
+    expect(
+      match(mixedRuntimeValue)
+        .with(P.array(P.collect('ids', P.string)), () => 'strings')
+        .otherwise(() => 'fallback'),
+    ).toBe('fallback')
+  })
+
+  it('supports collection captures in non-empty arrays, records, maps, and sets', () => {
+    expect(
+      match(['first'])
+        .with(P.nonEmptyArray(P.collect('ids', P.string)), ({ ids }) => ids)
+        .otherwise(() => []),
+    ).toEqual(['first'])
+
+    expect(
+      match({ id: 'user-1', role: 'admin' })
+        .with(P.record(P.collect('keys', P.string), P.collect('values', P.string)), ({ keys, values }) => ({
+          keys,
+          values,
+        }))
+        .otherwise(() => ({ keys: [], values: [] })),
+    ).toEqual({ keys: ['id', 'role'], values: ['user-1', 'admin'] })
+
+    expect(
+      match({})
+        .with(P.record(P.collect('keys', P.string), P.collect('values', P.string)), ({ keys, values }) => ({
+          keys,
+          values,
+        }))
+        .otherwise(() => ({ keys: ['fallback'], values: ['fallback'] })),
+    ).toEqual({ keys: [], values: [] })
+
+    const metadata = new Map<unknown, unknown>([
+      ['id', 'user-1'],
+      ['count', 2],
+      ['extra', true],
+    ])
+
+    expect(
+      match(metadata)
+        .with(
+          P.map(P.collect('keys', P.string), P.collect('values', P.union(P.string, P.number, P.boolean))),
+          (value) => {
+            return { keys: value.keys, values: value.values }
+          },
+        )
+        .otherwise(() => ({ keys: [], values: [] })),
+    ).toEqual({ keys: ['id', 'count', 'extra'], values: ['user-1', 2, true] })
+
+    expect(
+      match(metadata)
+        .with(
+          P.map(['id', P.collect('values', P.string)], ['count', P.collect('values', P.number)]),
+          ({ values }) => values,
+        )
+        .otherwise(() => []),
+    ).toEqual(['user-1', 2])
+
+    const roles = new Set<unknown>(['admin', 'owner', 7])
+    expect(
+      match(roles)
+        .with(P.set(P.collect('roles', P.union(P.string, P.number))), ({ roles }) => roles)
+        .otherwise(() => []),
+    ).toEqual(['admin', 'owner', 7])
+
+    expect(
+      match(roles)
+        .with(P.set(P.collect('roles', 'owner'), P.collect('roles', P.number)), ({ roles }) => roles)
+        .otherwise(() => []),
+    ).toEqual(['owner', 7])
+  })
+
+  it('supports optional and named selection payloads with collection captures', () => {
+    const users = [{ id: 'u1', role: 'admin' }, { role: 'guest' }, { id: undefined, role: 'owner' }]
+
+    expect(
+      match({ source: 'sync', users })
+        .with(
+          { source: P.select('source', P.string), users: P.array({ id: P.optional(P.collect('ids', P.string)) }) },
+          ({ source, ids }) => ({ source, ids }),
+        )
+        .otherwise(() => ({ source: 'fallback', ids: [] })),
+    ).toEqual({ source: 'sync', ids: ['u1', undefined, undefined] })
+  })
+
+  it('rejects invalid collection capture usage at runtime for JavaScript callers', () => {
+    expect(() =>
+      // @ts-expect-error runtime validation rejects collection captures outside repeated containers
+      isMatching(P.collect('ids', P.string), 'a'),
+    ).toThrow(TypeError)
+
+    expect(() =>
+      // @ts-expect-error runtime validation rejects collection captures inside negative patterns
+      isMatching(P.array(P.exclude(P.collect('ids', P.string))), []),
+    ).toThrow(TypeError)
+
+    expect(() =>
+      // @ts-expect-error runtime validation rejects collection captures outside repeated containers even when tuple rest is empty
+      isMatching(P.tuple([P.rest(P.collect('ids', P.string))]), []),
+    ).toThrow(TypeError)
+
+    expect(() =>
+      match([])
+        // @ts-expect-error runtime validation rejects collection captures outside repeated containers even when tuple rest is empty
+        .with(P.tuple([P.rest(P.collect('ids', P.string))]), () => 'bad')
+        .otherwise(() => 'fallback'),
+    ).toThrow(TypeError)
+
+    expect(() =>
+      match({ selected: 'x', ids: [] })
+        // @ts-expect-error runtime validation rejects anonymous selection mixed with collection captures
+        .with({ selected: P.select(), ids: P.array(P.collect('ids', P.string)) }, () => 'bad')
+        .otherwise(() => 'fallback'),
+    ).toThrow(TypeError)
+
+    expect(() =>
+      match({ source: 'sync', ids: ['a'] })
+        // @ts-expect-error runtime validation rejects select/collect name collisions
+        .with({ source: P.select('ids', P.string), ids: P.array(P.collect('ids', P.string)) }, () => 'bad')
+        .otherwise(() => 'fallback'),
+    ).toThrow(TypeError)
+
+    expect(() => {
+      // @ts-expect-error runtime validation rejects malformed JavaScript calls
+      P.collect('ids')
+    }).toThrow(TypeError)
   })
 
   it('throws a rich non-exhaustive error', () => {

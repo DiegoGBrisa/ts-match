@@ -11,6 +11,7 @@ import {
   pArray,
   pBigint,
   pBoolean,
+  pCollect,
   pExact,
   pExclude,
   pFinite,
@@ -66,6 +67,7 @@ describe('P namespace and named p* exports', () => {
     expect(pWhen).toBe(P.when)
     expect(pInstanceOf).toBe(P.instanceOf)
     expect(pSelect).toBe(P.select)
+    expect(pCollect).toBe(P.collect)
     expect(pRecord).toBe(P.record)
     expect(pNonEmptyRecord).toBe(P.nonEmptyRecord)
   })

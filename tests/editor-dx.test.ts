@@ -586,7 +586,7 @@ describe('editor DX', () => {
     `)
 
       for (const result of [directPattern, nestedPattern, assertionPattern, helperArgument]) {
-        expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'select', 'union']))
+        expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'select', 'collect', 'union']))
       }
     },
     EDITOR_DX_TEST_TIMEOUT_MS,

@@ -17,7 +17,7 @@ A literal, object, tuple, array, record, or `P` helper shape that decides whethe
 _Avoid_: schema, validator when discussing branch matching semantics
 
 **Pattern helper**:
-A reusable `P.*` or named `p*` helper such as `P.string`, `P.union(...)`, `P.select(...)`, or `pRecord(...)`.
+A reusable `P.*` or named `p*` helper such as `P.string`, `P.union(...)`, `P.select(...)`, `P.collect(...)`, or `pRecord(...)`.
 _Avoid_: predicate helper unless specifically describing `P.when(...)`
 
 **Branch**:
@@ -52,6 +52,10 @@ _Avoid_: default case when describing public API; use fallback
 A `P.select(...)` capture that changes the handler payload from the matched value to selected data.
 _Avoid_: extraction, pick
 
+**Collection capture**:
+A `P.collect(...)` capture that represents many selected values under one handler-payload name.
+_Avoid_: aggregate select, repeated selection, extraction
+
 **Assertion helper**:
 `isMatching(...)` or `assertMatching(...)`, used for runtime boundary validation and TypeScript narrowing.
 _Avoid_: parser, decoder
@@ -75,6 +79,7 @@ _Avoid_: negative test when referring to published diagnostic examples
 - A **Pattern helper** creates a **Pattern** with specific runtime and type-level semantics.
 - `matchBy` reads a **Tag** from a **Property path** and dispatches **Cases** by exact tag equality.
 - A **Selection** inside a matching **Pattern** replaces the normal matched-value handler payload.
+- A **Collection capture** belongs inside a repeated container **Pattern** and contributes a named array to the handler payload.
 - A **Promise builder** resolves the **Value** before matching and awaits handler outputs at terminal methods.
 - A **Safe terminal** wraps successful or failed promise matching in `MatchPromiseResult<T>`.
 - **Diagnostic fixtures** protect the developer-facing wording of type-level errors.
@@ -86,9 +91,13 @@ _Avoid_: negative test when referring to published diagnostic examples
 >
 > **Dev:** "What if I only need the nested payload field?"
 > **Maintainer:** "Use a **Selection** in a structural **Pattern** when the handler should receive selected data instead of the whole **Value**."
+>
+> **Dev:** "What if I need every matching id from an array or map?"
+> **Maintainer:** "Use a **Collection capture** when the handler should receive a named array of captured values."
 
 ## Flagged ambiguities
 
 - "case" and "branch" are easy to blur — resolved: **Branch** means a structural `match(...).with/when` clause; **Case** means a `matchBy(...).cases/partial` entry.
 - "tag" and "key" are easy to blur — resolved: **Tag** is the selected runtime discriminant value; **key** is an object property name or case-map property key.
 - "async matcher" was superseded by **Promise builder** — use `match.promise(...)` and `matchBy.promise(...)` terminology.
+- "selection" and "collection capture" are easy to blur — resolved: **Selection** means one `P.select(...)` capture; **Collection capture** means many values captured by `P.collect(...)`.

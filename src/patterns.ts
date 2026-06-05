@@ -3,6 +3,7 @@ import type {
   AbstractConstructor,
   AnonymousSelectPattern,
   ArrayPattern,
+  CollectPattern,
   DatePattern,
   EntryMapPattern,
   ErrorPattern,
@@ -321,7 +322,7 @@ export function pLiteral<const TLiteral>(literal: TLiteral): LiteralPattern<TLit
 }
 
 type PatternListArgument<TPatterns extends readonly unknown[]> = {
-  readonly [K in keyof TPatterns]: TPatterns[K] & PatternStructureArgument<TPatterns[K]>
+  readonly [K in keyof TPatterns]: TPatterns[K] & PatternStructureArgument<TPatterns[K], true>
 }
 
 type PatternHelperArgumentError<TMessage extends string, TDetails = unknown> = {
@@ -334,8 +335,8 @@ type TsMatchDiagnostic = {
   readonly 'ts-match: diagnostic': true
 }
 
-type PatternStructureDiagnostic<TPattern> =
-  PatternStructureArgument<TPattern> extends infer TDiagnostic
+type PatternStructureDiagnostic<TPattern, TAllowCollect extends boolean = false> =
+  PatternStructureArgument<TPattern, TAllowCollect> extends infer TDiagnostic
     ? TDiagnostic extends TsMatchDiagnostic
       ? TDiagnostic
       : never
@@ -343,8 +344,11 @@ type PatternStructureDiagnostic<TPattern> =
 
 type PatternStructureArgumentFromDiagnostic<TDiagnostic> = [TDiagnostic] extends [never] ? unknown : TDiagnostic
 
-type PatternListStructureArgument<TPatterns extends readonly unknown[]> = PatternStructureArgumentFromDiagnostic<
-  TPatterns[number] extends unknown ? PatternStructureDiagnostic<TPatterns[number]> : never
+type PatternListStructureArgument<
+  TPatterns extends readonly unknown[],
+  TAllowCollect extends boolean = false,
+> = PatternStructureArgumentFromDiagnostic<
+  TPatterns[number] extends unknown ? PatternStructureDiagnostic<TPatterns[number], TAllowCollect> : never
 >
 
 type AnyPatternContainsSelection<TPatterns extends readonly unknown[]> = true extends (
@@ -363,63 +367,65 @@ type PatternContainsSelection<TPattern> = [unknown] extends [TPattern]
   ? false
   : TPattern extends AnonymousSelectPattern<unknown> | NamedSelectPattern<PropertyKey, unknown>
     ? true
-    : TPattern extends
-          | WildcardPattern
-          | PrimitivePattern<Primitive>
-          | NanPattern
-          | FinitePattern
-          | IntegerPattern
-          | RegexPattern
-          | DatePattern
-          | ErrorPattern
-          | RegexpPattern
-          | NullishPattern
-          | FalsyPattern
-          | TruthyPattern
-          | TemporalPattern<TemporalPatternKind>
-          | LiteralPattern<unknown>
-          | GuardPattern<unknown, boolean>
-          | InstanceOfPattern<AbstractConstructor>
-      ? false
-      : TPattern extends UnionPattern<infer TPatterns>
-        ? AnyPatternContainsSelection<TPatterns>
-        : TPattern extends ExcludePattern<infer TInner>
-          ? PatternContainsSelection<TInner>
-          : TPattern extends OptionalPattern<infer TInner>
+    : TPattern extends CollectPattern<PropertyKey, infer TInner>
+      ? PatternContainsSelection<TInner>
+      : TPattern extends
+            | WildcardPattern
+            | PrimitivePattern<Primitive>
+            | NanPattern
+            | FinitePattern
+            | IntegerPattern
+            | RegexPattern
+            | DatePattern
+            | ErrorPattern
+            | RegexpPattern
+            | NullishPattern
+            | FalsyPattern
+            | TruthyPattern
+            | TemporalPattern<TemporalPatternKind>
+            | LiteralPattern<unknown>
+            | GuardPattern<unknown, boolean>
+            | InstanceOfPattern<AbstractConstructor>
+        ? false
+        : TPattern extends UnionPattern<infer TPatterns>
+          ? AnyPatternContainsSelection<TPatterns>
+          : TPattern extends ExcludePattern<infer TInner>
             ? PatternContainsSelection<TInner>
-            : TPattern extends ArrayPattern<infer TInner>
+            : TPattern extends OptionalPattern<infer TInner>
               ? PatternContainsSelection<TInner>
-              : TPattern extends NonEmptyArrayPattern<infer TInner>
+              : TPattern extends ArrayPattern<infer TInner>
                 ? PatternContainsSelection<TInner>
-                : TPattern extends TuplePattern<infer TItems>
-                  ? AnyPatternContainsSelection<TItems>
-                  : TPattern extends RestPattern<infer TInner>
-                    ? PatternContainsSelection<TInner>
-                    : TPattern extends ExactPattern<infer TInner>
+                : TPattern extends NonEmptyArrayPattern<infer TInner>
+                  ? PatternContainsSelection<TInner>
+                  : TPattern extends TuplePattern<infer TItems>
+                    ? AnyPatternContainsSelection<TItems>
+                    : TPattern extends RestPattern<infer TInner>
                       ? PatternContainsSelection<TInner>
-                      : TPattern extends RecordPattern<infer TKey, infer TValue>
-                        ? PatternContainsSelection<TKey> extends true
-                          ? true
-                          : PatternContainsSelection<TValue>
-                        : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
+                      : TPattern extends ExactPattern<infer TInner>
+                        ? PatternContainsSelection<TInner>
+                        : TPattern extends RecordPattern<infer TKey, infer TValue>
                           ? PatternContainsSelection<TKey> extends true
                             ? true
                             : PatternContainsSelection<TValue>
-                          : TPattern extends HomogeneousMapPattern<infer TKey, infer TValue>
+                          : TPattern extends NonEmptyRecordPattern<infer TKey, infer TValue>
                             ? PatternContainsSelection<TKey> extends true
                               ? true
                               : PatternContainsSelection<TValue>
-                            : TPattern extends EntryMapPattern<infer TEntries>
-                              ? TEntries extends readonly MapEntryPattern[]
-                                ? MapEntriesContainSelection<TEntries>
-                                : false
-                              : TPattern extends SetPattern<infer TPatterns, 'homogeneous' | 'values'>
-                                ? AnyPatternContainsSelection<TPatterns>
-                                : TPattern extends readonly unknown[]
-                                  ? AnyPatternContainsSelection<TPattern>
-                                  : TPattern extends object
-                                    ? ObjectPatternContainsSelection<TPattern>
-                                    : false
+                            : TPattern extends HomogeneousMapPattern<infer TKey, infer TValue>
+                              ? PatternContainsSelection<TKey> extends true
+                                ? true
+                                : PatternContainsSelection<TValue>
+                              : TPattern extends EntryMapPattern<infer TEntries>
+                                ? TEntries extends readonly MapEntryPattern[]
+                                  ? MapEntriesContainSelection<TEntries>
+                                  : false
+                                : TPattern extends SetPattern<infer TPatterns, 'homogeneous' | 'values'>
+                                  ? AnyPatternContainsSelection<TPatterns>
+                                  : TPattern extends readonly unknown[]
+                                    ? AnyPatternContainsSelection<TPattern>
+                                    : TPattern extends object
+                                      ? ObjectPatternContainsSelection<TPattern>
+                                      : false
 
 type MapEntryArgs<TArgs extends readonly unknown[]> = TArgs extends readonly [
   infer THead extends MapEntryPattern,
@@ -481,7 +487,7 @@ type MapPairContainsSelection<TKeyPattern, TValuePattern> =
   PatternContainsSelection<TKeyPattern> extends true ? true : PatternContainsSelection<TValuePattern>
 
 type MapEntryStructureDiagnostic<TEntry> = TEntry extends readonly [infer TKeyPattern, infer TValuePattern]
-  ? PatternStructureDiagnostic<TKeyPattern> | PatternStructureDiagnostic<TValuePattern>
+  ? PatternStructureDiagnostic<TKeyPattern, true> | PatternStructureDiagnostic<TValuePattern, true>
   : never
 
 type MapEntriesStructureArgument<TEntries extends readonly unknown[]> = PatternStructureArgumentFromDiagnostic<
@@ -489,7 +495,7 @@ type MapEntriesStructureArgument<TEntries extends readonly unknown[]> = PatternS
 >
 
 type MapPairStructureArgument<TKeyPattern, TValuePattern> = PatternStructureArgumentFromDiagnostic<
-  PatternStructureDiagnostic<TKeyPattern> | PatternStructureDiagnostic<TValuePattern>
+  PatternStructureDiagnostic<TKeyPattern, true> | PatternStructureDiagnostic<TValuePattern, true>
 >
 
 type MapPatternArgument<TArgs extends readonly unknown[]> =
@@ -525,7 +531,7 @@ type SetSelectionArgumentError<TArgs extends readonly unknown[]> = PatternHelper
 type SetPatternArgument<TArgs extends readonly unknown[]> =
   AnyPatternContainsSelection<TArgs> extends true
     ? SetSelectionArgumentError<TArgs>
-    : PatternListStructureArgument<TArgs>
+    : PatternListStructureArgument<TArgs, true>
 
 /**
  * Matches when any supplied pattern matches.
@@ -594,7 +600,7 @@ export function pExclude<const TPattern>(
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
  */
 export function pOptional<const TPattern>(
-  pattern: TPattern & PatternStructureArgument<TPattern>,
+  pattern: TPattern & PatternStructureArgument<TPattern, true>,
 ): OptionalPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'optional', pattern })
 }
@@ -762,7 +768,9 @@ export function pTuple<const TPatterns extends readonly unknown[]>(
  * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#arraytuple-semantics
  */
-export function pRest<const TPattern>(item: TPattern & PatternStructureArgument<TPattern>): RestPattern<TPattern> {
+export function pRest<const TPattern>(
+  item: TPattern & PatternStructureArgument<TPattern, true>,
+): RestPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'rest', item })
 }
 
@@ -785,7 +793,9 @@ export function pRest<const TPattern>(item: TPattern & PatternStructureArgument<
  * @see https://github.com/DiegoGBrisa/ts-match#map-and-set-patterns
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
  */
-export function pExact<const TPattern>(pattern: TPattern & PatternStructureArgument<TPattern>): ExactPattern<TPattern> {
+export function pExact<const TPattern>(
+  pattern: TPattern & PatternStructureArgument<TPattern, true>,
+): ExactPattern<TPattern> {
   return freezePattern({ [PATTERN_TOKEN]: 'exact', pattern })
 }
 
@@ -887,7 +897,7 @@ export function pSelect<const TName extends PropertyKey>(name: TName): NamedSele
  */
 export function pSelect<const TName extends PropertyKey, const TPattern>(
   name: TName,
-  pattern: TPattern & PatternStructureArgument<TPattern>,
+  pattern: TPattern & PatternStructureArgument<TPattern, true>,
 ): NamedSelectPattern<TName, TPattern>
 
 /**
@@ -903,6 +913,35 @@ export function pSelect(
   pattern: unknown = pWildcard,
 ): SelectPattern<PropertyKey | undefined, unknown> {
   return freezePattern({ [PATTERN_TOKEN]: 'select', name, pattern })
+}
+
+/**
+ * Captures every repeated value matched by a nested pattern into a named array.
+ *
+ * `P.collect(name, pattern)` is valid only inside repeated containers such as
+ * `P.array(...)`, `P.record(...)`, `P.map(...)`, and `P.set(...)`. It behaves
+ * like a normal matching wrapper: the inner pattern must match before the value
+ * is appended to the handler payload array.
+ *
+ * @param name - Capture key that will appear on the handler payload object.
+ * @param pattern - Pattern that must match before the value is collected.
+ * @returns A frozen collection capture pattern over `pattern`.
+ * @see https://github.com/DiegoGBrisa/ts-match#collection-captures
+ * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#selection-semantics
+ */
+export function pCollect<const TName extends PropertyKey, const TPattern>(
+  name: TName,
+  pattern: TPattern & PatternStructureArgument<TPattern, true>,
+): CollectPattern<TName, TPattern>
+export function pCollect(name: PropertyKey, pattern: unknown): CollectPattern<PropertyKey, unknown> {
+  if (arguments.length < 2) {
+    throw new TypeError('P.collect(name, pattern) requires a capture name and pattern.')
+  }
+  const nameType = typeof name
+  if (nameType !== 'string' && nameType !== 'number' && nameType !== 'symbol') {
+    throw new TypeError('P.collect(name, pattern) requires a string, number, or symbol capture name.')
+  }
+  return freezePattern({ [PATTERN_TOKEN]: 'collect', name, pattern })
 }
 
 /**
@@ -1011,6 +1050,7 @@ export const P = Object.freeze({
   when: pWhen,
   instanceOf: pInstanceOf,
   select: pSelect,
+  collect: pCollect,
   record: pRecord,
   nonEmptyRecord: pNonEmptyRecord,
 })
