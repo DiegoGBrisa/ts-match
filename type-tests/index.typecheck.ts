@@ -307,9 +307,11 @@ type _specificTemporal = Expect<Equal<typeof _specificTemporalResult, typeof _te
 declare const collectionValue: Map<string, number> | Set<string> | 'ready' | 'idle'
 const _collectionResult = match(collectionValue)
   .with(P.map(P.string, P.number), (value) => {
+    value.set('count', value.get('count') ?? 0)
     return value.get('count')
   })
   .with(P.set(P.string), (value) => {
+    value.add('checked')
     return value.size
   })
   .with(P.literal('ready'), (value) => {
@@ -319,19 +321,64 @@ const _collectionResult = match(collectionValue)
   .exhaustive()
 type _collection = Expect<Equal<typeof _collectionResult, number | 'ready' | 'idle' | undefined>>
 
+declare const readonlyCollectionValue: ReadonlyMap<string, number> | ReadonlySet<string> | 'ready'
+const _readonlyCollectionResult = match(readonlyCollectionValue)
+  .with(P.map(P.string, P.number), (value) => {
+    type _readonlyMapValue = Expect<Equal<typeof value, ReadonlyMap<string, number>>>
+    // @ts-expect-error ReadonlyMap branch values must not expose mutable Map methods
+    value.set('count', 1)
+    return value.get('count')
+  })
+  .with(P.set(P.string), (value) => {
+    type _readonlySetValue = Expect<Equal<typeof value, ReadonlySet<string>>>
+    // @ts-expect-error ReadonlySet branch values must not expose mutable Set methods
+    value.add('checked')
+    return value.size
+  })
+  .with('ready', (value) => {
+    return value
+  })
+  .exhaustive()
+type _readonlyCollection = Expect<Equal<typeof _readonlyCollectionResult, number | 'ready' | undefined>>
+
 declare const requiredEntryMap: Map<'id' | 'count', string | number>
 const _requiredEntryMapBuilder = match(requiredEntryMap).with(P.map(['id', P.string], ['count', P.number]), (value) => {
+  value.set('id', value.get('id') ?? 'fallback')
   return value.get('id') ?? value.get('count')
 })
 // @ts-expect-error required-entry map patterns cannot prove every possible Map value is covered
 _requiredEntryMapBuilder.exhaustive()
 
+declare const readonlyRequiredEntryMap: ReadonlyMap<'id' | 'count', string | number>
+const _readonlyRequiredEntryMapBuilder = match(readonlyRequiredEntryMap).with(
+  P.map(['id', P.string], ['count', P.number]),
+  (value) => {
+    type _readonlyRequiredMapValue = Expect<Equal<typeof value, ReadonlyMap<'id' | 'count', string | number>>>
+    // @ts-expect-error ReadonlyMap required-entry branch values must stay readonly
+    value.set('id', 'fallback')
+    return value.get('id') ?? value.get('count')
+  },
+)
+// @ts-expect-error required-entry map patterns cannot prove every possible ReadonlyMap value is covered
+_readonlyRequiredEntryMapBuilder.exhaustive()
+
 declare const requiredValueSet: Set<'admin' | 'owner'>
 const _requiredValueSetBuilder = match(requiredValueSet).with(P.set('admin', 'owner'), (value) => {
+  value.add('admin')
   return value.has('admin') && value.has('owner')
 })
 // @ts-expect-error required-value set patterns cannot prove every possible Set value is covered
 _requiredValueSetBuilder.exhaustive()
+
+declare const readonlyRequiredValueSet: ReadonlySet<'admin' | 'owner'>
+const _readonlyRequiredValueSetBuilder = match(readonlyRequiredValueSet).with(P.set('admin', 'owner'), (value) => {
+  type _readonlyRequiredSetValue = Expect<Equal<typeof value, ReadonlySet<'admin' | 'owner'>>>
+  // @ts-expect-error ReadonlySet required-value branch values must stay readonly
+  value.add('admin')
+  return value.has('admin') && value.has('owner')
+})
+// @ts-expect-error required-value set patterns cannot prove every possible ReadonlySet value is covered
+_readonlyRequiredValueSetBuilder.exhaustive()
 
 declare const referenceToken: { readonly id: 'token' }
 declare const tokenCandidate: typeof referenceToken

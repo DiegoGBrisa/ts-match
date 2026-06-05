@@ -645,6 +645,7 @@ If grouped-case handler inference is weak and variadic `.with(tag1, tag2, handle
 - `P.rest(...)` is valid only as the final tuple pattern item.
 - `P.record(...)` and `P.nonEmptyRecord(...)` target plain record-like objects, not arrays, class instances, maps, sets, dates, regexps, or primitives.
 - `P.map(...)` and `P.set(...)` target actual `Map`/`Set` instances only. They do not match plain objects, entry arrays, arrays, or duck-typed collection-like values.
+- Values typed as `ReadonlyMap` or `ReadonlySet` narrow to readonly handler types, but runtime matching still requires actual `Map`/`Set` instances.
 - Top-level array pairs in `P.map(...)` are required-entry clauses. Use `P.tuple(...)` for homogeneous tuple keys or tuple values.
 - Dot paths always mean nesting. Use tuple paths for symbols and literal segments containing dots.
 - Object patterns use normal JavaScript property lookup, so getters can run or throw and inherited properties can match.

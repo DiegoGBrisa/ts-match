@@ -1193,20 +1193,25 @@ type MapEntriesCompatible<TMapKey, TMapValue, TEntries extends readonly MapEntry
   ? false
   : true
 
+type AnyMapLike = Map<unknown, unknown> | ReadonlyMap<unknown, unknown>
+
+type MapMatchOutput<TSource, TKey, TValue> =
+  TSource extends Map<unknown, unknown> ? Map<TKey, TValue> : ReadonlyMap<TKey, TValue>
+
 type MatchedHomogeneousMap<TValue, TKeyPattern, TValuePattern> =
-  Extract<TValue, Map<unknown, unknown>> extends infer TMap
-    ? TMap extends Map<infer TKey, infer TMapValue>
+  Extract<TValue, AnyMapLike> extends infer TMap
+    ? TMap extends ReadonlyMap<infer TKey, infer TMapValue>
       ? [MatchedValue<TKey, TKeyPattern>] extends [never]
         ? never
         : [MatchedValue<TMapValue, TValuePattern>] extends [never]
           ? never
-          : Map<MatchedValue<TKey, TKeyPattern>, MatchedValue<TMapValue, TValuePattern>>
+          : MapMatchOutput<TMap, MatchedValue<TKey, TKeyPattern>, MatchedValue<TMapValue, TValuePattern>>
       : never
     : never
 
 type MatchedEntryMap<TValue, TEntries> = TEntries extends readonly MapEntryPattern[]
-  ? Extract<TValue, Map<unknown, unknown>> extends infer TMap
-    ? TMap extends Map<infer TKey, infer TMapValue>
+  ? Extract<TValue, AnyMapLike> extends infer TMap
+    ? TMap extends ReadonlyMap<infer TKey, infer TMapValue>
       ? MapEntriesCompatible<TKey, TMapValue, TEntries> extends true
         ? TMap
         : never
@@ -1215,8 +1220,8 @@ type MatchedEntryMap<TValue, TEntries> = TEntries extends readonly MapEntryPatte
   : never
 
 type CoveredHomogeneousMap<TValue, TKeyPattern, TValuePattern> =
-  Extract<TValue, Map<unknown, unknown>> extends infer TMap
-    ? TMap extends Map<infer TKey, infer TMapValue>
+  Extract<TValue, AnyMapLike> extends infer TMap
+    ? TMap extends ReadonlyMap<infer TKey, infer TMapValue>
       ? AllItemsCovered<TKey, TKeyPattern> extends true
         ? AllItemsCovered<TMapValue, TValuePattern> extends true
           ? TMap
@@ -1231,14 +1236,18 @@ type SetValuesCompatible<TItem, TPatterns extends readonly unknown[]> = false ex
   ? false
   : true
 
+type AnySetLike = Set<unknown> | ReadonlySet<unknown>
+
+type SetMatchOutput<TSource, TItem> = TSource extends Set<unknown> ? Set<TItem> : ReadonlySet<TItem>
+
 type MatchedSet<TValue, TPatterns extends readonly unknown[], TMode extends 'homogeneous' | 'values'> =
-  Extract<TValue, Set<unknown>> extends infer TSet
-    ? TSet extends Set<infer TItem>
+  Extract<TValue, AnySetLike> extends infer TSet
+    ? TSet extends ReadonlySet<infer TItem>
       ? TMode extends 'homogeneous'
         ? TPatterns extends readonly [infer TPattern]
           ? [MatchedValue<TItem, TPattern>] extends [never]
             ? never
-            : Set<MatchedValue<TItem, TPattern>>
+            : SetMatchOutput<TSet, MatchedValue<TItem, TPattern>>
           : never
         : SetValuesCompatible<TItem, TPatterns> extends true
           ? TSet
@@ -1253,8 +1262,8 @@ type CoveredSet<
 > = TMode extends 'values'
   ? never
   : TPatterns extends readonly [infer TPattern]
-    ? Extract<TValue, Set<unknown>> extends infer TSet
-      ? TSet extends Set<infer TItem>
+    ? Extract<TValue, AnySetLike> extends infer TSet
+      ? TSet extends ReadonlySet<infer TItem>
         ? AllItemsCovered<TItem, TPattern> extends true
           ? TSet
           : never

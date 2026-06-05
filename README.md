@@ -868,6 +868,8 @@ Checked tuple/rest example: [`examples/08-pattern-helpers.ts`](examples/08-patte
 
 `P.map(...)` and `P.set(...)` match actual `Map` and `Set` instances only. They do not match plain objects, entry arrays, arrays, or duck-typed map-like/set-like objects.
 
+Inputs typed as `ReadonlyMap` or `ReadonlySet` are supported by the type layer and keep readonly handler types. Runtime matching still uses actual `Map`/`Set` instances.
+
 Homogeneous mode checks every runtime entry or value:
 
 ```ts
