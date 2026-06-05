@@ -431,9 +431,9 @@ describe('editor DX', () => {
   )
 
   it(
-    'suggests helper completions in nested pattern arguments',
+    'suggests literal completions inside P.union arguments',
     () => {
-      const unionLiteralArgument = getCompletionsAtMarker(`
+      const result = getCompletionsAtMarker(`
       import { match, P } from '../src/index.ts'
 
       type User = { readonly role: 'admin' | 'member' | 'owner' }
@@ -441,23 +441,37 @@ describe('editor DX', () => {
       match(user).with({ role: P.union('admin', '${COMPLETION_MARKER}') }, (value) => value)
     `)
 
-      const assertionUnionLiteralArgument = getCompletionsAtMarker(`
+      expect(result.names).toEqual(expect.arrayContaining(['admin']))
+    },
+    EDITOR_DX_TEST_TIMEOUT_MS,
+  )
+
+  it(
+    'suggests literal completions inside assertion P.union arguments',
+    () => {
+      const result = getCompletionsAtMarker(`
       import { assertMatching, P } from '../src/index.ts'
 
       declare const form: unknown
       assertMatching({ type: 'user', role: P.union('admin', '${COMPLETION_MARKER}') }, form)
     `)
 
-      const optionalHelperArgument = getCompletionsAtMarker(`
+      expect(result.names).toEqual(expect.arrayContaining(['admin']))
+    },
+    EDITOR_DX_TEST_TIMEOUT_MS,
+  )
+
+  it(
+    'suggests P namespace completions inside optional helper arguments',
+    () => {
+      const result = getCompletionsAtMarker(`
       import { match, P } from '../src/index.ts'
 
       declare const value: unknown
       match(value).with({ role: P.optional(P.${COMPLETION_MARKER}) }, (matched) => matched)
     `)
 
-      expect(unionLiteralArgument.names).toEqual(expect.arrayContaining(['admin']))
-      expect(assertionUnionLiteralArgument.names).toEqual(expect.arrayContaining(['admin']))
-      expect(optionalHelperArgument.names).toEqual(expect.arrayContaining(['string', 'number', 'union']))
+      expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'union']))
     },
     EDITOR_DX_TEST_TIMEOUT_MS,
   )
