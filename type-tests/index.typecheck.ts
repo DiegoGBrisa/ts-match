@@ -304,6 +304,61 @@ _specificTemporalBuilder.exhaustive()
 const _specificTemporalResult = _specificTemporalBuilder.otherwise(() => 'fallback')
 type _specificTemporal = Expect<Equal<typeof _specificTemporalResult, typeof _temporalAnyResult>>
 
+declare const collectionValue: Map<string, number> | Set<string> | 'ready' | 'idle'
+const _collectionResult = match(collectionValue)
+  .with(P.map(P.string, P.number), (value) => {
+    return value.get('count')
+  })
+  .with(P.set(P.string), (value) => {
+    return value.size
+  })
+  .with(P.literal('ready'), (value) => {
+    return value
+  })
+  .with('idle', () => 'idle')
+  .exhaustive()
+type _collection = Expect<Equal<typeof _collectionResult, number | 'ready' | 'idle' | undefined>>
+
+declare const requiredEntryMap: Map<'id' | 'count', string | number>
+const _requiredEntryMapBuilder = match(requiredEntryMap).with(P.map(['id', P.string], ['count', P.number]), (value) => {
+  return value.get('id') ?? value.get('count')
+})
+// @ts-expect-error required-entry map patterns cannot prove every possible Map value is covered
+_requiredEntryMapBuilder.exhaustive()
+
+declare const requiredValueSet: Set<'admin' | 'owner'>
+const _requiredValueSetBuilder = match(requiredValueSet).with(P.set('admin', 'owner'), (value) => {
+  return value.has('admin') && value.has('owner')
+})
+// @ts-expect-error required-value set patterns cannot prove every possible Set value is covered
+_requiredValueSetBuilder.exhaustive()
+
+declare const referenceToken: { readonly id: 'token' }
+declare const tokenCandidate: typeof referenceToken
+const _referenceLiteralBuilder = match(tokenCandidate).with(P.literal(referenceToken), (value) => {
+  return value.id
+})
+// @ts-expect-error object/function/array P.literal(...) patterns match by runtime reference identity only
+_referenceLiteralBuilder.exhaustive()
+
+declare const literalNumberTarget: number
+declare const literalNumberCandidate: number
+const _broadPrimitiveLiteralBuilder = match(literalNumberCandidate).with(P.literal(literalNumberTarget), (value) => {
+  type _value = Expect<Equal<typeof value, number>>
+  return value
+})
+// @ts-expect-error broad primitive P.literal(...) patterns match one runtime value and cannot prove exhaustiveness
+_broadPrimitiveLiteralBuilder.exhaustive()
+
+declare const literalStatusTarget: 'ready' | 'idle'
+declare const literalStatusCandidate: 'ready' | 'idle'
+const _unionPrimitiveLiteralBuilder = match(literalStatusCandidate).with(P.literal(literalStatusTarget), (value) => {
+  type _value = Expect<Equal<typeof value, 'ready' | 'idle'>>
+  return value
+})
+// @ts-expect-error primitive-union P.literal(...) patterns match one runtime value and cannot prove exhaustiveness
+_unionPrimitiveLiteralBuilder.exhaustive()
+
 type Action =
   | { type: 'clear' }
   | { type: 'load-success'; fileDiffs: readonly string[] }

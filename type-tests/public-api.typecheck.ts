@@ -31,6 +31,8 @@ import {
   pFinite,
   pInstanceOf,
   pInteger,
+  pLiteral,
+  pMap,
   pNan,
   pNonEmptyArray,
   pNonEmptyRecord,
@@ -43,6 +45,7 @@ import {
   pRegexp,
   pRest,
   pSelect,
+  pSet,
   pString,
   pSymbol,
   pTemporal,
@@ -61,7 +64,7 @@ import {
   pWhen,
   pWildcard,
 } from '../src/patterns.js'
-import type { InferPattern, TemporalInstantValue } from '../src/types.js'
+import type { InferPattern, LiteralPattern, MapPattern, SetPattern, TemporalInstantValue } from '../src/types.js'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
@@ -254,6 +257,42 @@ if (_recordHelperGuard(unknownInput)) {
   void flags
 }
 
+const _mapPatternType: MapPattern<typeof pString, typeof pNumber> = pMap(pString, pNumber)
+const _setPatternType: SetPattern<readonly [typeof pString]> = pSet(pString)
+const _literalPatternType: LiteralPattern<'ready'> = pLiteral('ready')
+type _mapPatternInference = Expect<Equal<InferPattern<typeof _mapPatternType>, Map<string, number>>>
+type _setPatternInference = Expect<Equal<InferPattern<typeof _setPatternType>, Set<string>>>
+type _literalPatternInference = Expect<Equal<InferPattern<typeof _literalPatternType>, 'ready'>>
+// @ts-expect-error P.map requires homogeneous key/value patterns or required-entry clauses
+pMap()
+// @ts-expect-error P.map cannot mix required-entry clauses with homogeneous key/value patterns
+pMap(['id', pString], pNumber)
+// @ts-expect-error homogeneous tuple key/value patterns must use P.tuple([...])
+pMap(pString, ['count', pNumber])
+// @ts-expect-error P.set requires at least one value pattern
+pSet()
+
+const _collectionHelperInference = match(unknownInput)
+  .with(pMap(pString, pNumber), (value) => {
+    return value.get('count')
+  })
+  .with(pMap(['id', pString], ['count', pNumber]), (value) => {
+    return value.entries().next().value
+  })
+  .with(pSet(pString), (value) => {
+    return value.has('admin') ? value.size : 0
+  })
+  .with(pSet('admin', pNumber), (value) => {
+    return value.has('admin') ? value.size : 0
+  })
+  .with(pLiteral('ready'), (value) => {
+    return value
+  })
+  .otherwise(() => null)
+type _collectionHelperResult = Expect<
+  Equal<typeof _collectionHelperInference, number | [unknown, unknown] | 'ready' | null | undefined>
+>
+
 const _primitiveHelperResults = [
   isMatching(pWildcard, unknownInput),
   isMatching(pAny, unknownInput),
@@ -261,6 +300,12 @@ const _primitiveHelperResults = [
   isMatching(pBigint, 1n),
   isMatching(pSymbol, Symbol('s')),
   isMatching(pNan, Number.NaN),
+  isMatching(P.map(P.string, P.number), new Map([['count', 1]])),
+  isMatching(pMap(pString, pNumber), new Map([['count', 1]])),
+  isMatching(P.set(P.string), new Set(['admin'])),
+  isMatching(pSet(pString), new Set(['admin'])),
+  isMatching(P.literal('ready'), 'ready'),
+  isMatching(pLiteral('ready'), 'ready'),
   isMatching(P.temporal, unknownInput),
   isMatching(pTemporal, unknownInput),
   isMatching(pTemporalPlainDate, unknownInput),

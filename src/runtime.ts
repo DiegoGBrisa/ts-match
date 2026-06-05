@@ -1,6 +1,6 @@
 import { ownEnumerableKeys } from './keys.js'
 import { PATTERN_TOKEN } from './tokens.js'
-import type { BuiltInPattern, OptionalPattern, TemporalPatternKind } from './types.js'
+import type { BuiltInPattern, MapEntryPattern, OptionalPattern, TemporalPatternKind } from './types.js'
 
 type SelectionMode = 'none' | 'anonymous' | 'named'
 
@@ -35,19 +35,20 @@ interface IndexableObject {
 /**
  * Runtime options that tune structural pattern semantics for a nested match.
  *
- * `exactObjectKeys` is enabled only through `P.exact(...)`; ordinary object
- * patterns remain partial and allow additional enumerable keys.
+ * `exact` is enabled only through `P.exact(...)`; ordinary object and
+ * required-entry collection patterns remain partial and allow additional keys or
+ * collection entries.
  *
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/design.md#object-semantics
  */
 interface MatchOptions {
-  readonly exactObjectKeys: boolean
+  readonly exact: boolean
 }
 
 type TemporalConstructor = abstract new (...args: never[]) => object
 
-const NORMAL_OPTIONS: MatchOptions = { exactObjectKeys: false }
-const EXACT_OPTIONS: MatchOptions = { exactObjectKeys: true }
+const NORMAL_OPTIONS: MatchOptions = { exact: false }
+const EXACT_OPTIONS: MatchOptions = { exact: true }
 
 /**
  * Narrows unknown values to non-null objects or functions.
@@ -344,6 +345,46 @@ function assertNoRecordSelection(keyPattern: unknown, valuePattern: unknown, lab
 }
 
 /**
+ * Rejects `P.select(...)` inside Map key or value patterns.
+ *
+ * Map patterns may scan and consume several entries, so one capture payload would
+ * be ambiguous and order-dependent.
+ *
+ * @param pattern - Map pattern to inspect.
+ * @throws {TypeError} When any Map key or value pattern contains a selection.
+ */
+function assertNoMapSelection(pattern: BuiltInPattern): void {
+  if (pattern[PATTERN_TOKEN] !== 'map') return
+
+  if (pattern.mode === 'homogeneous') {
+    if (containsSelect(pattern.key) || containsSelect(pattern.value)) {
+      throw new TypeError('P.select(...) cannot be used inside P.map(...).')
+    }
+    return
+  }
+
+  for (const [keyPattern, valuePattern] of pattern.entries) {
+    if (containsSelect(keyPattern) || containsSelect(valuePattern)) {
+      throw new TypeError('P.select(...) cannot be used inside P.map(...).')
+    }
+  }
+}
+
+/**
+ * Rejects `P.select(...)` inside Set value patterns.
+ *
+ * Set patterns may scan and consume several values, so one capture payload would
+ * be ambiguous and order-dependent.
+ *
+ * @param pattern - Set pattern to inspect.
+ * @throws {TypeError} When any Set value pattern contains a selection.
+ */
+function assertNoSetSelection(pattern: BuiltInPattern): void {
+  if (pattern[PATTERN_TOKEN] !== 'set') return
+  if (pattern.values.some(containsSelect)) throw new TypeError('P.select(...) cannot be used inside P.set(...).')
+}
+
+/**
  * Checks whether a built-in helper pattern contains any selection helper.
  *
  * @param pattern - Built-in `P.*` pattern to inspect.
@@ -355,7 +396,8 @@ function containsSelectInBuiltIn(pattern: BuiltInPattern): boolean {
     containsSelectInSelectorOrUnion(pattern) ||
     containsSelectInUnaryPattern(pattern) ||
     containsSelectInCollectionPattern(pattern) ||
-    containsSelectInRecordPattern(pattern)
+    containsSelectInRecordPattern(pattern) ||
+    containsSelectInMapOrSetPattern(pattern)
   )
 }
 
@@ -408,6 +450,22 @@ function containsSelectInRecordPattern(pattern: BuiltInPattern): boolean {
   const kind = pattern[PATTERN_TOKEN]
   return (
     (kind === 'record' || kind === 'non-empty-record') && (containsSelect(pattern.key) || containsSelect(pattern.value))
+  )
+}
+
+/**
+ * Checks Map and Set patterns for nested selections.
+ *
+ * @param pattern - Built-in pattern whose token has already been validated.
+ * @returns `true` when a Map key/value or Set value pattern contains a selection.
+ */
+function containsSelectInMapOrSetPattern(pattern: BuiltInPattern): boolean {
+  const kind = pattern[PATTERN_TOKEN]
+  if (kind === 'set') return pattern.values.some(containsSelect)
+  if (kind !== 'map') return false
+  if (pattern.mode === 'homogeneous') return containsSelect(pattern.key) || containsSelect(pattern.value)
+  return pattern.entries.some(
+    ([keyPattern, valuePattern]) => containsSelect(keyPattern) || containsSelect(valuePattern),
   )
 }
 
@@ -522,6 +580,8 @@ function validateRepeatedSelectionContainers(pattern: BuiltInPattern): void {
   if (kind === 'non-empty-array') assertNoArraySelection(pattern.item, 'nonEmptyArray')
   if (kind === 'record') assertNoRecordSelection(pattern.key, pattern.value, 'record')
   if (kind === 'non-empty-record') assertNoRecordSelection(pattern.key, pattern.value, 'nonEmptyRecord')
+  if (kind === 'map') assertNoMapSelection(pattern)
+  if (kind === 'set') assertNoSetSelection(pattern)
 }
 
 /**
@@ -690,7 +750,7 @@ function objectPatternMatches(
     if (!matchesPattern(readProperty(value, key), propertyPattern, selection, options)) return false
   }
 
-  return !options.exactObjectKeys || exactObjectKeysMatch(value, keys)
+  return !options.exact || exactObjectKeysMatch(value, keys)
 }
 
 /**
@@ -763,6 +823,134 @@ function recordMatches(
 }
 
 /**
+ * Checks one Map entry against one required-entry clause.
+ *
+ * @param entry - Runtime Map entry in insertion order.
+ * @param clause - Required key/value pattern pair.
+ * @param options - Structural matching options for nested checks.
+ * @returns `true` when both key and value satisfy the clause.
+ */
+function mapEntryMatches(entry: readonly [unknown, unknown], clause: MapEntryPattern, options: MatchOptions): boolean {
+  const [keyPattern, valuePattern] = clause
+  return (
+    matchesPattern(entry[0], keyPattern, undefined, options) &&
+    matchesPattern(entry[1], valuePattern, undefined, options)
+  )
+}
+
+/**
+ * Matches homogeneous Map patterns by requiring every entry to satisfy the same
+ * key and value patterns.
+ *
+ * @param value - Candidate runtime value.
+ * @param keyPattern - Pattern required for every Map key.
+ * @param valuePattern - Pattern required for every Map value.
+ * @param options - Structural matching options for nested checks.
+ * @returns `true` when `value` is a Map and every entry matches.
+ */
+function homogeneousMapMatches(
+  value: unknown,
+  keyPattern: unknown,
+  valuePattern: unknown,
+  options: MatchOptions,
+): boolean {
+  if (!(value instanceof Map)) return false
+
+  for (const [entryKey, entryValue] of value) {
+    if (!matchesPattern(entryKey, keyPattern, undefined, options)) return false
+    if (!matchesPattern(entryValue, valuePattern, undefined, options)) return false
+  }
+
+  return true
+}
+
+/**
+ * Matches required-entry Map patterns with deterministic distinct consumption.
+ *
+ * Clauses are evaluated left to right. For each clause, Map entries are scanned
+ * in insertion order and the first unused matching entry is consumed.
+ *
+ * @param value - Candidate runtime value.
+ * @param entries - Required key/value pattern clauses.
+ * @param options - Structural matching options for nested checks.
+ * @returns `true` when every required clause consumes one distinct Map entry.
+ */
+function requiredMapEntriesMatch(value: unknown, entries: readonly MapEntryPattern[], options: MatchOptions): boolean {
+  if (!(value instanceof Map)) return false
+
+  const runtimeEntries = [...value.entries()]
+  const usedIndexes = new Set<number>()
+
+  for (const clause of entries) {
+    let consumedIndex: number | undefined
+    for (let index = 0; index < runtimeEntries.length; index += 1) {
+      if (usedIndexes.has(index)) continue
+      const runtimeEntry = runtimeEntries[index]
+      if (runtimeEntry === undefined) continue
+      if (!mapEntryMatches(runtimeEntry, clause, options)) continue
+      consumedIndex = index
+      break
+    }
+
+    if (consumedIndex === undefined) return false
+    usedIndexes.add(consumedIndex)
+  }
+
+  return !options.exact || usedIndexes.size === value.size
+}
+
+/**
+ * Matches homogeneous Set patterns by requiring every value to satisfy one pattern.
+ *
+ * @param value - Candidate runtime value.
+ * @param valuePattern - Pattern required for every Set value.
+ * @param options - Structural matching options for nested checks.
+ * @returns `true` when `value` is a Set and every value matches.
+ */
+function homogeneousSetMatches(value: unknown, valuePattern: unknown, options: MatchOptions): boolean {
+  if (!(value instanceof Set)) return false
+
+  for (const setValue of value) {
+    if (!matchesPattern(setValue, valuePattern, undefined, options)) return false
+  }
+
+  return true
+}
+
+/**
+ * Matches required-value Set patterns with deterministic distinct consumption.
+ *
+ * Value clauses are evaluated left to right. For each clause, Set values are
+ * scanned in insertion order and the first unused matching value is consumed.
+ *
+ * @param value - Candidate runtime value.
+ * @param patterns - Required value patterns.
+ * @param options - Structural matching options for nested checks.
+ * @returns `true` when every required clause consumes one distinct Set value.
+ */
+function requiredSetValuesMatch(value: unknown, patterns: readonly unknown[], options: MatchOptions): boolean {
+  if (!(value instanceof Set)) return false
+
+  const runtimeValues = [...value.values()]
+  const usedIndexes = new Set<number>()
+
+  for (const valuePattern of patterns) {
+    let consumedIndex: number | undefined
+    for (let index = 0; index < runtimeValues.length; index += 1) {
+      if (usedIndexes.has(index)) continue
+      if (!matchesPattern(runtimeValues[index], valuePattern, undefined, options)) continue
+      consumedIndex = index
+      break
+    }
+
+    if (consumedIndex === undefined) return false
+    usedIndexes.add(consumedIndex)
+  }
+
+  return !options.exact || usedIndexes.size === value.size
+}
+
+/**
  * Evaluates primitive-like built-in helpers.
  *
  * @param value - Candidate runtime value.
@@ -785,6 +973,7 @@ function matchPrimitivePattern(value: unknown, pattern: BuiltInPattern): boolean
   if (kind === 'falsy') return !value
   if (kind === 'truthy') return Boolean(value)
   if (kind === 'temporal') return temporalMatches(value, pattern.temporal)
+  if (kind === 'literal') return Object.is(value, pattern.literal)
   return undefined
 }
 
@@ -981,6 +1170,28 @@ function matchRecordPattern(
 }
 
 /**
+ * Evaluates Map and Set helpers.
+ *
+ * @param value - Candidate runtime value.
+ * @param pattern - Built-in pattern helper to evaluate.
+ * @param options - Structural matching options for nested checks.
+ * @returns Match result, or `undefined` when the helper is not Map/Set.
+ */
+function matchMapOrSetPattern(value: unknown, pattern: BuiltInPattern, options: MatchOptions): boolean | undefined {
+  const kind = pattern[PATTERN_TOKEN]
+  if (kind === 'map') {
+    assertNoMapSelection(pattern)
+    if (pattern.mode === 'homogeneous') return homogeneousMapMatches(value, pattern.key, pattern.value, options)
+    return requiredMapEntriesMatch(value, pattern.entries, options)
+  }
+
+  if (kind !== 'set') return undefined
+  assertNoSetSelection(pattern)
+  if (pattern.mode === 'homogeneous') return homogeneousSetMatches(value, pattern.values[0], options)
+  return requiredSetValuesMatch(value, pattern.values, options)
+}
+
+/**
  * Dispatches a built-in pattern helper to the specialized runtime matcher.
  *
  * @param value - Candidate runtime value.
@@ -1010,6 +1221,9 @@ function matchBuiltInPattern(
 
   const selected = matchSelectionPattern(value, pattern, selection, options)
   if (selected !== undefined) return selected
+
+  const mapOrSet = matchMapOrSetPattern(value, pattern, options)
+  if (mapOrSet !== undefined) return mapOrSet
 
   return matchRecordPattern(value, pattern, selection) ?? false
 }

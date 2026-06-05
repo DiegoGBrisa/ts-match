@@ -13,7 +13,7 @@ Use ts-match when code benefits from:
 
 - exhaustive closed-union handling;
 - narrowed handler parameters without casts;
-- structural object/tuple/array/record matching;
+- structural object/tuple/array/record/map/set matching;
 - reusable runtime validators at boundaries;
 - promise-backed inputs with one normalized terminal promise;
 - discriminant/path dispatch through `matchBy`.
@@ -547,14 +547,19 @@ Array-form groups remain supported and are often more readable because `group` k
 - `P.date`, `P.error`, `P.regexp` — valid `Date`, `Error`, and `RegExp` instance helpers.
 - `P.nullish`, `P.falsy`, `P.truthy` — JavaScript nullish/truthiness helpers.
 - `P.temporal`, `P.temporalInstant`, `P.temporalPlainDate`, `P.temporalPlainTime`, `P.temporalPlainDateTime`, `P.temporalZonedDateTime`, `P.temporalDuration`, `P.temporalPlainYearMonth`, `P.temporalPlainMonthDay` — Temporal helpers. They match nothing when `globalThis.Temporal` is unavailable and do not polyfill Temporal.
+- `P.literal(value)` — exact primitive value or object/function/array reference identity matching.
 - `P.union(...patterns)` — matches any listed pattern; requires at least one pattern.
 - `P.exclude(pattern)` — matches values that do not match the nested pattern; cannot contain selections.
 - `P.optional(pattern)` — matches an absent object property, `undefined`, or the nested pattern.
 - `P.array(pattern)` — variable-length arrays where every item matches; selections inside are rejected.
 - `P.nonEmptyArray(pattern)` — same as `P.array(...)` but requires at least one item.
+- `P.map(keyPattern, valuePattern)` — actual `Map` instances where every entry matches homogeneous key/value patterns.
+- `P.map([keyPattern, valuePattern], ...)` — actual `Map` instances with distinct required entries; partial by default, exact with `P.exact(...)`.
+- `P.set(valuePattern)` — actual `Set` instances where every value matches one pattern.
+- `P.set(valuePattern, ...moreValuePatterns)` — actual `Set` instances with distinct required values; partial by default, exact with `P.exact(...)`.
 - `P.tuple([...])` — explicit exact tuple pattern.
 - `P.rest(pattern)` — remaining tuple items; valid only as the final tuple item.
-- `P.exact(pattern)` — deep exact object pattern rejecting enumerable own extra value keys.
+- `P.exact(pattern)` — deep exact object pattern rejecting enumerable own extra value keys; with required Map/Set mode it rejects extra unconsumed entries/values.
 - `P.when(predicate)` — nested predicate or type guard pattern.
 - `P.instanceOf(Constructor)` — `instanceof` pattern for classes/errors.
 - `P.select()` — anonymous selection.
@@ -569,8 +574,8 @@ Named helper exports mirror `P` helpers:
 - `pNan`, `pFinite`, `pInteger`
 - `pRegex`, `pDate`, `pError`, `pRegexp`, `pNullish`, `pFalsy`, `pTruthy`
 - `pTemporal`, `pTemporalInstant`, `pTemporalPlainDate`, `pTemporalPlainTime`, `pTemporalPlainDateTime`, `pTemporalZonedDateTime`, `pTemporalDuration`, `pTemporalPlainYearMonth`, `pTemporalPlainMonthDay`
-- `pUnion`, `pExclude`, `pOptional`
-- `pArray`, `pNonEmptyArray`, `pTuple`, `pRest`
+- `pLiteral`, `pUnion`, `pExclude`, `pOptional`
+- `pArray`, `pNonEmptyArray`, `pMap`, `pSet`, `pTuple`, `pRest`
 - `pExact`, `pWhen`, `pInstanceOf`, `pSelect`, `pRecord`, `pNonEmptyRecord`
 
 Use named helpers when codebases prefer focused imports or want helper usage visible to bundlers.
@@ -627,7 +632,7 @@ Common diagnostic fixes:
 - `ts-match: object-map cases are missing required key(s)` — add missing handlers or change to `.partial(...).otherwise(...)`.
 - `ts-match: object-map case contains an extra key` — remove the extra key or fix the discriminant path.
 - `ts-match: object-map cases cannot represent null or undefined tags` / key collision diagnostics — use tuple-entry cases or callback grouped cases instead of an object map.
-- `ts-match: repeated container patterns cannot contain P.select(...)` — move the selection outside `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, or `P.nonEmptyRecord(...)`.
+- `ts-match: repeated container patterns cannot contain P.select(...)` — move the selection outside `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, `P.nonEmptyRecord(...)`, `P.map(...)`, or `P.set(...)`.
 - `ts-match: P.exclude(pattern) cannot contain P.select(...)` — remove the selection or move it outside the excluded pattern.
 - `ts-match: invalid P.rest(...) usage` — use `P.rest(...)` only as the final tuple pattern item.
 
@@ -635,16 +640,17 @@ If grouped-case handler inference is weak and variadic `.with(tag1, tag2, handle
 
 ## Important limitations
 
-- `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, and `P.nonEmptyRecord(...)` reject `P.select(...)` because captures may repeat ambiguously.
+- `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, `P.nonEmptyRecord(...)`, `P.map(...)`, and `P.set(...)` reject `P.select(...)` because captures may repeat ambiguously.
 - `P.exclude(...)` cannot contain selections.
 - `P.rest(...)` is valid only as the final tuple pattern item.
 - `P.record(...)` and `P.nonEmptyRecord(...)` target plain record-like objects, not arrays, class instances, maps, sets, dates, regexps, or primitives.
+- `P.map(...)` and `P.set(...)` target actual `Map`/`Set` instances only. They do not match plain objects, entry arrays, arrays, or duck-typed collection-like values.
+- Top-level array pairs in `P.map(...)` are required-entry clauses. Use `P.tuple(...)` for homogeneous tuple keys or tuple values.
 - Dot paths always mean nesting. Use tuple paths for symbols and literal segments containing dots.
 - Object patterns use normal JavaScript property lookup, so getters can run or throw and inherited properties can match.
-- `P.exact(...)` rejects enumerable own extra keys on values, but it is not a cyclic graph matcher.
+- `P.exact(...)` rejects object extra keys and required Map/Set extra entries or values, but it is not a cyclic graph matcher.
 - Object-map `.cases({...})` cannot represent `null`, `undefined`, or normalized key collisions. Avoid bare `__proto__:` object-literal syntax; use computed `['__proto__']`, tuple/grouped entries, or callback grouped cases.
 - Standalone exported `group(...)` cannot always infer handler parameter types from a later `.cases(...)` or `.partial(...)` call. Use callback-local `group` for annotation-free grouped handlers.
-- No structural `Map`/`Set` helper exists. Use `P.instanceOf(Map)` / `P.instanceOf(Set)` plus `P.when(...)` for custom checks.
 - Temporal helpers do not polyfill `globalThis.Temporal`; they match nothing until the runtime or application provides Temporal constructors.
 
 ## Anti-patterns

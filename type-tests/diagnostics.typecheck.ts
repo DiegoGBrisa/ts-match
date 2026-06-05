@@ -55,6 +55,12 @@ P.exclude(P.select('x'))
 // @ts-expect-error ts-match: invalid P.rest usage
 P.tuple([P.rest(P.string), P.number])
 
+// @ts-expect-error ts-match: invalid P.rest usage
+P.map(P.rest(P.string), P.number)
+
+// @ts-expect-error ts-match: invalid P.rest usage
+P.set(P.rest(P.string))
+
 // @ts-expect-error ts-match: invalid P.select usage
 isMatching(P.array(P.select('item')))
 

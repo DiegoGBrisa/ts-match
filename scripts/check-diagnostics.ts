@@ -34,6 +34,12 @@ const expectedFragments: readonly ExpectedFragment[] = [
   { description: 'record key pattern', text: 'ts-match: record key pattern cannot match JavaScript property keys' },
   { description: 'record value selection', text: 'ts-match: record value patterns cannot contain P.select(...)' },
   { description: 'record key selection', text: 'ts-match: record key patterns cannot contain P.select(...)' },
+  { description: 'map key/value selection', text: 'ts-match: Map key/value patterns cannot contain P.select(...)' },
+  {
+    description: 'homogeneous map tuple disambiguation',
+    text: 'ts-match: P.map(keyPattern, valuePattern) cannot use top-level array patterns',
+  },
+  { description: 'set value selection', text: 'ts-match: Set value patterns cannot contain P.select(...)' },
   { description: 'exclude selection', text: 'ts-match: P.exclude(pattern) cannot contain P.select(...)' },
   { description: 'invalid selection structure', text: 'ts-match: invalid P.select(...) usage' },
   { description: 'predicate return type', text: "Type 'number' is not assignable to type 'boolean'" },
