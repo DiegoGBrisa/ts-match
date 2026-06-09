@@ -2249,7 +2249,7 @@ export type ExcludePatternArgument<TPattern> = PatternStructureArgument<TPattern
  * @typeParam TPatterns - Tuple item pattern list.
  * @see https://github.com/DiegoGBrisa/ts-match#tuple-and-array-patterns
  */
-export type TuplePatternArgument<TPatterns extends readonly unknown[]> = PatternStructureArgument<TPatterns, true>
+export type TuplePatternArgument<TPatterns extends readonly unknown[]> = PatternStructureArgument<TPatterns>
 
 /**
  * Compile-time diagnostic gate for record key patterns.
