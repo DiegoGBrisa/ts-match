@@ -4,6 +4,20 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.5.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.4.0...v1.5.0) (2026-06-09)
+
+
+### Features
+
+* add collection captures ([c60a9e2](https://github.com/DiegoGBrisa/ts-match/commit/c60a9e269948dd87aa9b49371374d1780a135ef3))
+* add collection captures ([c468431](https://github.com/DiegoGBrisa/ts-match/commit/c4684312854163c5ba26030e4be23da0d415abb0))
+
+
+### Bug Fixes
+
+* reject collect in tuple patterns ([f2d4c45](https://github.com/DiegoGBrisa/ts-match/commit/f2d4c4556a78389177cdf478f30be11d4a82545c))
+* validate collection capture conflicts ([25e2a55](https://github.com/DiegoGBrisa/ts-match/commit/25e2a55516dc9f90ebd887a564f5e580ae0d4f12))
+
 ## [1.4.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.3.0...v1.4.0) (2026-06-05)
 
 
