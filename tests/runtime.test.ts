@@ -507,8 +507,8 @@ describe('match', () => {
 
     expect(() =>
       match({ kind: 'selected', data: 'x' })
-        // @ts-expect-error runtime validation rejects select/collect name collisions across union alternatives
         .with(
+          // @ts-expect-error runtime validation rejects select/collect name collisions across union alternatives
           P.union(
             { kind: 'selected', data: P.select('data', P.string) },
             { kind: 'collected', data: P.array(P.collect('data', P.string)) },
