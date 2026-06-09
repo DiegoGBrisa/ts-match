@@ -23,6 +23,7 @@ import {
   pArray,
   pBigint,
   pBoolean,
+  pCollect,
   pDate,
   pError,
   pExact,
@@ -64,7 +65,14 @@ import {
   pWhen,
   pWildcard,
 } from '../src/patterns.js'
-import type { InferPattern, LiteralPattern, MapPattern, SetPattern, TemporalInstantValue } from '../src/types.js'
+import type {
+  CollectPattern,
+  InferPattern,
+  LiteralPattern,
+  MapPattern,
+  SetPattern,
+  TemporalInstantValue,
+} from '../src/types.js'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
@@ -260,9 +268,11 @@ if (_recordHelperGuard(unknownInput)) {
 const _mapPatternType: MapPattern<typeof pString, typeof pNumber> = pMap(pString, pNumber)
 const _setPatternType: SetPattern<readonly [typeof pString]> = pSet(pString)
 const _literalPatternType: LiteralPattern<'ready'> = pLiteral('ready')
+const _collectPatternType: CollectPattern<'ids', typeof pString> = pCollect('ids', pString)
 type _mapPatternInference = Expect<Equal<InferPattern<typeof _mapPatternType>, Map<string, number>>>
 type _setPatternInference = Expect<Equal<InferPattern<typeof _setPatternType>, Set<string>>>
 type _literalPatternInference = Expect<Equal<InferPattern<typeof _literalPatternType>, 'ready'>>
+type _collectPatternInference = Expect<Equal<InferPattern<typeof _collectPatternType>, string>>
 // @ts-expect-error P.map requires homogeneous key/value patterns or required-entry clauses
 pMap()
 // @ts-expect-error P.map cannot mix required-entry clauses with homogeneous key/value patterns
@@ -288,9 +298,13 @@ const _collectionHelperInference = match(unknownInput)
   .with(pLiteral('ready'), (value) => {
     return value
   })
+  .with(P.array(pCollect('ids', pString)), (value) => {
+    const ids: string[] = value.ids
+    return ids
+  })
   .otherwise(() => null)
 type _collectionHelperResult = Expect<
-  Equal<typeof _collectionHelperInference, number | [unknown, unknown] | 'ready' | null | undefined>
+  Equal<typeof _collectionHelperInference, number | [unknown, unknown] | 'ready' | string[] | null | undefined>
 >
 
 const _primitiveHelperResults = [
@@ -306,6 +320,8 @@ const _primitiveHelperResults = [
   isMatching(pSet(pString), new Set(['admin'])),
   isMatching(P.literal('ready'), 'ready'),
   isMatching(pLiteral('ready'), 'ready'),
+  isMatching(P.array(P.collect('ids', P.string)), ['a']),
+  isMatching(P.array(pCollect('ids', pString)), ['a']),
   isMatching(P.temporal, unknownInput),
   isMatching(pTemporal, unknownInput),
   isMatching(pTemporalPlainDate, unknownInput),

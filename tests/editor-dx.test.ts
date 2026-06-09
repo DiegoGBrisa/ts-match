@@ -383,7 +383,7 @@ describe('editor DX', () => {
   })
 
   it(
-    'suggests match and assertion helper completions in nested configuration and selected handlers',
+    'suggests selected and narrowed match handler completions',
     () => {
       const selectedHandler = getCompletionsAtMarker(`
       import { match, P } from '../src/index.ts'
@@ -423,7 +423,17 @@ describe('editor DX', () => {
       )
     `)
 
-      const unionLiteralArgument = getCompletionsAtMarker(`
+      expect(selectedHandler.names).toEqual(expect.arrayContaining(['rating', 'title']))
+      expect(promiseSelectedHandler.names).toEqual(expect.arrayContaining(['rating', 'title']))
+      expect(whenHandler.names).toEqual(expect.arrayContaining(['id', 'role']))
+    },
+    EDITOR_DX_TEST_TIMEOUT_MS,
+  )
+
+  it(
+    'suggests literal completions inside P.union arguments',
+    () => {
+      const result = getCompletionsAtMarker(`
       import { match, P } from '../src/index.ts'
 
       type User = { readonly role: 'admin' | 'member' | 'owner' }
@@ -431,26 +441,37 @@ describe('editor DX', () => {
       match(user).with({ role: P.union('admin', '${COMPLETION_MARKER}') }, (value) => value)
     `)
 
-      const assertionUnionLiteralArgument = getCompletionsAtMarker(`
+      expect(result.names).toEqual(expect.arrayContaining(['admin']))
+    },
+    EDITOR_DX_TEST_TIMEOUT_MS,
+  )
+
+  it(
+    'suggests literal completions inside assertion P.union arguments',
+    () => {
+      const result = getCompletionsAtMarker(`
       import { assertMatching, P } from '../src/index.ts'
 
       declare const form: unknown
       assertMatching({ type: 'user', role: P.union('admin', '${COMPLETION_MARKER}') }, form)
     `)
 
-      const optionalHelperArgument = getCompletionsAtMarker(`
+      expect(result.names).toEqual(expect.arrayContaining(['admin']))
+    },
+    EDITOR_DX_TEST_TIMEOUT_MS,
+  )
+
+  it(
+    'suggests P namespace completions inside optional helper arguments',
+    () => {
+      const result = getCompletionsAtMarker(`
       import { match, P } from '../src/index.ts'
 
       declare const value: unknown
       match(value).with({ role: P.optional(P.${COMPLETION_MARKER}) }, (matched) => matched)
     `)
 
-      expect(selectedHandler.names).toEqual(expect.arrayContaining(['rating', 'title']))
-      expect(promiseSelectedHandler.names).toEqual(expect.arrayContaining(['rating', 'title']))
-      expect(whenHandler.names).toEqual(expect.arrayContaining(['id', 'role']))
-      expect(unionLiteralArgument.names).toEqual(expect.arrayContaining(['admin']))
-      expect(assertionUnionLiteralArgument.names).toEqual(expect.arrayContaining(['admin']))
-      expect(optionalHelperArgument.names).toEqual(expect.arrayContaining(['string', 'number', 'union']))
+      expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'union']))
     },
     EDITOR_DX_TEST_TIMEOUT_MS,
   )
@@ -586,7 +607,7 @@ describe('editor DX', () => {
     `)
 
       for (const result of [directPattern, nestedPattern, assertionPattern, helperArgument]) {
-        expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'select', 'union']))
+        expect(result.names).toEqual(expect.arrayContaining(['string', 'number', 'select', 'collect', 'union']))
       }
     },
     EDITOR_DX_TEST_TIMEOUT_MS,

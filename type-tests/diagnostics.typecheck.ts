@@ -49,6 +49,27 @@ matchBy(action, 'type').cases({
 // @ts-expect-error ts-match: repeated container patterns cannot contain P.select
 P.array(P.select('item'))
 
+// @ts-expect-error ts-match: invalid P.collect usage
+match(action).with(P.collect('items', P.string), () => 'bad')
+
+// @ts-expect-error ts-match: invalid P.collect usage
+match({ item: 'x' }).with({ item: P.collect('items', P.string) }, () => 'bad')
+
+// @ts-expect-error ts-match: invalid P.collect usage
+P.tuple([P.collect('items', P.string)])
+
+// @ts-expect-error ts-match: invalid P.collect usage
+P.tuple([P.rest(P.collect('items', P.string))])
+
+match({ selected: 'x', items: ['a'] }).with(
+  // @ts-expect-error ts-match: invalid P.collect usage
+  { selected: P.select(), items: P.array(P.collect('items', P.string)) },
+  () => 'bad',
+)
+
+// @ts-expect-error ts-match: P.exclude(pattern) cannot contain P.collect
+P.exclude(P.collect('items', P.string))
+
 // @ts-expect-error ts-match: P.exclude(pattern) cannot contain P.select
 P.exclude(P.select('x'))
 
