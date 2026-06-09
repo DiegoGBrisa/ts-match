@@ -505,6 +505,30 @@ describe('match', () => {
         .otherwise(() => 'fallback'),
     ).toThrow(TypeError)
 
+    expect(() =>
+      match({ kind: 'selected', data: 'x' })
+        // @ts-expect-error runtime validation rejects select/collect name collisions across union alternatives
+        .with(
+          P.union(
+            { kind: 'selected', data: P.select('data', P.string) },
+            { kind: 'collected', data: P.array(P.collect('data', P.string)) },
+          ),
+          () => 'bad',
+        )
+        .otherwise(() => 'fallback'),
+    ).toThrow(TypeError)
+
+    expect(() =>
+      isMatching(
+        // @ts-expect-error runtime validation rejects anonymous selection mixed with collection captures across union alternatives
+        P.union(
+          { kind: 'selected', data: P.select() },
+          { kind: 'collected', data: P.array(P.collect('data', P.string)) },
+        ),
+        { kind: 'selected', data: 'x' },
+      ),
+    ).toThrow(TypeError)
+
     expect(() => {
       // @ts-expect-error runtime validation rejects malformed JavaScript calls
       P.collect('ids')

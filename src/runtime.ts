@@ -605,6 +605,32 @@ function containsCollect(pattern: unknown): boolean {
   return ownPatternKeys(pattern).some((key) => containsCollect(readProperty(pattern, key)))
 }
 
+function containsAnonymousSelectInBuiltIn(pattern: BuiltInPattern): boolean {
+  const kind = pattern[PATTERN_TOKEN]
+  if (kind === 'select') return pattern.name === undefined || containsAnonymousSelect(pattern.pattern)
+  if (kind === 'collect') return containsAnonymousSelect(pattern.pattern)
+  if (kind === 'union') return pattern.patterns.some(containsAnonymousSelect)
+  if (kind === 'exclude' || kind === 'optional' || kind === 'exact') return containsAnonymousSelect(pattern.pattern)
+  if (kind === 'array' || kind === 'non-empty-array' || kind === 'rest') return containsAnonymousSelect(pattern.item)
+  if (kind === 'tuple') return pattern.items.some(containsAnonymousSelect)
+  if (kind === 'record' || kind === 'non-empty-record')
+    return containsAnonymousSelect(pattern.key) || containsAnonymousSelect(pattern.value)
+  if (kind === 'set') return pattern.values.some(containsAnonymousSelect)
+  if (kind !== 'map') return false
+  if (pattern.mode === 'homogeneous')
+    return containsAnonymousSelect(pattern.key) || containsAnonymousSelect(pattern.value)
+  return pattern.entries.some(
+    ([keyPattern, valuePattern]) => containsAnonymousSelect(keyPattern) || containsAnonymousSelect(valuePattern),
+  )
+}
+
+function containsAnonymousSelect(pattern: unknown): boolean {
+  if (isPattern(pattern)) return containsAnonymousSelectInBuiltIn(pattern)
+  if (Array.isArray(pattern)) return pattern.some(containsAnonymousSelect)
+  if (!isObject(pattern)) return false
+  return ownPatternKeys(pattern).some((key) => containsAnonymousSelect(readProperty(pattern, key)))
+}
+
 function containsCollectInsideExclude(pattern: unknown): boolean {
   if (isPattern(pattern)) {
     const kind = pattern[PATTERN_TOKEN]
@@ -636,6 +662,64 @@ function containsCollectInsideExclude(pattern: unknown): boolean {
   if (Array.isArray(pattern)) return pattern.some(containsCollectInsideExclude)
   if (!isObject(pattern)) return false
   return ownPatternKeys(pattern).some((key) => containsCollectInsideExclude(readProperty(pattern, key)))
+}
+
+function namedSelectNames(pattern: unknown, names: Set<PropertyKey> = new Set()): Set<PropertyKey> {
+  if (isPattern(pattern)) {
+    const kind = pattern[PATTERN_TOKEN]
+    if (kind === 'select') {
+      if (pattern.name !== undefined) names.add(pattern.name)
+      namedSelectNames(pattern.pattern, names)
+      return names
+    }
+    if (kind === 'collect' || kind === 'exclude' || kind === 'optional' || kind === 'exact') {
+      namedSelectNames(pattern.pattern, names)
+      return names
+    }
+    if (kind === 'union') {
+      for (const option of pattern.patterns) namedSelectNames(option, names)
+      return names
+    }
+    if (kind === 'array' || kind === 'non-empty-array' || kind === 'rest') {
+      namedSelectNames(pattern.item, names)
+      return names
+    }
+    if (kind === 'tuple') {
+      for (const item of pattern.items) namedSelectNames(item, names)
+      return names
+    }
+    if (kind === 'record' || kind === 'non-empty-record') {
+      namedSelectNames(pattern.key, names)
+      namedSelectNames(pattern.value, names)
+      return names
+    }
+    if (kind === 'set') {
+      for (const valuePattern of pattern.values) namedSelectNames(valuePattern, names)
+      return names
+    }
+    if (kind === 'map') {
+      if (pattern.mode === 'homogeneous') {
+        namedSelectNames(pattern.key, names)
+        namedSelectNames(pattern.value, names)
+        return names
+      }
+      for (const [keyPattern, valuePattern] of pattern.entries) {
+        namedSelectNames(keyPattern, names)
+        namedSelectNames(valuePattern, names)
+      }
+    }
+    return names
+  }
+
+  if (Array.isArray(pattern)) {
+    for (const item of pattern) namedSelectNames(item, names)
+    return names
+  }
+
+  if (isObject(pattern)) {
+    for (const key of ownPatternKeys(pattern)) namedSelectNames(readProperty(pattern, key), names)
+  }
+  return names
 }
 
 function assertNoCollect(pattern: unknown, message: string): void {
@@ -776,6 +860,25 @@ function collectNames(pattern: unknown, names: Set<PropertyKey> = new Set()): Se
 function ensureCollectedArrays(selection: SelectionState | undefined, pattern: unknown): void {
   if (!selection) return
   for (const name of collectNames(pattern)) ensureCollected(selection, name)
+}
+
+function validateCollectCaptureCompatibility(pattern: unknown): void {
+  if (containsAnonymousSelect(pattern)) {
+    throw new TypeError('P.collect(name, pattern) cannot be mixed with anonymous P.select() in the same pattern.')
+  }
+
+  const selectedNames = namedSelectNames(pattern)
+  for (const name of collectNames(pattern)) {
+    if (selectedNames.has(name)) {
+      throw new TypeError(`P.collect(${String(name)}, pattern) cannot use the same name as P.select(...).`)
+    }
+  }
+}
+
+function validatePatternCaptureUsage(pattern: unknown): void {
+  if (!containsCollect(pattern)) return
+  validateCollectPlacement(pattern, false)
+  validateCollectCaptureCompatibility(pattern)
 }
 
 /**
@@ -1728,6 +1831,7 @@ function needsSelectionValidation(pattern: unknown): boolean {
  */
 export function matchesPatternWithSelectionValidation(value: unknown, pattern: unknown): boolean {
   if (!needsSelectionValidation(pattern)) return matchesPattern(value, pattern)
+  validatePatternCaptureUsage(pattern)
   const selection: SelectionState = { mode: 'none', anonymous: undefined, named: undefined, collected: undefined }
   return matchesPattern(value, pattern, selection)
 }
@@ -1758,6 +1862,7 @@ interface MatchAttempt {
  */
 export function attemptMatch(value: unknown, patterns: readonly unknown[]): MatchAttempt {
   for (const pattern of patterns) {
+    validatePatternCaptureUsage(pattern)
     const selection: SelectionState = { mode: 'none', anonymous: undefined, named: undefined, collected: undefined }
     if (!matchesPattern(value, pattern, selection)) continue
 
