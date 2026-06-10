@@ -44,28 +44,28 @@
       "import": "./dist/index.js"
     },
     "./assertions": {
-      "types": "./dist/assertions.d.ts",
-      "import": "./dist/assertions.js"
+      "types": "./dist/assertions/index.d.ts",
+      "import": "./dist/assertions/index.js"
     },
     "./errors": {
-      "types": "./dist/errors.d.ts",
-      "import": "./dist/errors.js"
+      "types": "./dist/errors/index.d.ts",
+      "import": "./dist/errors/index.js"
     },
     "./group": {
-      "types": "./dist/group.d.ts",
-      "import": "./dist/group.js"
+      "types": "./dist/group/index.d.ts",
+      "import": "./dist/group/index.js"
     },
     "./match": {
-      "types": "./dist/match.d.ts",
-      "import": "./dist/match.js"
+      "types": "./dist/match/index.d.ts",
+      "import": "./dist/match/index.js"
     },
     "./match-by": {
-      "types": "./dist/match-by.d.ts",
-      "import": "./dist/match-by.js"
+      "types": "./dist/match-by/index.d.ts",
+      "import": "./dist/match-by/index.js"
     },
     "./patterns": {
-      "types": "./dist/patterns.d.ts",
-      "import": "./dist/patterns.js"
+      "types": "./dist/patterns/index.d.ts",
+      "import": "./dist/patterns/index.js"
     }
   },
   "types": "./dist/index.d.ts",
@@ -73,11 +73,11 @@
     "build": "pnpm clean && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:editor-dx": "vitest run tests/editor-dx.test.ts",
-    "test:coverage": "vitest run --coverage --exclude tests/editor-dx.test.ts",
+    "test:editor-dx": "vitest run src/match-by/__tests__/*.editor-dx.test.ts src/patterns/__tests__/*.editor-dx.test.ts",
+    "test:coverage": "vitest run --config vitest.coverage.config.ts --coverage",
     "test:type": "tsc -p tsconfig.type-tests.json --noEmit",
     "test:diagnostics": "tsx scripts/check-diagnostics.ts",
-    "test:temporal-real": "vitest run tests/temporal-real.test.mjs",
+    "test:temporal-real": "vitest run tests/integration/temporal-real.test.mjs",
     "test:temporal-browser": "pnpm build && node scripts/check-browser-temporal.mjs",
     "typecheck": "pnpm build && pnpm typecheck:only",
     "typecheck:only": "tsc -p tsconfig.json --noEmit",
@@ -95,7 +95,8 @@
     "test:examples": "pnpm build && pnpm test:examples:validate && pnpm test:examples:run",
     "test:examples:validate": "tsx scripts/validate-examples.ts",
     "test:examples:run": "tsc -p tsconfig.examples.json --noEmit && tsx scripts/run-examples.ts",
-    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm typecheck:only && pnpm test:type && pnpm test:diagnostics && pnpm test:editor-dx && pnpm test:coverage && pnpm smoke:exports && pnpm test:docs && pnpm test:examples:validate && pnpm test:examples:run",
+    "check": "pnpm check:architecture && pnpm lint && pnpm format:check && pnpm build && pnpm typecheck:only && pnpm test:type && pnpm test:diagnostics && pnpm test:editor-dx && pnpm test:coverage && pnpm smoke:exports && pnpm test:docs && pnpm test:examples:validate && pnpm test:examples:run",
+    "check:architecture": "tsx scripts/check-architecture.ts",
     "bench:native": "pnpm build && tsx benchmarks/native.ts",
     "bench:native:check": "pnpm build && pnpm bench:native:check:only",
     "bench:native:check:only": "tsx scripts/check-benchmark-budgets.ts",

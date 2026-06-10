@@ -9,5 +9,5 @@
     "noEmit": false
   },
   "include": ["src"],
-  "exclude": ["tests", "type-tests", "benchmarks"]
+  "exclude": ["src/**/__tests__/**", "src/**/__typecheck__/**", "tests", "type-tests", "benchmarks"]
 }

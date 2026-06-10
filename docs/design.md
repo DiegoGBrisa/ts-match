@@ -192,7 +192,7 @@ Current verification includes runtime tests, deterministic property-style tests,
 
 ## Internal dispatch strategy
 
-The source implementation intentionally avoids internal `switch` statements in `src/runtime.ts`. Benchmarks showed object-table and `Map` dispatch were usually slower in hot pattern-matching paths, while direct `if` branches were effectively tied with `switch` for primitive/pattern dispatch and kept the implementation aligned with the library philosophy. The benchmark-only files still contain `switch` variants so `pnpm bench:dispatch` can continue comparing strategies over time.
+The source implementation intentionally avoids internal `switch` statements in `src/runtime/index.ts`. Benchmarks showed object-table and `Map` dispatch were usually slower in hot pattern-matching paths, while direct `if` branches were effectively tied with `switch` for primitive/pattern dispatch and kept the implementation aligned with the library philosophy. The benchmark-only files still contain `switch` variants so `pnpm bench:dispatch` can continue comparing strategies over time.
 
 ## Type-safety implementation policy
 

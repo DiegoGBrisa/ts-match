@@ -1,8 +1,8 @@
-export { assertMatching, isMatching } from './assertions.js'
-export { NonExhaustiveMatchError, PatternMismatchError } from './errors.js'
-export { group } from './group.js'
-export { match } from './match.js'
-export { matchBy } from './match-by.js'
+export { assertMatching, isMatching } from './assertions/index.js'
+export { NonExhaustiveMatchError, PatternMismatchError } from './errors/index.js'
+export { group } from './group/index.js'
+export { match } from './match/index.js'
+export { matchBy } from './match-by/index.js'
 export {
   P,
   pAny,
@@ -50,7 +50,7 @@ export {
   pUnion,
   pWhen,
   pWildcard,
-} from './patterns.js'
+} from './patterns/index.js'
 export type {
   AbstractConstructor,
   AnonymousSelectPattern,
@@ -108,4 +108,4 @@ export type {
   TuplePattern,
   UnionPattern,
   WildcardPattern,
-} from './types.js'
+} from './types/index.js'

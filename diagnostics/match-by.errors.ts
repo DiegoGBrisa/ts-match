@@ -1,5 +1,5 @@
 import { group, matchBy } from '../src/index.js'
-import type { PartialEntriesArgument } from '../src/types.js'
+import type { PartialEntriesArgument } from '../src/types/index.js'
 
 type Event =
   | { readonly type: 'open'; readonly payload: { readonly code: 200; readonly id: string } }
