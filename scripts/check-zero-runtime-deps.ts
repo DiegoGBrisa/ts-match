@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { isRecord } from './script-utils.js'
 
-const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+const packageJson: unknown = JSON.parse(readFileSync('package.json', 'utf8'))
 
 if (!isRecord(packageJson)) throw new Error('package.json must contain an object.')
 

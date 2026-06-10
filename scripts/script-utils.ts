@@ -3,6 +3,12 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const NPM_PROVENANCE_REPOSITORY_URL = 'https://github.com/DiegoGBrisa/ts-match'
+export const CLI_ARGUMENT_OFFSET = 2
+export const JSON_INDENT_SPACES = 2
+
+export function environmentVariable(name: string): string | undefined {
+  return process.env[name]
+}
 
 /**
  * Reads the repository URL from package metadata.

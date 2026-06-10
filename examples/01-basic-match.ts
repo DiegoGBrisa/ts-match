@@ -1,13 +1,16 @@
 import { match, P } from '@diegogbrisa/ts-match'
 
+const GRID_COLUMNS = 3
+const FALLBACK_COLUMNS = 2
+
 const pageUrl = new URL('https://shop.example/products?view=grid&coupon=SPRING')
 const view = pageUrl.searchParams.get('view')
 
 export const layout = match(view)
-  .with('grid', () => ({ columns: 3 }))
+  .with('grid', () => ({ columns: GRID_COLUMNS }))
   .with('list', () => ({ columns: 1 }))
-  .with(P.null, () => ({ columns: 2 }))
-  .otherwise(() => ({ columns: 2 }))
+  .with(P.null, () => ({ columns: FALLBACK_COLUMNS }))
+  .otherwise(() => ({ columns: FALLBACK_COLUMNS }))
 
 const cart = {
   items: ['sku-1', 'sku-2'],

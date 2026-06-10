@@ -166,7 +166,7 @@ The package intentionally includes:
 - `docs`;
 - `examples`;
 - `diagnostics`;
-- `benchmarks/native.ts`.
+- `benchmarks/native.ts` and its native benchmark helper modules.
 
 The package intentionally excludes source maps, declaration maps, tests, type tests, and internal comparison/dispatch benchmarks.
 

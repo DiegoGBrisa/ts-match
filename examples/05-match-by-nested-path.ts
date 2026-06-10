@@ -1,6 +1,8 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
 const EVENT_KIND = Symbol('event-kind')
+const CLICK_X = 10
+const CLICK_Y = 20
 
 type UiEvent =
   | { readonly meta: { readonly type: 'click'; readonly x: number; readonly y: number } }
@@ -24,5 +26,5 @@ export function labelSource(event: SourceEvent) {
     .exhaustive()
 }
 
-export const routedEvent = routeEvent({ meta: { type: 'click', x: 10, y: 20 } })
+export const routedEvent = routeEvent({ meta: { type: 'click', x: CLICK_X, y: CLICK_Y } })
 export const sourceLabel = labelSource({ meta: { [EVENT_KIND]: 'user', name: 'Ada' } })

@@ -1,9 +1,11 @@
 import { match, pNonEmptyArray, pNumber, pOptional, pSelect, pString, pUnion } from '@diegogbrisa/ts-match'
 
+const PRODUCT_RATING = 5
+
 const product = {
   type: 'book',
   title: 'Designing Data-Intensive Applications',
-  rating: 5,
+  rating: PRODUCT_RATING,
   tags: ['systems', 'databases'],
 }
 

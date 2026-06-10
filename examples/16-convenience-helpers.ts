@@ -16,6 +16,16 @@ const profilePattern = {
   createdAt: P.date,
 }
 
+type UnknownFunction = () => unknown
+
+function isUnknownFunction(value: unknown): value is UnknownFunction {
+  return typeof value === 'function'
+}
+
+function callUnknownFunction(value: unknown): unknown {
+  return isUnknownFunction(value) ? value() : undefined
+}
+
 export const profileReady = isMatching(profilePattern, uploadedProfile)
 
 export const profileSummary = match(uploadedProfile)
@@ -26,11 +36,12 @@ export const profileSummary = match(uploadedProfile)
   }))
   .otherwise(() => ({ id: 'invalid-profile', createdYear: 0, hasAvatar: false }))
 
-const temporal = Reflect.get(globalThis, 'Temporal')
-const temporalNow = typeof temporal === 'object' && temporal !== null ? Reflect.get(temporal, 'Now') : undefined
-const temporalInstantFactory =
+const temporal: unknown = Reflect.get(globalThis, 'Temporal')
+const temporalNow: unknown =
+  typeof temporal === 'object' && temporal !== null ? Reflect.get(temporal, 'Now') : undefined
+const temporalInstantFactory: unknown =
   typeof temporalNow === 'object' && temporalNow !== null ? Reflect.get(temporalNow, 'instant') : undefined
-const maybeTemporalInstant = typeof temporalInstantFactory === 'function' ? temporalInstantFactory() : undefined
+const maybeTemporalInstant = callUnknownFunction(temporalInstantFactory)
 
 export const temporalStatus = match(maybeTemporalInstant)
   .with(P.temporalInstant, () => 'temporal-ready')

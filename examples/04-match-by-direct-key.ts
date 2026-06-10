@@ -1,5 +1,9 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
+const PERCENT_SCALE = 100
+const SPRING_PERCENT_OFF = 15
+const AUDIT_QUANTITY = 2
+
 type CartAction =
   | { readonly type: 'addItem'; readonly sku: string; readonly quantity: number }
   | { readonly type: 'applyCoupon'; readonly code: string; readonly percentOff: number }
@@ -11,7 +15,7 @@ export function planCartOperation(action: CartAction) {
     .with('applyCoupon', (value) => ({
       type: 'discountApplied',
       code: value.code,
-      multiplier: 1 - value.percentOff / 100,
+      multiplier: 1 - value.percentOff / PERCENT_SCALE,
     }))
     .with('clearCart', (value) => ({ type: 'cartCleared', reason: value.reason }))
     .exhaustive()
@@ -25,5 +29,5 @@ export function auditCartAction(action: CartAction) {
   })
 }
 
-export const operation = planCartOperation({ type: 'applyCoupon', code: 'SPRING', percentOff: 15 })
-export const auditEvent = auditCartAction({ type: 'addItem', sku: 'sku-123', quantity: 2 })
+export const operation = planCartOperation({ type: 'applyCoupon', code: 'SPRING', percentOff: SPRING_PERCENT_OFF })
+export const auditEvent = auditCartAction({ type: 'addItem', sku: 'sku-123', quantity: AUDIT_QUANTITY })

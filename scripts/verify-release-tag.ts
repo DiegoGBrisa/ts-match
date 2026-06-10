@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { isRecord } from './script-utils.js'
+import { CLI_ARGUMENT_OFFSET, environmentVariable, isRecord } from './script-utils.js'
 
 /**
  * Reads the package version that a GitHub Release tag must match.
@@ -12,16 +12,17 @@ import { isRecord } from './script-utils.js'
  * @throws When `package.json` does not contain a string `version` field.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
  */
-function packageVersion(): string {
-  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+function packageVersion() {
+  const packageJson: unknown = JSON.parse(readFileSync('package.json', 'utf8'))
   if (!isRecord(packageJson) || typeof packageJson.version !== 'string') {
     throw new Error('package.json must contain a string version.')
   }
   return packageJson.version
 }
 
-const [tagArgument] = process.argv.slice(2).filter((argument) => argument !== '--')
-const tagName = tagArgument ?? process.env.GITHUB_REF_NAME ?? process.env.GITHUB_EVENT_RELEASE_TAG_NAME
+const [tagArgument] = process.argv.slice(CLI_ARGUMENT_OFFSET).filter((argument) => argument !== '--')
+const tagName =
+  tagArgument ?? environmentVariable('GITHUB_REF_NAME') ?? environmentVariable('GITHUB_EVENT_RELEASE_TAG_NAME')
 if (tagName === undefined || tagName.length === 0) {
   throw new Error('Release tag is required. Pass it as an argument or set GITHUB_REF_NAME.')
 }

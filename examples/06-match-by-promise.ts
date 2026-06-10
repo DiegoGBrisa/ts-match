@@ -1,5 +1,7 @@
 import { matchBy } from '@diegogbrisa/ts-match'
 
+const ORDER_TOTAL = 49
+
 type Order =
   | { readonly state: 'pending'; readonly id: string; readonly total: number }
   | { readonly state: 'paid'; readonly id: string; readonly total: number; readonly receiptUrl: string }
@@ -7,7 +9,7 @@ type Order =
   | { readonly state: 'cancelled'; readonly id: string; readonly reason: string }
 
 const orders: readonly Order[] = [
-  { state: 'paid', id: 'order-1', total: 49, receiptUrl: '/receipts/order-1' },
+  { state: 'paid', id: 'order-1', total: ORDER_TOTAL, receiptUrl: '/receipts/order-1' },
   { state: 'shipped', id: 'order-2', trackingNumber: 'TRACK-2' },
 ]
 

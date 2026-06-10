@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": false
+  },
+  "include": [
+    "benchmarks/**/*.ts",
+    "diagnostics/**/*.ts",
+    "eslint-rules/**/*.ts",
+    "examples/**/*.ts",
+    "scripts/**/*.ts",
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "type-tests/**/*.ts",
+    "vitest.config.ts",
+    "vitest.coverage.config.ts"
+  ]
+}

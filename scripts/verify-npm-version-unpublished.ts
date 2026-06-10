@@ -15,7 +15,7 @@ import { isRecord } from './script-utils.js'
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#npm-version-already-exists
  */
 function packageNameAndVersion(): readonly [string, string] {
-  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+  const packageJson: unknown = JSON.parse(readFileSync('package.json', 'utf8'))
   if (!isRecord(packageJson) || typeof packageJson.name !== 'string' || typeof packageJson.version !== 'string') {
     throw new Error('package.json must contain string name and version fields.')
   }
@@ -33,7 +33,7 @@ function packageNameAndVersion(): readonly [string, string] {
  * @returns `true` when npm reported that the package version does not exist.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#npm-version-already-exists
  */
-function npmViewFailureMeansUnpublished(output: string): boolean {
+function npmViewFailureMeansUnpublished(output: string) {
   return output.includes('E404') || output.includes('404 Not Found') || output.includes('is not in this registry')
 }
 

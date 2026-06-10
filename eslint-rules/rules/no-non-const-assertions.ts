@@ -1,18 +1,23 @@
+import type { Rule } from 'eslint'
+import { nodeType, property } from '../ast-helpers.js'
+
 const ASSERTION_MESSAGE = 'Avoid TypeScript assertions. Only `as const` is allowed.'
 const ANGLE_BRACKET_MESSAGE = 'Avoid angle-bracket TypeScript assertions. Only `as const` is allowed.'
 const NON_NULL_MESSAGE = 'Avoid non-null assertions. Narrow or validate the value instead.'
 const DEFINITE_ASSIGNMENT_MESSAGE = 'Avoid definite-assignment assertions. Model initialization explicitly instead.'
 
-function isConstAssertion(node) {
-  const annotation = node.typeAnnotation
+function isConstAssertion(node: Rule.Node) {
+  const annotation = property(node, 'typeAnnotation')
+  const typeName = property(annotation, 'typeName')
+
   return (
-    annotation?.type === 'TSTypeReference' &&
-    annotation.typeName.type === 'Identifier' &&
-    annotation.typeName.name === 'const'
+    nodeType(annotation) === 'TSTypeReference' &&
+    nodeType(typeName) === 'Identifier' &&
+    property(typeName, 'name') === 'const'
   )
 }
 
-export default {
+export const noNonConstAssertionsRule: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
@@ -28,17 +33,17 @@ export default {
   },
   create(context) {
     return {
-      TSAsExpression(node) {
+      TSAsExpression(node: Rule.Node) {
         if (!isConstAssertion(node)) context.report({ node, messageId: 'assertion' })
       },
-      TSTypeAssertion(node) {
+      TSTypeAssertion(node: Rule.Node) {
         context.report({ node, messageId: 'angleBracket' })
       },
-      TSNonNullExpression(node) {
+      TSNonNullExpression(node: Rule.Node) {
         context.report({ node, messageId: 'nonNull' })
       },
-      PropertyDefinition(node) {
-        if (node.definite) context.report({ node, messageId: 'definiteAssignment' })
+      PropertyDefinition(node: Rule.Node) {
+        if (property(node, 'definite') === true) context.report({ node, messageId: 'definiteAssignment' })
       },
     }
   },
