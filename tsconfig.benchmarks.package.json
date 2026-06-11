@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "benchmarks/benchmark-constants.ts",
+    "benchmarks/benchmark-event-fixtures.ts",
+    "benchmarks/compare-ts-pattern*.ts",
+    "benchmarks/native*.ts"
+  ]
+}

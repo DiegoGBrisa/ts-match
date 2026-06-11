@@ -33,6 +33,7 @@ import { pArray, pExclude, pNonEmptyArray, pOptional, pUnion } from './combinato
 import { pMap, pSet } from './collections.js'
 import { pExact, pRest, pTuple } from './tuple-exact.js'
 import { pCollect, pInstanceOf, pNonEmptyRecord, pRecord, pSelect, pWhen } from './selection.js'
+export type {} from '../types/index.js'
 
 export {
   pAny,
