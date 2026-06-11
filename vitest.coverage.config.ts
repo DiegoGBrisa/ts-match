@@ -6,7 +6,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       include: ['src/**/__tests__/**/*.test.ts', 'tests/**/*.test.ts', 'tests/**/*.test.mjs'],
-      exclude: ['**/*.editor-dx.test.ts'],
+      exclude: ['**/*editor-dx.test.ts'],
     },
   }),
 )

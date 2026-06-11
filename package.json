@@ -73,7 +73,7 @@
     "build": "pnpm clean && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:editor-dx": "vitest run src/match-by/__tests__/*.editor-dx.test.ts src/patterns/__tests__/*.editor-dx.test.ts",
+    "test:editor-dx": "vitest run src/**/__tests__/*editor-dx.test.ts",
     "test:coverage": "vitest run --config vitest.coverage.config.ts --coverage",
     "test:type": "tsc -p tsconfig.type-tests.json --noEmit",
     "test:diagnostics": "tsx scripts/check-diagnostics.ts",
