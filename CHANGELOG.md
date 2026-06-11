@@ -4,6 +4,14 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.6.1](https://github.com/DiegoGBrisa/ts-match/compare/v1.6.0...v1.6.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* share package runtime tokens ([4be303e](https://github.com/DiegoGBrisa/ts-match/commit/4be303ea0c4f697df88a551e000eb0d80ef4aad7))
+* support commonjs script consumers ([cb3ab01](https://github.com/DiegoGBrisa/ts-match/commit/cb3ab0191a3ad178ba5d1bd091d68a730a0e7567))
+
 ## [1.6.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.5.0...v1.6.0) (2026-06-11)
 
 
