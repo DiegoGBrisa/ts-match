@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { CLI_ARGUMENT_OFFSET } from './script-utils.js'
 
 /**
  * Escapes release-version text before embedding it in a regular expression.
@@ -11,11 +12,11 @@ import { readFileSync } from 'node:fs'
  * @returns A regex-safe literal version fragment.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#automated-npm-publishing
  */
-function escapeRegExp(value: string): string {
+function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-const [version] = process.argv.slice(2).filter((argument) => argument !== '--')
+const [version] = process.argv.slice(CLI_ARGUMENT_OFFSET).filter((argument) => argument !== '--')
 if (version === undefined || version.length === 0) throw new Error('Usage: pnpm release:notes -- <version>')
 
 const changelog = readFileSync('CHANGELOG.md', 'utf8')

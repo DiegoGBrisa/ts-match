@@ -1,20 +1,11 @@
 import { execFileSync } from 'node:child_process'
+import { readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { assertPackageRepositoryUrl, findSinglePackedTarball } from './script-utils.js'
 
-const DIST_MODULES = [
-  'assertions',
-  'errors',
-  'group',
-  'index',
-  'keys',
-  'match',
-  'match-by',
-  'patterns',
-  'promise-runtime',
-  'runtime',
-  'tokens',
-  'types',
-] as const
+const SOURCE_ROOT = 'src'
+const TYPESCRIPT_EXTENSION = '.ts'
+const TEST_DIRECTORIES = new Set(['__tests__', '__typecheck__'])
 
 const DIAGNOSTIC_FILES = [
   'assertions.errors.ts',
@@ -43,6 +34,38 @@ const EXAMPLE_FILES = [
   '17-collection-helpers.ts',
 ] as const
 
+function isBuildSourceFile(filePath: string) {
+  if (!filePath.endsWith(TYPESCRIPT_EXTENSION)) return false
+
+  const segments = filePath.split('/')
+  return !segments.some((segment) => TEST_DIRECTORIES.has(segment))
+}
+
+function sourceFiles(directory: string): readonly string[] {
+  const files: string[] = []
+
+  for (const entry of readdirSync(directory).sort()) {
+    const path = join(directory, entry)
+    const stats = statSync(path)
+    if (stats.isDirectory()) {
+      files.push(...sourceFiles(path))
+      continue
+    }
+
+    const normalized = path.replaceAll('\\', '/')
+    if (isBuildSourceFile(normalized)) files.push(normalized)
+  }
+
+  return files
+}
+
+function distFilesFromSource() {
+  return sourceFiles(SOURCE_ROOT).flatMap((filePath) => {
+    const modulePath = filePath.slice(SOURCE_ROOT.length + '/'.length, -TYPESCRIPT_EXTENSION.length)
+    return [`package/dist/${modulePath}.d.ts`, `package/dist/${modulePath}.js`]
+  })
+}
+
 const expectedPackageFiles = [
   'package/package.json',
   'package/README.md',
@@ -51,8 +74,14 @@ const expectedPackageFiles = [
   'package/LICENSE',
   'package/docs/design.md',
   'package/docs/release.md',
+  'package/benchmarks/benchmark-constants.ts',
+  'package/benchmarks/benchmark-event-fixtures.ts',
+  'package/benchmarks/native-async-tasks.ts',
+  'package/benchmarks/native-dispatch-tasks.ts',
+  'package/benchmarks/native-pattern-tasks.ts',
+  'package/benchmarks/native-shared.ts',
   'package/benchmarks/native.ts',
-  ...DIST_MODULES.flatMap((moduleName) => [`package/dist/${moduleName}.d.ts`, `package/dist/${moduleName}.js`]),
+  ...distFilesFromSource(),
   ...DIAGNOSTIC_FILES.map((fileName) => `package/diagnostics/${fileName}`),
   ...EXAMPLE_FILES.map((fileName) => `package/examples/${fileName}`),
 ] as const

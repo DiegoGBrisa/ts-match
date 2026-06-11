@@ -9,11 +9,20 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true,
+    "paths": {
+      "@diegogbrisa/ts-match": ["./src/index.ts"],
+      "@diegogbrisa/ts-match/assertions": ["./src/assertions/index.ts"],
+      "@diegogbrisa/ts-match/errors": ["./src/errors/index.ts"],
+      "@diegogbrisa/ts-match/group": ["./src/group/index.ts"],
+      "@diegogbrisa/ts-match/match": ["./src/match/index.ts"],
+      "@diegogbrisa/ts-match/match-by": ["./src/match-by/index.ts"],
+      "@diegogbrisa/ts-match/patterns": ["./src/patterns/index.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "skipLibCheck": false,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "tests", "benchmarks", "scripts", "vitest.config.ts"]
+  "include": ["src", "tests", "scripts", "vitest.config.ts", "vitest.coverage.config.ts"]
 }

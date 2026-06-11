@@ -1,8 +1,13 @@
 import { match, P } from '@diegogbrisa/ts-match'
 
+const METADATA_COUNT = 2
+const QUALITY_SCORE = 9
+const SPEED_SCORE = 7
+const METRIC_VALUE = 7
+
 const metadata = new Map<unknown, unknown>([
   ['id', 'user-123'],
-  ['count', 2],
+  ['count', METADATA_COUNT],
   ['source', 'import'],
 ])
 
@@ -24,8 +29,8 @@ export const fieldId = match(fields)
   .otherwise(() => undefined)
 
 const scoreMap = new Map([
-  ['quality', 9],
-  ['speed', 7],
+  ['quality', QUALITY_SCORE],
+  ['speed', SPEED_SCORE],
 ])
 
 export const totalScore = match(scoreMap)
@@ -34,7 +39,7 @@ export const totalScore = match(scoreMap)
 
 const events = [
   { type: 'user', id: 'user-1' },
-  { type: 'metric', value: 7 },
+  { type: 'metric', value: METRIC_VALUE },
   { type: 'user', id: 'user-2' },
 ] as const
 

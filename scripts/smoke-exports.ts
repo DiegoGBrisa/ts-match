@@ -1,5 +1,7 @@
 export {}
 
+const MATCH_BY_VALUE = 2
+
 const root = await import('@diegogbrisa/ts-match')
 const matchModule = await import('@diegogbrisa/ts-match/match')
 const matchByModule = await import('@diegogbrisa/ts-match/match-by')
@@ -22,7 +24,10 @@ if (
     .exhaustive() !== 1
 )
   throw new Error('match subpath failed')
-if (matchByModule.matchBy({ type: 'a' as const, value: 2 }, 'type').cases({ a: (value) => value.value }) !== 2) {
+if (
+  matchByModule.matchBy({ type: 'a' as const, value: MATCH_BY_VALUE }, 'type').cases({ a: (value) => value.value }) !==
+  MATCH_BY_VALUE
+) {
   throw new Error('match-by subpath failed')
 }
 if (!patternsModule.P.string) {

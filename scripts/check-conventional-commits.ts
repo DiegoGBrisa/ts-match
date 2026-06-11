@@ -1,6 +1,7 @@
-import { commandOutput } from './script-utils.js'
+import { CLI_ARGUMENT_OFFSET, commandOutput } from './script-utils.js'
 
 const ALLOWED_TYPES = ['feat', 'fix', 'docs', 'test', 'chore', 'refactor', 'ci', 'build'] as const
+const SHA_PREVIEW_LENGTH = 12
 
 /** Commit identity and subject parsed from `git log` for Conventional Commit validation. */
 interface CommitSubject {
@@ -20,7 +21,7 @@ interface CommitSubject {
  * @returns `true` when `value` is a non-empty string made only of zeroes.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  */
-function isAllZeroSha(value: string): boolean {
+function isAllZeroSha(value: string) {
   return value.length > 0 && value.split('').every((character) => character === '0')
 }
 
@@ -51,7 +52,7 @@ function singleArgumentRange(from: string): string | undefined {
  * @returns A git revision range that covers the commits to validate.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  */
-function twoArgumentRange(from: string, to: string): string {
+function twoArgumentRange(from: string, to: string) {
   return isAllZeroSha(from) ? to : `${from}..${to}`
 }
 
@@ -66,7 +67,7 @@ function twoArgumentRange(from: string, to: string): string {
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  */
 function cliCommitRange(): string | undefined {
-  const [from, to] = process.argv.slice(2).filter((argument) => argument !== '--')
+  const [from, to] = process.argv.slice(CLI_ARGUMENT_OFFSET).filter((argument) => argument !== '--')
 
   if (from === undefined) return undefined
   return to === undefined ? singleArgumentRange(from) : twoArgumentRange(from, to)
@@ -83,7 +84,7 @@ function cliCommitRange(): string | undefined {
  * @throws When git cannot report a root commit.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  */
-function fallbackCommitRange(): string {
+function fallbackCommitRange() {
   const [fallbackBase] = commandOutput('git', ['rev-list', '--max-parents=0', 'HEAD']).split('\n')
   if (fallbackBase === undefined || fallbackBase.length === 0)
     throw new Error('Unable to determine fallback commit range.')
@@ -99,7 +100,7 @@ function fallbackCommitRange(): string {
  * @returns The git range passed to `git log`.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  */
-function commitRange(): string {
+function commitRange() {
   return cliCommitRange() ?? fallbackCommitRange()
 }
 
@@ -135,7 +136,7 @@ function parseCommitSubjects(output: string): readonly CommitSubject[] {
  * @returns `true` when the subject should be skipped by the convention check.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  */
-function isSkippableSubject(subject: string): boolean {
+function isSkippableSubject(subject: string) {
   return subject.startsWith('Merge ') || subject.startsWith('Revert "')
 }
 
@@ -152,7 +153,7 @@ function isSkippableSubject(subject: string): boolean {
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#commit-messages
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#release-prs
  */
-function isConventionalSubject(subject: string): boolean {
+function isConventionalSubject(subject: string) {
   const allowedTypes = ALLOWED_TYPES.join('|')
   const pattern = new RegExp(`^(${allowedTypes})(\\([a-z0-9._/-]+\\))?!?: .+`)
   return pattern.test(subject)
@@ -166,7 +167,9 @@ const invalidCommits = commits.filter(
 )
 
 if (invalidCommits.length > 0) {
-  const details = invalidCommits.map((commit) => `  - ${commit.sha.slice(0, 12)} ${commit.subject}`).join('\n')
+  const details = invalidCommits
+    .map((commit) => `  - ${commit.sha.slice(0, SHA_PREVIEW_LENGTH)} ${commit.subject}`)
+    .join('\n')
   throw new Error(
     `Conventional Commit check failed for range ${range}.\nAllowed types: ${ALLOWED_TYPES.join(', ')}.\n${details}`,
   )

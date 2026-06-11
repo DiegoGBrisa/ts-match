@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "benchmarks/benchmark-constants.ts",
+    "benchmarks/dispatch.ts",
+    "benchmarks/dispatch-matchers.ts",
+    "benchmarks/dispatch-measurement.ts"
+  ]
+}

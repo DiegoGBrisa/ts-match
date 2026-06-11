@@ -1,7 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { findSinglePackedTarball, runCommand } from './script-utils.js'
+import {
+  CLI_ARGUMENT_OFFSET,
+  environmentVariable,
+  findSinglePackedTarball,
+  JSON_INDENT_SPACES,
+  runCommand,
+} from './script-utils.js'
 
 const PACKAGE_MANAGERS = ['npm', 'pnpm', 'yarn', 'bun'] as const
 const DEFAULT_YARN_VERSION = '4.5.3'
@@ -63,7 +69,7 @@ function isPackageManager(value: string | undefined): value is PackageManager {
  * @throws When installation fails.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#local-preflight
  */
-function installWithPackageManager(packageManager: PackageManager, directory: string, tarball: string): void {
+function installWithPackageManager(packageManager: PackageManager, directory: string, tarball: string) {
   if (packageManager === 'npm') {
     runCommand('npm', ['install', '--ignore-scripts', tarball, 'typescript'], directory)
     return
@@ -82,7 +88,7 @@ function installWithPackageManager(packageManager: PackageManager, directory: st
   runCommand('bun', ['add', tarball, 'typescript'], directory)
 }
 
-const [packageManager] = process.argv.slice(2).filter((argument) => argument !== '--')
+const [packageManager] = process.argv.slice(CLI_ARGUMENT_OFFSET).filter((argument) => argument !== '--')
 if (!isPackageManager(packageManager)) {
   throw new Error(`Expected package manager argument: ${PACKAGE_MANAGERS.join(', ')}`)
 }
@@ -94,9 +100,13 @@ try {
   mkdirSync(join(directory, 'src'))
   const packageJson =
     packageManager === 'yarn'
-      ? { type: 'module', private: true, packageManager: `yarn@${process.env.YARN_VERSION ?? DEFAULT_YARN_VERSION}` }
+      ? {
+          type: 'module',
+          private: true,
+          packageManager: `yarn@${environmentVariable('YARN_VERSION') ?? DEFAULT_YARN_VERSION}`,
+        }
       : { type: 'module', private: true }
-  writeFileSync(join(directory, 'package.json'), `${JSON.stringify(packageJson, null, 2)}\n`)
+  writeFileSync(join(directory, 'package.json'), `${JSON.stringify(packageJson, null, JSON_INDENT_SPACES)}\n`)
   writeFileSync(
     join(directory, 'tsconfig.json'),
     `${JSON.stringify(
@@ -113,7 +123,7 @@ try {
         include: ['src'],
       },
       null,
-      2,
+      JSON_INDENT_SPACES,
     )}\n`,
   )
   writeFileSync(join(directory, 'src/smoke.ts'), smokeSource.trimStart())

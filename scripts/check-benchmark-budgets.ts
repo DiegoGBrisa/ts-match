@@ -46,7 +46,7 @@ function isBenchmarkBudget(value: unknown): value is BenchmarkBudget {
  * @returns `true` when every budget entry has the expected shape.
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#runtime-benchmark-budgets
  */
-function hasBudgetList(value: { readonly [key: string]: unknown }): boolean {
+function hasBudgetList(value: { readonly [key: string]: unknown }) {
   return Array.isArray(value.budgets) && value.budgets.every(isBenchmarkBudget)
 }
 
@@ -77,7 +77,7 @@ function isBenchmarkBudgetsFile(value: unknown): value is BenchmarkBudgetsFile {
  * @see https://github.com/DiegoGBrisa/ts-match/blob/main/docs/release.md#runtime-benchmark-budgets
  */
 function readBudgets(): BenchmarkBudgetsFile {
-  const value = JSON.parse(readFileSync('benchmarks/budgets.json', 'utf8'))
+  const value: unknown = JSON.parse(readFileSync('benchmarks/budgets.json', 'utf8'))
   if (!isBenchmarkBudgetsFile(value)) throw new Error('benchmarks/budgets.json has an invalid shape.')
   return value
 }

@@ -5,5 +5,5 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["src", "type-tests/stress.typecheck.ts"]
+  "include": ["src", "type-tests/performance/stress.typecheck.ts"]
 }

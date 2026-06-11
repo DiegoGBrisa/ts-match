@@ -1,8 +1,10 @@
 import { isMatching, P } from '@diegogbrisa/ts-match'
 
+const INVOICE_ID = 42
+
 const activityFeed = [
   { type: 'user.signed-in', userId: 'u1' },
-  { type: 'invoice.paid', invoiceId: 42 },
+  { type: 'invoice.paid', invoiceId: INVOICE_ID },
   { type: 'user.signed-in', userId: 'u2' },
 ]
 

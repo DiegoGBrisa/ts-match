@@ -1,8 +1,11 @@
 import { isMatching, match, P } from '@diegogbrisa/ts-match'
 
+const CART_QUANTITY = 2
+const PACKAGE_DIMENSIONS = ['box', 20, 30, 40] as const
+
 const cart = {
   items: [
-    { sku: 'sku-1', quantity: 2 },
+    { sku: 'sku-1', quantity: CART_QUANTITY },
     { sku: 'sku-2', quantity: 1 },
   ],
   coupon: 'SPRING',
@@ -19,7 +22,7 @@ export const checkoutSummary = match(cart)
   .with(cartPattern, (value) => ({ itemCount: value.items.length, coupon: value.coupon }))
   .otherwise(() => ({ itemCount: 0, coupon: undefined }))
 
-const packageScan = ['box', 20, 30, 40]
+const packageScan = PACKAGE_DIMENSIONS
 
 export const packageDimensions = match(packageScan)
   .with(P.tuple([P.string, P.rest(P.number)]), ([label, ...dimensions]) => ({ label, dimensions }))
