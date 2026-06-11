@@ -155,11 +155,12 @@ Update budgets only when a reviewed performance change intentionally changes the
 
 ## Package contents
 
-`pnpm pack:check` builds the package, creates a tarball, checks its contents against a strict allowlist, and runs import smoke tests.
+`pnpm pack:check` builds the package, creates a tarball, checks its contents against a strict allowlist, and runs public-subpath smoke tests for ESM import, CommonJS require, and no-`type` `tsx` script consumers.
 
 The package intentionally includes:
 
-- `dist` JavaScript and declaration files;
+- `dist` ESM JavaScript and declaration files;
+- `dist-cjs` CommonJS compatibility JavaScript files;
 - `README.md`;
 - `CHANGELOG.md`;
 - `LICENSE`;

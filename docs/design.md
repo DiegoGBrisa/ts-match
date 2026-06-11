@@ -2,7 +2,7 @@
 
 ## Product goal
 
-ts-match is a TypeScript-first pattern matching library for frontend, backend, library, and CLI code. It focuses on small runtime code, tree-shakable ESM output, strong TypeScript inference, and zero runtime dependencies. Install it from npm as `@diegogbrisa/ts-match`.
+ts-match is a TypeScript-first pattern matching library for frontend, backend, library, and CLI code. It focuses on small runtime code, tree-shakable ESM output, script-friendly CommonJS compatibility, strong TypeScript inference, and zero runtime dependencies. Install it from npm as `@diegogbrisa/ts-match`.
 
 The canonical API is:
 
@@ -17,7 +17,7 @@ User-facing guide: [`../README.md`](../README.md). Checked examples: [`../exampl
 - Brand/name: ts-match.
 - Published npm package: `@diegogbrisa/ts-match`.
 - Runtime dependencies: none.
-- Module format: ESM only.
+- Module format: ESM-first package with CommonJS compatibility exports for scripts and tooling.
 - Runtime target: Node 20+ and modern browsers/bundlers.
 - Tree-shaking: `sideEffects: false`, root exports plus focused subpath exports, `P` namespace plus `p*` named helper exports.
 - Fluent method: `.with(...)`.
@@ -28,7 +28,7 @@ User-facing guide: [`../README.md`](../README.md). Checked examples: [`../exampl
 
 ## v1.x roadmap principle
 
-v1.x roadmap work should be additive-only public API work. New pattern helpers, safe terminals, and type refinements can ship in v1.x when they preserve current runtime behavior, TypeScript inference expectations, ESM-only packaging, Node 20+ targeting, zero runtime dependencies, and performance posture. Changes to existing pattern semantics, selection rules, property-path behavior, exhaustiveness behavior, or fallback behavior require a separate design decision before they can ship.
+v1.x roadmap work should be additive-only public API work. New pattern helpers, safe terminals, and type refinements can ship in v1.x when they preserve current runtime behavior, TypeScript inference expectations, ESM-first packaging with CommonJS compatibility exports, Node 20+ targeting, zero runtime dependencies, and performance posture. Changes to existing pattern semantics, selection rules, property-path behavior, exhaustiveness behavior, or fallback behavior require a separate design decision before they can ship.
 
 The first v1.x roadmap batch is limited to convenience pattern helpers and ships as one release, including date/time and Temporal helpers. The batch includes `P.regex`, `P.date`, `P.error`, `P.regexp`, `P.nullish`, `P.falsy`, `P.truthy`, and the Temporal helpers listed below. `P.not` is intentionally not planned because `P.exclude(...)` is the canonical negative helper and aligns with TypeScript's `Exclude<T, U>` mental model.
 

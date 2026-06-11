@@ -66,6 +66,13 @@ function distFilesFromSource() {
   })
 }
 
+function distCjsFilesFromSource() {
+  return sourceFiles(SOURCE_ROOT).map((filePath) => {
+    const modulePath = filePath.slice(SOURCE_ROOT.length + '/'.length, -TYPESCRIPT_EXTENSION.length)
+    return `package/dist-cjs/${modulePath}.js`
+  })
+}
+
 const expectedPackageFiles = [
   'package/package.json',
   'package/README.md',
@@ -82,6 +89,8 @@ const expectedPackageFiles = [
   'package/benchmarks/native-shared.ts',
   'package/benchmarks/native.ts',
   ...distFilesFromSource(),
+  'package/dist-cjs/package.json',
+  ...distCjsFilesFromSource(),
   ...DIAGNOSTIC_FILES.map((fileName) => `package/diagnostics/${fileName}`),
   ...EXAMPLE_FILES.map((fileName) => `package/examples/${fileName}`),
 ] as const

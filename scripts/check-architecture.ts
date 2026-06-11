@@ -186,15 +186,26 @@ const exportsValue = isRecord(packageJson) ? packageJson.exports : undefined
 if (!isRecord(exportsValue)) {
   failures.push('package.json exports must be an object.')
 } else {
+  const rootExport = packageExport(exportsValue['.'])
+  if (!rootExport) {
+    failures.push('package.json root export must define import, require, and types targets.')
+  } else {
+    if (rootExport.import !== './dist/index.js') failures.push('root import target must be ./dist/index.js.')
+    if (rootExport.require !== './dist-cjs/index.js') failures.push('root require target must be ./dist-cjs/index.js.')
+    if (rootExport.types !== './dist/index.d.ts') failures.push('root types target must be ./dist/index.d.ts.')
+  }
+
   for (const subpath of publicSubpaths) {
     const exportValue = packageExport(exportsValue[`./${subpath}`])
     const importTarget = `./dist/${subpath}/index.js`
+    const requireTarget = `./dist-cjs/${subpath}/index.js`
     const typesTarget = `./dist/${subpath}/index.d.ts`
     if (!exportValue) {
-      failures.push(`package.json export ./${subpath} must define import and types targets.`)
+      failures.push(`package.json export ./${subpath} must define import, require, and types targets.`)
       continue
     }
     if (exportValue.import !== importTarget) failures.push(`./${subpath} import target must be ${importTarget}.`)
+    if (exportValue.require !== requireTarget) failures.push(`./${subpath} require target must be ${requireTarget}.`)
     if (exportValue.types !== typesTarget) failures.push(`./${subpath} types target must be ${typesTarget}.`)
   }
 }

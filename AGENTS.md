@@ -2,7 +2,7 @@
 
 ## Library overview
 
-`ts-match` is a TypeScript-first pattern matching library for exhaustive discriminated-union handling, structural object/tuple/array/record patterns, discriminant/path dispatch via `matchBy`, promise-aware matching, runtime boundary assertions, and readable `ts-match:` diagnostics. It is published as `@diegogbrisa/ts-match`, is ESM-only, targets Node 20+, and has zero runtime dependencies.
+`ts-match` is a TypeScript-first pattern matching library for exhaustive discriminated-union handling, structural object/tuple/array/record patterns, discriminant/path dispatch via `matchBy`, promise-aware matching, runtime boundary assertions, and readable `ts-match:` diagnostics. It is published as `@diegogbrisa/ts-match`, is ESM-first with CommonJS compatibility exports for scripts and tooling, targets Node 20+, and has zero runtime dependencies.
 
 Core public APIs:
 
@@ -19,7 +19,7 @@ Use `pnpm` for this repository. Prefer the narrowest command that validates your
 
 ### Build and typecheck
 
-- `pnpm build` — clean and compile `src` to `dist` with `tsconfig.build.json`.
+- `pnpm build` — clean and compile `src` to ESM `dist` and CommonJS compatibility `dist-cjs`.
 - `pnpm typecheck` — build, then run the full repo typecheck.
 - `pnpm typecheck:only` — TypeScript check without rebuilding.
 - `pnpm typecheck:types` / `pnpm test:type` — run public/type-level test fixtures.
