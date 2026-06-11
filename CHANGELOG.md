@@ -4,6 +4,20 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.6.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.5.0...v1.6.0) (2026-06-11)
+
+
+### Features
+
+* enhance file classification and testing checks in code quality scripts ([ec34f50](https://github.com/DiegoGBrisa/ts-match/commit/ec34f50b4b7fa337f538acac835054b1749902ca))
+
+
+### Bug Fixes
+
+* allow slower editor dx probes ([6f9f4f1](https://github.com/DiegoGBrisa/ts-match/commit/6f9f4f110e8b1e05918b5e0e03edba85d17b8a3d))
+* keep editor dx tests out of coverage ([b30a6c2](https://github.com/DiegoGBrisa/ts-match/commit/b30a6c2eef61caff797727870b48933239ffd25a))
+* preserve packaged type declarations ([3ebaff9](https://github.com/DiegoGBrisa/ts-match/commit/3ebaff9c1abbb9a7e0d8cada888a8a5f5682ef9e))
+
 ## [1.5.0](https://github.com/DiegoGBrisa/ts-match/compare/v1.4.0...v1.5.0) (2026-06-09)
 
 
