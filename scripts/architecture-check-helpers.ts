@@ -6,6 +6,7 @@ export type FilePolicy = Readonly<Record<string, string>>
 export type ImportExceptionPolicy = Readonly<Record<string, readonly string[]>>
 export type PackageExport = {
   readonly import: string
+  readonly require: string
   readonly types: string
 }
 
@@ -67,9 +68,12 @@ export function fileDirectory(root: string, filePath: string): string | null {
 export function packageExport(value: unknown): PackageExport | null {
   if (!isRecord(value)) return null
   const importTarget = value.import
+  const requireTarget = value.require
   const typesTarget = value.types
-  if (typeof importTarget !== 'string' || typeof typesTarget !== 'string') return null
-  return { import: importTarget, types: typesTarget }
+  if (typeof importTarget !== 'string' || typeof requireTarget !== 'string' || typeof typesTarget !== 'string') {
+    return null
+  }
+  return { import: importTarget, require: requireTarget, types: typesTarget }
 }
 
 export function importSpecifiers(source: string): readonly string[] {

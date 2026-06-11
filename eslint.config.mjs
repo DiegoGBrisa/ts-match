@@ -13,7 +13,7 @@ const { localPlugin } = await tsImport('./eslint-rules/local-plugin.ts', {
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', '.pack/**', 'node_modules/**', 'coverage/**'],
+    ignores: ['dist/**', 'dist-cjs/**', '.pack/**', 'node_modules/**', 'coverage/**'],
   },
   ...tseslint.configs.recommended,
   {

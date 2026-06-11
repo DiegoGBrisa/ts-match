@@ -26,6 +26,7 @@
   "sideEffects": false,
   "files": [
     "dist",
+    "dist-cjs",
     "docs/design.md",
     "docs/release.md",
     "diagnostics",
@@ -41,37 +42,44 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist-cjs/index.js"
     },
     "./assertions": {
       "types": "./dist/assertions/index.d.ts",
-      "import": "./dist/assertions/index.js"
+      "import": "./dist/assertions/index.js",
+      "require": "./dist-cjs/assertions/index.js"
     },
     "./errors": {
       "types": "./dist/errors/index.d.ts",
-      "import": "./dist/errors/index.js"
+      "import": "./dist/errors/index.js",
+      "require": "./dist-cjs/errors/index.js"
     },
     "./group": {
       "types": "./dist/group/index.d.ts",
-      "import": "./dist/group/index.js"
+      "import": "./dist/group/index.js",
+      "require": "./dist-cjs/group/index.js"
     },
     "./match": {
       "types": "./dist/match/index.d.ts",
-      "import": "./dist/match/index.js"
+      "import": "./dist/match/index.js",
+      "require": "./dist-cjs/match/index.js"
     },
     "./match-by": {
       "types": "./dist/match-by/index.d.ts",
-      "import": "./dist/match-by/index.js"
+      "import": "./dist/match-by/index.js",
+      "require": "./dist-cjs/match-by/index.js"
     },
     "./patterns": {
       "types": "./dist/patterns/index.d.ts",
-      "import": "./dist/patterns/index.js"
+      "import": "./dist/patterns/index.js",
+      "require": "./dist-cjs/patterns/index.js"
     }
   },
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "pnpm clean && tsc -p tsconfig.build.json",
-    "clean": "rm -rf dist",
+    "build": "pnpm clean && tsc -p tsconfig.build.json && tsc -p tsconfig.cjs.json && tsx scripts/write-cjs-package-json.ts",
+    "clean": "rm -rf dist dist-cjs",
     "test": "vitest run",
     "test:editor-dx": "vitest run src/**/__tests__/*editor-dx.test.ts",
     "test:coverage": "vitest run --config vitest.coverage.config.ts --coverage",

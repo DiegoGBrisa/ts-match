@@ -1306,7 +1306,7 @@ The repository also contains the development-only `benchmarks/dispatch.ts` strat
 
 ## Limitations and tradeoffs
 
-- **ESM only.** CommonJS consumers need an ESM-compatible import path or bundler setup.
+- **ESM first.** ESM imports are the primary package path; CommonJS `require(...)` and no-`type` `tsx` scripts use a compatibility build from the package export map.
 - **Node 20+.** Older runtimes are not targeted.
 - **Temporal availability is runtime-owned.** Temporal helpers do not polyfill `globalThis.Temporal`; they match nothing until the runtime or application provides Temporal constructors.
 - **Selections are intentionally restricted in repeated contexts.** `P.array(...)`, `P.nonEmptyArray(...)`, `P.record(...)`, `P.nonEmptyRecord(...)`, `P.map(...)`, and `P.set(...)` reject `P.select(...)` because captures may repeat ambiguously. Use `P.collect(...)` for repeated captures.
@@ -1467,14 +1467,14 @@ Builder types (`SyncMatchBuilder`, `PromiseMatchBuilder`, `SyncMatchByBuilder`, 
 
 ts-match was inspired by the excellent work Gabriel Vergnaud has done on [ts-pattern](https://github.com/gvergnaud/ts-pattern).
 
-ts-pattern set a very high bar for ergonomic, type-safe pattern matching in TypeScript. I built ts-match independently because I wanted to explore a smaller ESM-only library with a different emphasis: `matchBy` for discriminant/path dispatch, promise-aware matchers, named `p*` helper exports, and runtime semantics that fit my own preferences.
+ts-pattern set a very high bar for ergonomic, type-safe pattern matching in TypeScript. I built ts-match independently because I wanted to explore a smaller ESM-first library with a different emphasis: `matchBy` for discriminant/path dispatch, promise-aware matchers, named `p*` helper exports, and runtime semantics that fit my own preferences.
 
 ts-match is not affiliated with ts-pattern.
 
 ## Package notes
 
 - Package name: `@diegogbrisa/ts-match`.
-- ESM only (`"type": "module"`).
+- ESM-first package with CommonJS compatibility exports for scripts and tooling.
 - Node 20+.
 - TypeScript 5.4+ recommended.
 - Zero runtime dependencies.

@@ -75,6 +75,8 @@ import { group } from '@diegogbrisa/ts-match/group'
 
 There is no default export.
 
+The package is ESM-first. CommonJS `require(...)` and no-`type` `tsx` scripts are supported through the package export map for scripts and tooling, but normal TypeScript examples should prefer ESM imports.
+
 ### Focused subpath type exports
 
 Use these only when accepting/forwarding builders or writing library integrations. Most application code should rely on inference.
