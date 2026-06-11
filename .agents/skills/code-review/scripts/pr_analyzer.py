@@ -146,11 +146,11 @@ def is_doc_file(path: str) -> bool:
 
 
 def is_runtime_test_file(path: str) -> bool:
-    return path.startswith("tests/") or ".test." in path or ".spec." in path
+    return path.startswith("tests/") or "__tests__" in path_segments(path) or ".test." in path or ".spec." in path
 
 
 def is_type_test_file(path: str) -> bool:
-    return path.startswith("type-tests/")
+    return path.startswith("type-tests/") or "__typecheck__" in path_segments(path) or ".typecheck." in path
 
 
 def is_diagnostic_fixture(path: str) -> bool:
@@ -165,28 +165,48 @@ def is_ts_file(path: str) -> bool:
     return path.endswith((".ts", ".tsx", ".mts", ".cts"))
 
 
+def path_segments(path: str) -> set[str]:
+    return set(path.replace("\\", "/").split("/"))
+
+
+def is_colocated_test_or_typecheck(path: str) -> bool:
+    segments = path_segments(path)
+    return path.startswith("src/") and ("__tests__" in segments or "__typecheck__" in segments)
+
+
 def is_source_file(path: str) -> bool:
-    return path.startswith("src/") and is_ts_file(path)
+    return path.startswith("src/") and is_ts_file(path) and not is_colocated_test_or_typecheck(path)
 
 
 def is_runtime_source(path: str) -> bool:
-    return is_source_file(path) and path not in {"src/types.ts", "src/index.ts"}
+    return is_source_file(path) and path not in {"src/index.ts", "src/types.ts"} and not path.startswith("src/types/")
 
 
 def is_public_surface(path: str) -> bool:
     return path in {
         "package.json",
+        "src/assertions/index.ts",
         "src/assertions.ts",
+        "src/errors/index.ts",
         "src/errors.ts",
+        "src/group/index.ts",
         "src/group.ts",
         "src/index.ts",
+        "src/match-by/index.ts",
         "src/match-by.ts",
+        "src/match/index.ts",
         "src/match.ts",
+        "src/patterns/index.ts",
         "src/patterns.ts",
+        "src/types/index.ts",
         "src/types.ts",
         "README.md",
         "SKILL.md",
     }
+
+
+def touches_path(path: str, prefixes: tuple[str, ...], exact: set[str]) -> bool:
+    return path in exact or path.startswith(prefixes)
 
 
 def classify(files: list[str]) -> dict[str, bool]:
@@ -218,11 +238,13 @@ def classify(files: list[str]) -> dict[str, bool]:
         "release-please-config.json",
         "tsconfig.build.json",
         "tsconfig.diagnostics.json",
+        "tsconfig.eslint.json",
         "tsconfig.examples.json",
         "tsconfig.json",
         "tsconfig.type-bench.json",
         "tsconfig.type-tests.json",
         "vitest.config.ts",
+        "vitest.coverage.config.ts",
     }
 
     package_files = {
@@ -242,17 +264,29 @@ def classify(files: list[str]) -> dict[str, bool]:
             checks["touches_source"] = True
         if is_runtime_source(path):
             checks["touches_runtime_source"] = True
-        if path.startswith("src/") and is_ts_file(path):
+        if is_source_file(path):
             checks["touches_type_source"] = True
         if is_public_surface(path):
             checks["touches_public_api"] = True
-        if path in {"src/match.ts", "src/runtime.ts"}:
+        if touches_path(path, ("src/match/",), {"src/match.ts", "src/runtime.ts"}):
             checks["touches_match"] = True
-        if path in {"src/match-by.ts", "src/group.ts", "src/keys.ts"}:
+        if touches_path(
+            path,
+            ("src/match-by/", "src/group/"),
+            {"src/match-by.ts", "src/group.ts", "src/keys.ts", "src/shared/keys.ts"},
+        ):
             checks["touches_match_by"] = True
-        if path in {"src/patterns.ts", "src/runtime.ts", "src/assertions.ts"}:
+        if touches_path(
+            path,
+            ("src/patterns/", "src/runtime/", "src/assertions/"),
+            {"src/patterns.ts", "src/runtime.ts", "src/assertions.ts"},
+        ):
             checks["touches_patterns"] = True
-        if path in {"src/promise-runtime.ts", "src/match.ts", "src/match-by.ts"}:
+        if touches_path(
+            path,
+            ("src/promise/", "src/match/promise", "src/match-by/promise"),
+            {"src/promise-runtime.ts", "src/match.ts", "src/match-by.ts"},
+        ):
             checks["touches_promise"] = True
         if is_runtime_test_file(path):
             checks["touches_runtime_tests"] = True

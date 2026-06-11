@@ -100,30 +100,54 @@ def is_scan_target(path: str) -> bool:
     return path.endswith((".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"))
 
 
+def path_segments(path: str) -> set[str]:
+    return set(path.replace("\\", "/").split("/"))
+
+
+def is_colocated_test_or_typecheck(path: str) -> bool:
+    segments = path_segments(path)
+    return path.startswith("src/") and ("__tests__" in segments or "__typecheck__" in segments)
+
+
 def is_source_file(path: str) -> bool:
-    return path.startswith("src/") and path.endswith((".ts", ".mts", ".cts"))
+    return path.startswith("src/") and path.endswith((".ts", ".mts", ".cts")) and not is_colocated_test_or_typecheck(path)
 
 
 def is_runtime_source(path: str) -> bool:
-    return is_source_file(path) and path not in {"src/index.ts", "src/types.ts"}
+    return is_source_file(path) and path not in {"src/index.ts", "src/types.ts"} and not path.startswith("src/types/")
 
 
 def is_public_surface(path: str) -> bool:
     return path in {
         "package.json",
+        "src/assertions/index.ts",
         "src/assertions.ts",
+        "src/errors/index.ts",
         "src/errors.ts",
+        "src/group/index.ts",
         "src/group.ts",
         "src/index.ts",
+        "src/match-by/index.ts",
         "src/match-by.ts",
+        "src/match/index.ts",
         "src/match.ts",
+        "src/patterns/index.ts",
         "src/patterns.ts",
+        "src/types/index.ts",
         "src/types.ts",
     }
 
 
+def is_runtime_test_file(path: str) -> bool:
+    return path.startswith("tests/") or "__tests__" in path_segments(path) or ".test." in path or ".spec." in path
+
+
+def is_type_test_file(path: str) -> bool:
+    return path.startswith("type-tests/") or "__typecheck__" in path_segments(path) or ".typecheck." in path
+
+
 def is_test_or_fixture(path: str) -> bool:
-    return path.startswith(("tests/", "type-tests/", "diagnostics/"))
+    return is_runtime_test_file(path) or is_type_test_file(path) or path.startswith("diagnostics/")
 
 
 def find_line(text: str, pattern: re.Pattern[str]) -> int:
@@ -357,8 +381,8 @@ def check_missing_tests(files: list[str], findings: list[dict[str, Any]]) -> Non
     runtime_source_changes = [path for path in normalized_files if is_runtime_source(path)]
     public_surface_changes = [path for path in normalized_files if is_public_surface(path)]
 
-    runtime_tests_changed = any(path.startswith("tests/") for path in normalized_files)
-    type_tests_changed = any(path.startswith("type-tests/") for path in normalized_files)
+    runtime_tests_changed = any(is_runtime_test_file(path) for path in normalized_files)
+    type_tests_changed = any(is_type_test_file(path) for path in normalized_files)
     diagnostics_changed = any(path.startswith("diagnostics/") for path in normalized_files)
     docs_or_examples_changed = any(
         path.startswith(("docs/", "examples/")) or path in {"README.md", "SKILL.md"}
