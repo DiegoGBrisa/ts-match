@@ -20,6 +20,9 @@ try {
       '--input-type=module',
       '--eval',
       `
+import { createRequire } from 'node:module'
+
+const require = createRequire(process.cwd() + '/smoke.cjs')
 const root = await import('@diegogbrisa/ts-match')
 const matchModule = await import('@diegogbrisa/ts-match/match')
 const matchByModule = await import('@diegogbrisa/ts-match/match-by')
@@ -27,6 +30,8 @@ const patternsModule = await import('@diegogbrisa/ts-match/patterns')
 const assertionsModule = await import('@diegogbrisa/ts-match/assertions')
 const errorsModule = await import('@diegogbrisa/ts-match/errors')
 const groupModule = await import('@diegogbrisa/ts-match/group')
+const cjsRoot = require('@diegogbrisa/ts-match')
+const cjsGroupModule = require('@diegogbrisa/ts-match/group')
 if (root.match('x').with('x', () => 1).exhaustive() !== 1) throw new Error('root failed')
 if (matchModule.match('x').with('x', () => 2).exhaustive() !== 2) throw new Error('match failed')
 if (matchByModule.matchBy({ type: 'a', value: 3 }, 'type').cases({ a: (value) => value.value }) !== 3) throw new Error('match-by failed')
@@ -34,6 +39,18 @@ if (!patternsModule.P.string) throw new Error('patterns failed')
 if (!assertionsModule.isMatching(patternsModule.P.string, 'x')) throw new Error('assertions failed')
 if (!(new errorsModule.NonExhaustiveMatchError('x') instanceof Error)) throw new Error('errors failed')
 if (groupModule.group('a', () => 1).tags[0] !== 'a') throw new Error('group failed')
+if (root.match('x').with(cjsRoot.P.string, () => 'matched').exhaustive() !== 'matched') {
+  throw new Error('mixed esm match with commonjs pattern failed')
+}
+if (cjsRoot.match('x').with(patternsModule.P.string, () => 'matched').exhaustive() !== 'matched') {
+  throw new Error('mixed commonjs match with esm pattern failed')
+}
+if (matchByModule.matchBy({ type: 'a', value: 4 }, 'type').cases([cjsGroupModule.group('a', (value) => value.value)]) !== 4) {
+  throw new Error('mixed esm matchBy with commonjs group failed')
+}
+if (cjsRoot.matchBy({ type: 'a', value: 5 }, 'type').cases([groupModule.group('a', (value) => value.value)]) !== 5) {
+  throw new Error('mixed commonjs matchBy with esm group failed')
+}
 console.log('tarball exports smoke ok')
 `,
     ],
