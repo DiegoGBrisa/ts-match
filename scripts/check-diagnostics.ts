@@ -42,6 +42,7 @@ const expectedFragments: readonly ExpectedFragment[] = [
   { description: 'set value selection', text: 'ts-match: Set value patterns cannot contain P.select(...)' },
   { description: 'exclude selection', text: 'ts-match: P.exclude(pattern) cannot contain P.select(...)' },
   { description: 'invalid selection structure', text: 'ts-match: invalid P.select(...) usage' },
+  { description: 'invalid collection capture structure', text: 'ts-match: invalid P.collect(...) usage' },
   { description: 'predicate return type', text: "Type 'number' is not assignable to type 'boolean'" },
 ]
 

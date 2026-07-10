@@ -66,6 +66,10 @@ declare global {
 
     export type ContainsCollect<TPattern> = [CollectNames<TPattern>] extends [never] ? false : true
 
+    export type RuntimeCaptureName<TName extends PropertyKey> = TName extends number ? `${TName}` : TName
+
+    export type RuntimeCaptureNames<TNames> = TNames extends PropertyKey ? RuntimeCaptureName<TNames> : never
+
     export type NamedSelectNames<TPattern> = [unknown] extends [TPattern]
       ? never
       : TPattern extends NonCaptureLeafPattern
@@ -198,7 +202,9 @@ declare global {
       ContainsCollect<TPattern> extends true
         ? ContainsAnonymousSelection<TPattern> extends true
           ? false
-          : [Extract<CollectNames<TPattern>, NamedSelectNames<TPattern>>] extends [never]
+          : [
+                Extract<RuntimeCaptureNames<CollectNames<TPattern>>, RuntimeCaptureNames<NamedSelectNames<TPattern>>>,
+              ] extends [never]
             ? true
             : false
         : true

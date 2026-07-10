@@ -24,7 +24,7 @@ Review `ts-match` as a published TypeScript library. Prioritize observable behav
 - Verify exported names and subpath exports in `src/index.ts` and `package.json` remain intentional.
 - Check declaration output expectations when public types, overloads, or helper names change.
 - Flag breaking API changes unless the diff clearly updates docs, examples, release notes, and tests.
-- Confirm ESM-only behavior and Node 20+ assumptions are preserved.
+- Confirm ESM-first imports, CommonJS compatibility exports, and Node 20+ assumptions are preserved.
 - Ensure new public helpers are covered by README/API docs, examples when useful, runtime tests, type tests, and export smoke tests.
 
 ## Runtime correctness checks

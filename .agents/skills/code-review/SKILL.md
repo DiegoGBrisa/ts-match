@@ -39,7 +39,7 @@ python3 .agents/skills/code-review/scripts/review_report_generator.py --base ori
 3. Type-level behavior, exhaustiveness, narrowing, and selected handler payloads.
 4. `ts-match:` diagnostics readability and fixture coverage.
 5. Missing or weak runtime, type, diagnostic, docs, example, or package checks.
-6. ESM-only packaging, Node 20+ behavior, and zero runtime dependencies.
+6. ESM-first/CommonJS compatibility packaging, Node 20+ behavior, and zero runtime dependencies.
 7. Performance regressions in hot matching paths, with evidence.
 8. Maintainability issues that make future matcher behavior harder to reason about.
 
@@ -49,7 +49,7 @@ python3 .agents/skills/code-review/scripts/review_report_generator.py --base ori
 - Runtime semantics and type-level semantics stay aligned for patterns, selections, promise builders, `matchBy` property paths, grouped cases, partial cases, and fallbacks.
 - Exhaustiveness changes update runtime tests, type tests, and diagnostic fixtures where relevant.
 - Error changes preserve public classes and readable messages for `NonExhaustiveMatchError`, `PatternMismatchError`, and `ts-match:` compiler diagnostics.
-- Package changes preserve ESM-only exports, declaration output, package contents, examples, README links, and zero runtime dependencies.
+- Package changes preserve ESM imports, CommonJS compatibility exports, declaration output, package contents, examples, README links, and zero runtime dependencies.
 - New helpers are covered through runtime tests, type fixtures, docs/examples, and public export smoke checks.
 - Benchmarks are considered when matching runtime loops, dispatch strategy, or type-level complexity changes in a meaningful way.
 

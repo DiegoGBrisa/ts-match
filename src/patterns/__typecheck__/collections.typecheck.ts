@@ -169,6 +169,12 @@ match({ source: 'sync', ids: ['a'] }).with(
   () => 'bad',
 )
 
+match({ source: 'sync', ids: ['a'] }).with(
+  // @ts-expect-error numeric and string capture names share one JavaScript property key
+  { source: P.select(1, P.string), ids: P.array(P.collect('1', P.string)) },
+  () => 'bad',
+)
+
 declare const readonlyCollectionValue: ReadonlyMap<string, number> | ReadonlySet<string> | 'ready'
 const _readonlyCollectionResult = match(readonlyCollectionValue)
   .with(P.map(P.string, P.number), (value) => {

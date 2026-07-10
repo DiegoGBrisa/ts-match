@@ -16,6 +16,35 @@ export interface MatchErrorMetadata {
 }
 
 const MAX_PREVIEW_LENGTH = 500
+const UNPRINTABLE_VALUE_PREVIEW = '[Unserializable value]'
+const NON_EXHAUSTIVE_MATCH_ERROR_TOKEN: unique symbol = Symbol.for('@diegogbrisa/ts-match.NonExhaustiveMatchError')
+const PATTERN_MISMATCH_ERROR_TOKEN: unique symbol = Symbol.for('@diegogbrisa/ts-match.PatternMismatchError')
+
+function safeString(value: unknown) {
+  try {
+    return String(value)
+  } catch {
+    return UNPRINTABLE_VALUE_PREVIEW
+  }
+}
+
+function defineErrorBrand(error: Error, brand: symbol) {
+  Object.defineProperty(error, brand, {
+    configurable: false,
+    enumerable: false,
+    value: true,
+    writable: false,
+  })
+}
+
+function hasErrorBrand(value: unknown, brand: symbol) {
+  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return false
+  try {
+    return Reflect.get(value, brand) === true
+  } catch {
+    return false
+  }
+}
 
 /**
  * Formats an unknown runtime value for readable error messages.
@@ -43,10 +72,10 @@ export function preview(value: unknown): string {
       return item
     })
 
-    if (text === undefined) return String(value)
+    if (text === undefined) return safeString(value)
     return text.length > MAX_PREVIEW_LENGTH ? `${text.slice(0, MAX_PREVIEW_LENGTH)}…` : text
   } catch {
-    return String(value)
+    return safeString(value)
   }
 }
 
@@ -79,6 +108,11 @@ export class NonExhaustiveMatchError extends Error {
   readonly tag: unknown
   declare readonly value: unknown
 
+  static [Symbol.hasInstance](value: unknown) {
+    if (this !== NonExhaustiveMatchError) return super[Symbol.hasInstance](value)
+    return hasErrorBrand(value, NON_EXHAUSTIVE_MATCH_ERROR_TOKEN)
+  }
+
   constructor(value: unknown, metadata: MatchErrorMetadata = {}) {
     const valuePreview = preview(value)
     const detail =
@@ -87,6 +121,7 @@ export class NonExhaustiveMatchError extends Error {
         : `Non-exhaustive match for value: ${valuePreview}.`
 
     super(detail)
+    defineErrorBrand(this, NON_EXHAUSTIVE_MATCH_ERROR_TOKEN)
     this.name = 'NonExhaustiveMatchError'
     this.valuePreview = valuePreview
     this.matcher = metadata.matcher
@@ -124,10 +159,16 @@ export class PatternMismatchError extends Error {
   declare readonly value: unknown
   declare readonly pattern: unknown
 
+  static [Symbol.hasInstance](value: unknown) {
+    if (this !== PatternMismatchError) return super[Symbol.hasInstance](value)
+    return hasErrorBrand(value, PATTERN_MISMATCH_ERROR_TOKEN)
+  }
+
   constructor(pattern: unknown, value: unknown) {
     const valuePreview = preview(value)
     const patternPreview = preview(pattern)
     super(`Value did not match pattern. Value: ${valuePreview}. Pattern: ${patternPreview}.`)
+    defineErrorBrand(this, PATTERN_MISMATCH_ERROR_TOKEN)
     this.name = 'PatternMismatchError'
     this.valuePreview = valuePreview
     this.patternPreview = patternPreview

@@ -241,8 +241,8 @@ def check_package_json(repo_root: Path, findings: list[dict[str, Any]]) -> None:
             "high",
             "package.json",
             find_line(content, re.compile(r'"type"\s*:')),
-            "ESM-only package contract changed",
-            'The package should keep `"type": "module"` unless the release intentionally changes module format.',
+            "ESM-first package contract changed",
+            'The root package should keep `"type": "module"` unless the release intentionally changes module format.',
         )
 
     engines = payload.get("engines", {})

@@ -86,6 +86,22 @@ describe('regression coverage for adversarial edge cases', () => {
     expect(matchBy({ type: '__proto__' as const }, 'type').cases([['__proto__', () => 'tuple']])).toBe('tuple')
   })
 
+  it('deduplicates shared selections when optional union values are absent', () => {
+    const selectOptionalUnion = (value: unknown) =>
+      match(value)
+        .with(
+          {
+            data: P.optional(P.union({ a: P.select('value', P.string) }, { b: P.select('value', P.number) })),
+          },
+          (selection) => selection,
+        )
+        .otherwise(() => null)
+
+    expect(selectOptionalUnion({})).toEqual({ value: undefined })
+    expect(selectOptionalUnion({ data: undefined })).toEqual({ value: undefined })
+    expect(selectOptionalUnion({ data: { b: 2 } })).toEqual({ value: 2 })
+  })
+
   it('validates group handlers', () => {
     expect(() => {
       // @ts-expect-error runtime validation rejects non-function group handlers

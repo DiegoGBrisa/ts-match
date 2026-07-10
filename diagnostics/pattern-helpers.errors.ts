@@ -1,4 +1,5 @@
 import {
+  isMatching,
   P,
   pArray,
   pExclude,
@@ -70,6 +71,9 @@ pSet(P.optional(P.select('value')), P.string)
 
 // Intended diagnostic: ts-match says set value patterns cannot use P.rest outside P.tuple.
 pSet(P.rest(P.string))
+
+// Intended diagnostic: ts-match normalizes numeric and string capture names before checking collisions.
+isMatching({ source: P.select(1, P.string), ids: P.array(P.collect('1', P.string)) })
 
 // Intended diagnostic: TypeScript says predicates must return boolean or a type predicate.
 pWhen((value: string) => value.length)

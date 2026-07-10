@@ -51,6 +51,26 @@ if (matchByModule.matchBy({ type: 'a', value: 4 }, 'type').cases([cjsGroupModule
 if (cjsRoot.matchBy({ type: 'a', value: 5 }, 'type').cases([groupModule.group('a', (value) => value.value)]) !== 5) {
   throw new Error('mixed commonjs matchBy with esm group failed')
 }
+const esmNonExhaustiveError = new root.NonExhaustiveMatchError('esm')
+const cjsNonExhaustiveError = new cjsRoot.NonExhaustiveMatchError('commonjs')
+if (!(esmNonExhaustiveError instanceof cjsRoot.NonExhaustiveMatchError)) {
+  throw new Error('esm non-exhaustive error must satisfy commonjs instanceof')
+}
+if (!(cjsNonExhaustiveError instanceof root.NonExhaustiveMatchError)) {
+  throw new Error('commonjs non-exhaustive error must satisfy esm instanceof')
+}
+const esmPatternMismatchError = new root.PatternMismatchError(root.P.string, 1)
+const cjsPatternMismatchError = new cjsRoot.PatternMismatchError(cjsRoot.P.string, 1)
+if (!(esmPatternMismatchError instanceof cjsRoot.PatternMismatchError)) {
+  throw new Error('esm pattern mismatch error must satisfy commonjs instanceof')
+}
+if (!(cjsPatternMismatchError instanceof root.PatternMismatchError)) {
+  throw new Error('commonjs pattern mismatch error must satisfy esm instanceof')
+}
+class SpecializedNonExhaustiveMatchError extends root.NonExhaustiveMatchError {}
+if (esmNonExhaustiveError instanceof SpecializedNonExhaustiveMatchError) {
+  throw new Error('base errors must not satisfy subclass instanceof')
+}
 console.log('tarball exports smoke ok')
 `,
     ],

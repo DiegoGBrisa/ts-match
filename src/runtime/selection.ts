@@ -186,3 +186,65 @@ export function ensureCollected(selection: SelectionState, name: PropertyKey): u
 export function captureCollected(selection: SelectionState, name: PropertyKey, value: unknown) {
   ensureCollected(selection, name).push(value)
 }
+
+function mergeUnionAnonymousSelection(target: SelectionState, value: unknown) {
+  if (target.mode === 'none') captureAnonymous(target, value)
+  else if (target.mode === 'named') {
+    throw new TypeError('P.select() cannot be mixed with named P.select(name) in the same pattern.')
+  }
+}
+
+function mergeUnionNamedSelections(target: SelectionState, source: Record<PropertyKey, unknown> | undefined) {
+  for (const key of Reflect.ownKeys(source ?? {})) {
+    if (selectionHasOwn(target.collected, key)) {
+      throw new TypeError(`P.select(${String(key)}) cannot use the same name as P.collect(...).`)
+    }
+    target.named ??= createSelectionRecord()
+    if (!selectionHasOwn(target.named, key)) defineSelectionProperty(target.named, key, source?.[key])
+  }
+}
+
+function mergeUnionCollectedSelections(target: SelectionState, source: Record<PropertyKey, unknown[]> | undefined) {
+  for (const key of Reflect.ownKeys(source ?? {})) {
+    if (selectionHasOwn(target.named, key)) {
+      throw new TypeError(`P.collect(${String(key)}, pattern) cannot use the same name as P.select(...).`)
+    }
+    target.collected ??= createSelectionRecord()
+    const values = source?.[key]
+    if (!selectionHasOwn(target.collected, key) && values) {
+      defineSelectionProperty(target.collected, key, [...values])
+    }
+  }
+}
+
+/** Merges one absent union alternative while keeping the first capture for duplicate names. */
+export function mergeUnionAlternativeSelection(target: SelectionState, source: SelectionState) {
+  if (source.mode === 'none') return
+  if (source.mode === 'anonymous') {
+    mergeUnionAnonymousSelection(target, source.anonymous)
+    return
+  }
+  if (target.mode === 'anonymous') {
+    throw new TypeError('Named P.select(name) cannot be mixed with anonymous P.select() in the same pattern.')
+  }
+
+  target.mode = 'named'
+  mergeUnionNamedSelections(target, source.named)
+  mergeUnionCollectedSelections(target, source.collected)
+}
+
+/** Adds isolated captures to an outer pattern state using the normal collision rules. */
+export function appendSelectionCaptures(target: SelectionState, source: SelectionState) {
+  if (source.mode === 'none') return
+  if (source.mode === 'anonymous') {
+    captureAnonymous(target, source.anonymous)
+    return
+  }
+
+  for (const key of Reflect.ownKeys(source.named ?? {})) captureNamed(target, key, source.named?.[key])
+  for (const key of Reflect.ownKeys(source.collected ?? {})) {
+    const targetValues = ensureCollected(target, key)
+    const sourceValues = source.collected?.[key]
+    if (sourceValues) targetValues.push(...sourceValues)
+  }
+}
