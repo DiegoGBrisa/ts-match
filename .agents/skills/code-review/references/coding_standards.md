@@ -51,7 +51,7 @@ Repository-specific conventions come first. Use `AGENTS.md`, `CONTEXT.md`, docs 
 
 ## Packaging standards
 
-- Keep the package ESM-only.
+- Keep the package ESM-first with intentional CommonJS compatibility exports.
 - Keep Node 20+ compatibility.
 - Keep zero runtime dependencies.
 - Keep `package.json` exports, `files`, and generated declarations consistent.

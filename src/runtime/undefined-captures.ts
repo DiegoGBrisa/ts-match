@@ -1,7 +1,14 @@
 import { PATTERN_TOKEN } from '../patterns/token.js'
 import type { BuiltInPattern } from '../types/index.js'
 import { isObject, isPattern, type MatchOptions, ownPatternKeys, readProperty, repeatedOptions } from './core.js'
-import { captureAnonymous, captureCollected, captureNamed, type SelectionState } from './selection.js'
+import {
+  appendSelectionCaptures,
+  captureAnonymous,
+  captureCollected,
+  captureNamed,
+  mergeUnionAlternativeSelection,
+  type SelectionState,
+} from './selection.js'
 import {
   assertNoArraySelection,
   assertNoCollect,
@@ -63,7 +70,23 @@ function captureUndefinedFromCollect(pattern: BuiltInPattern, selection: Selecti
  */
 function captureUndefinedFromUnion(pattern: BuiltInPattern, selection: SelectionState, options: MatchOptions) {
   if (pattern[PATTERN_TOKEN] !== 'union') return false
-  for (const option of pattern.patterns) captureUndefinedSelections(option, selection, options)
+  const unionSelection: SelectionState = {
+    mode: 'none',
+    anonymous: undefined,
+    named: undefined,
+    collected: undefined,
+  }
+  for (const option of pattern.patterns) {
+    const alternativeSelection: SelectionState = {
+      mode: 'none',
+      anonymous: undefined,
+      named: undefined,
+      collected: undefined,
+    }
+    captureUndefinedSelections(option, alternativeSelection, options)
+    mergeUnionAlternativeSelection(unionSelection, alternativeSelection)
+  }
+  appendSelectionCaptures(selection, unionSelection)
   return true
 }
 

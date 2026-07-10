@@ -1105,6 +1105,8 @@ Properties:
 - non-enumerable `value: unknown`
 - non-enumerable `pattern: unknown`
 
+Both public error classes preserve `instanceof` identity when ESM imports and CommonJS `require(...)` load the package in the same process.
+
 Checked example: [`examples/12-error-handling.ts`](examples/12-error-handling.ts).
 
 The ts-match errors subpath (`@diegogbrisa/ts-match/errors`) also currently exports `preview(value)` and the `MatchErrorMetadata` interface used by `NonExhaustiveMatchError`. They are low-level diagnostic exports; normal application code should prefer the error classes.

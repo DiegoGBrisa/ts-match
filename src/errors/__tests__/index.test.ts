@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isMatching, match, NonExhaustiveMatchError, P } from '../../index.js'
+import { isMatching, match, NonExhaustiveMatchError, P, PatternMismatchError } from '../../index.js'
+import { preview } from '../index.js'
 
 describe('match', () => {
   it('rejects invalid collection capture usage at runtime for JavaScript callers', () => {
@@ -77,5 +78,21 @@ describe('match', () => {
       // @ts-expect-error runtime coverage for non-exhaustive data
       nonExhaustive.exhaustive()
     }).toThrow(NonExhaustiveMatchError)
+  })
+
+  it('keeps previews and public errors safe when value coercion throws', () => {
+    const coercionError = new Error('coercion failed')
+    const hostileValue = {
+      toJSON() {
+        throw coercionError
+      },
+      [Symbol.toPrimitive]() {
+        throw coercionError
+      },
+    }
+
+    expect(preview(hostileValue)).toBe('[Unserializable value]')
+    expect(() => new NonExhaustiveMatchError(hostileValue)).not.toThrow()
+    expect(() => new PatternMismatchError(P.string, hostileValue)).not.toThrow()
   })
 })

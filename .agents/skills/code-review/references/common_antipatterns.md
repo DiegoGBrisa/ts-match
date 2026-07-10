@@ -36,7 +36,7 @@ Patterns to flag during `ts-match` review.
 ## Packaging and release
 
 - **Runtime dependency creep** - adding dependencies that violate the zero-runtime-dependency guarantee.
-- **ESM breakage** - introducing CommonJS assumptions or non-exported deep imports.
+- **Module-format breakage** - breaking ESM imports, CommonJS compatibility exports, or relying on non-exported deep imports.
 - **Declaration mismatch** - changing implementation without verifying generated `.d.ts` output.
 - **Release-note gap** - public behavior changes missing release documentation.
 

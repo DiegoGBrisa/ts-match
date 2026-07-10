@@ -54,7 +54,7 @@ declare global {
 
     export type OptionalCollectValue<TValue, TPattern, TName extends PropertyKey> =
       | CollectValueForName<Exclude<TValue, undefined>, TPattern, TName>
-      | (TName extends CollectNames<TPattern> ? undefined : never)
+      | (TName extends RuntimeCaptureNames<CollectNames<TPattern>> ? undefined : never)
 
     export type RecordKeyForCollect<TValue> = TValue extends object ? RuntimeComparableKey<keyof TValue> : PropertyKey
     export type RecordValueForCollect<TValue> = TValue extends object ? TValue[keyof TValue] : unknown
@@ -66,7 +66,7 @@ declare global {
     export type CollectValueForName<TValue, TPattern, TName extends PropertyKey> =
       TPattern extends CollectPattern<infer TCollectName, infer TInner>
         ?
-            | (TName extends TCollectName ? MatchedValue<TValue, TInner> : never)
+            | (TName extends RuntimeCaptureName<TCollectName> ? MatchedValue<TValue, TInner> : never)
             | CollectValueForName<MatchedValue<TValue, TInner>, TInner, TName>
         : TPattern extends AnonymousSelectPattern<infer TInner>
           ? CollectValueForName<TValue, TInner, TName>
@@ -125,7 +125,7 @@ declare global {
                                           : never
 
     export type CollectPayloadNames<TPattern> =
-      CollectNames<TPattern> extends infer TName ? (TName extends PropertyKey ? TName : never) : never
+      CollectNames<TPattern> extends infer TName ? RuntimeCaptureNames<TName> : never
 
     export type CollectPayload<TValue, TPattern> = [CollectPayloadNames<TPattern>] extends [never]
       ? never
