@@ -4,6 +4,13 @@ All notable changes to ts-match are documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses Conventional Commits with release-please for releases after `1.0.0`.
 
+## [1.6.2](https://github.com/DiegoGBrisa/ts-match/compare/v1.6.1...v1.6.2) (2026-07-10)
+
+
+### Bug Fixes
+
+* preserve matcher boundary invariants ([f5c354e](https://github.com/DiegoGBrisa/ts-match/commit/f5c354ec875a273947b1c400d24dcfaf32111373))
+
 ## [1.6.1](https://github.com/DiegoGBrisa/ts-match/compare/v1.6.0...v1.6.1) (2026-06-11)
 
 
